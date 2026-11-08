@@ -29,7 +29,7 @@
 @media(hover:none){.book-remove{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){.book-remove{transition:none}}
 /* Reader */
-.reader-view{height:100%;display:flex;flex-direction:column;background:var(--paper)}.reading-shell{flex:1;position:relative;min-height:0}.reader-frame{width:100%;height:100%;border:0;display:block;background:var(--paper)}.reader-frame::selection{background:#d4e2d7}.reader-progress{height:3px;background:var(--line);width:100%;position:absolute;top:0;z-index:2}.reader-progress-inner{height:100%;width:0;background:var(--accent);transition:width .25s}.reader-bottom{height:65px;flex:0 0 65px;display:flex;align-items:center;justify-content:space-between;padding:0 clamp(20px,5vw,70px);border-top:1px solid var(--line);background:var(--paper);gap:14px}.reader-bottom .meta{font-size:11px;color:var(--muted);min-width:130px}.bottom-nav{display:flex;gap:11px;align-items:center}.page-btn{width:36px;height:36px;border:1px solid var(--line);border-radius:50%;display:grid;place-items:center}.page-btn:hover{background:var(--accent-light)}.reading-percent{text-align:right;min-width:135px;font-size:11px;color:var(--muted)}
+.reader-view{height:100%;display:flex;flex-direction:column;background:var(--paper)}.reading-shell{flex:1;position:relative;min-height:0}.reader-frame{width:100%;height:100%;border:0;display:block;background:var(--paper)}.reader-frame::selection{background:#d4e2d7}.reader-progress{height:3px;background:var(--line);width:100%;position:absolute;top:0;z-index:2}.reader-progress-inner{height:100%;width:0;background:var(--accent);transition:width .25s}.reader-bottom{height:65px;flex:0 0 65px;display:flex;align-items:center;justify-content:space-between;padding:0 clamp(20px,5vw,70px);border-top:1px solid var(--line);background:var(--paper);gap:14px}.reader-bottom .meta{font-size:11px;color:var(--muted);min-width:130px;display:flex;gap:9px;align-items:center;flex-wrap:wrap}.note-back{color:var(--accent);font:600 11px/1.4 Inter,"Segoe UI",sans-serif;white-space:nowrap;padding:3px 0;cursor:pointer}.note-back:hover{text-decoration:underline}.reader-bottom .meta:has(#noteBack:not([hidden])) #chapterInfo{display:none}.bottom-nav{display:flex;gap:11px;align-items:center}.page-btn{width:36px;height:36px;border:1px solid var(--line);border-radius:50%;display:grid;place-items:center}.page-btn:hover{background:var(--accent-light)}.reading-percent{text-align:right;min-width:135px;font-size:11px;color:var(--muted)}
 /* Dock */
 .tts-dock{position:absolute;bottom:77px;left:50%;transform:translateX(-50%);max-width:calc(100% - 38px);width:730px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 14px;background:#fefefa;box-shadow:0 12px 50px #253c3028;border:1px solid #dde4dc;border-radius:17px;z-index:6}.tts-dock .play{width:42px;height:42px;display:grid;place-items:center;background:var(--accent);color:white;border-radius:50%;flex:none}.tts-dock .play:hover{background:#335b4c}.tts-dock .primary{display:flex;align-items:center;gap:10px;min-width:0}.tts-dock .tts-label{min-width:0}.tts-dock .tts-label strong{font-size:12px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tts-dock .tts-label small{display:block;font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tts-actions{display:flex;align-items:center;gap:7px}.tts-dock select{border:1px solid var(--line);border-radius:9px;background:#fbfbf7;padding:8px 9px;color:var(--ink);max-width:140px;font-size:12px}.ratebox{white-space:nowrap;font-size:12px;color:var(--muted);display:flex;gap:7px;align-items:center}.ratebox input{width:72px}.tts-dock .divider-v{width:1px;height:26px;background:var(--line);margin:0 3px}
 /* Overlay panels */
@@ -198,7 +198,7 @@
     <div class="tts-actions"><div class="ratebox">Speed <input id="quickRate" aria-label="Speech rate" type="range" min="0.7" max="1.5" step="0.05" value="1"><span id="rateValue">1×</span></div><div class="divider-v"></div><select class="voice-quick" id="quickVoice" aria-label="Reading voice"><option value="auto">Auto voice</option></select><button class="ibtn" id="ttsStop" title="Stop reading" aria-label="Stop"><svg class="icon"><use href="#i-stop"/></svg></button><button class="ibtn" id="ttsClose" title="Close read aloud" aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button></div>
    </div>
 
-    <footer class="reader-bottom"><div class="meta" id="chapterInfo">Chapter</div><div class="bottom-nav"><button id="prevPage" class="page-btn" aria-label="Previous page" title="Previous page / chapter"><svg class="icon sm"><use href="#i-chevron-left"/></svg></button><span id="pageIndicator" class="page-indicator" aria-live="polite">1 / 1</span><button id="nextPage" class="page-btn" aria-label="Next page" title="Next page / chapter"><svg class="icon sm"><use href="#i-chevron-right"/></svg></button></div><div class="reading-percent" id="progressText">0% · saved locally</div></footer>
+    <footer class="reader-bottom"><div class="meta"><span id="chapterInfo">Chapter</span><button type="button" id="noteBack" class="note-back" hidden aria-label="Return to previous reading position">← Back to text</button></div><div class="bottom-nav"><button id="prevPage" class="page-btn" aria-label="Previous page" title="Previous page / chapter"><svg class="icon sm"><use href="#i-chevron-left"/></svg></button><span id="pageIndicator" class="page-indicator" aria-live="polite">1 / 1</span><button id="nextPage" class="page-btn" aria-label="Next page" title="Next page / chapter"><svg class="icon sm"><use href="#i-chevron-right"/></svg></button></div><div class="reading-percent" id="progressText">0% · saved locally</div></footer>
    </section>
    <div class="scrim" id="scrim"></div>
    <aside class="drawer left" id="tocDrawer" aria-label="Contents and bookmarks"><header class="drawer-header"><h2>In this book</h2><button class="ibtn" id="closeToc"><svg class="icon"><use href="#i-x"/></svg></button></header><div class="drawer-tabs"><button class="active" id="tabChapters">Contents</button><button id="tabBookmarks">Bookmarks</button></div><div class="drawer-body"><div id="tocList" class="toc-list"></div><div id="bookmarkList" hidden></div></div></aside>
@@ -262,7 +262,7 @@ const STORAGE={settings:'folio.settings.v1',progress:'folio.progress.v1',bookmar
 const DEFAULTS={theme:'light',enFont:'Georgia',zhFont:'Noto Serif CJK SC',fontSize:20,lineHeight:1.8,paragraphSpace:1.0,pageWidth:1280,rate:1,zhVoice:'',enVoice:'',quickVoice:'auto',lastVoiceByLang:{},autoAdvance:true,autoScroll:true};
 const PALETTE=['#6f847d','#8b766c','#697e91','#86856d','#986c66','#736c85','#53776d','#87735e'];
 const MIME={svg:'image/svg+xml',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',webp:'image/webp',avif:'image/avif',bmp:'image/bmp',css:'text/css',woff:'font/woff',woff2:'font/woff2',ttf:'font/ttf',otf:'font/otf',mp3:'audio/mpeg',mp4:'video/mp4',m4a:'audio/mp4',ogg:'audio/ogg'};
-const state={db:null,library:[],temporary:new Map(),book:null,zip:null,meta:null,manifest:new Map(),spine:[],toc:[],chapter:-1,urls:new Map(),chapterCache:new Map(),preparePromises:new Map(),styleCache:new Map(),noteDocCache:new Map(),coverUrls:new Map(),loadToken:0,renderToken:0,settings:{...DEFAULTS},progress:{},bookmarks:{},railOpen:false,drawer:null,tocTab:'toc',voices:[],synth:window.speechSynthesis||null,tts:{mode:'stopped',token:0,segments:[],index:0,activeEl:null,selectedEl:null,utterance:null},paging:{page:0,pages:1,columns:2,step:0,gap:0,restore:0},resizeTimer:0,toastTimer:0};
+const state={db:null,library:[],temporary:new Map(),book:null,zip:null,meta:null,manifest:new Map(),spine:[],toc:[],chapter:-1,urls:new Map(),chapterCache:new Map(),preparePromises:new Map(),styleCache:new Map(),noteDocCache:new Map(),noteReturn:null,coverUrls:new Map(),loadToken:0,renderToken:0,settings:{...DEFAULTS},progress:{},bookmarks:{},railOpen:false,drawer:null,tocTab:'toc',voices:[],synth:window.speechSynthesis||null,tts:{mode:'stopped',token:0,segments:[],index:0,activeEl:null,selectedEl:null,utterance:null},paging:{page:0,pages:1,columns:2,step:0,gap:0,restore:0},resizeTimer:0,toastTimer:0};
 const safeParse=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}};
 const safeSave=(key,v)=>{try{localStorage.setItem(key,JSON.stringify(v));return true}catch(e){console.warn('Storage error',e);return false}};
 const escapeHTML=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -283,7 +283,7 @@ function renderLibrary(){const records=state.library;$('railCount').textContent=
 function setRail(show){state.railOpen=show;$('app').classList.toggle('rail-hidden',!show)}
 function closeDrawer(){state.drawer=null;$('scrim').classList.remove('visible');$('tocDrawer').classList.remove('visible');$('settingsDrawer').classList.remove('visible')}
 function showDrawer(which){if(state.drawer===which){closeDrawer();return}closeDrawer();state.drawer=which;$('scrim').classList.add('visible');$(which==='toc'?'tocDrawer':'settingsDrawer').classList.add('visible');if(which==='toc')renderTOC();if(which==='settings')updateStorageStats();if(window.innerWidth<=680)setRail(false)}
-function toLibrary(){hideNotePopup();if(!$('folioWordCard').hidden)hideWordCard();if(state.book){saveProgress();stopSpeech();state.renderToken++;if(state.zip){for(const url of state.urls.values())URL.revokeObjectURL(url)}state.urls.clear();state.chapterCache.clear();state.noteDocCache.clear();state.preparePromises.clear();state.styleCache.clear();state.book=null;state.meta=null;state.zip=null;state.chapter=-1;state.spine=[];state.toc=[];$('readerFrame').srcdoc='';state.paging={page:0,pages:1,columns:2,step:0,gap:0,restore:0};}closeDrawer();$('readerView').hidden=true;$('emptyView').hidden=false;$('topTitle').textContent='Your reading space';$('topSubtitle').textContent='A private EPUB library';$('ttsDock').hidden=true;setButtonState();renderLibrary();}
+function toLibrary(){hideNotePopup();state.noteReturn=null;$('noteBack').hidden=true;if(!$('folioWordCard').hidden)hideWordCard();if(state.book){saveProgress();stopSpeech();state.renderToken++;if(state.zip){for(const url of state.urls.values())URL.revokeObjectURL(url)}state.urls.clear();state.chapterCache.clear();state.noteDocCache.clear();state.preparePromises.clear();state.styleCache.clear();state.book=null;state.meta=null;state.zip=null;state.chapter=-1;state.spine=[];state.toc=[];$('readerFrame').srcdoc='';state.paging={page:0,pages:1,columns:2,step:0,gap:0,restore:0};}closeDrawer();$('readerView').hidden=true;$('emptyView').hidden=false;$('topTitle').textContent='Your reading space';$('topSubtitle').textContent='A private EPUB library';$('ttsDock').hidden=true;setButtonState();renderLibrary();}
 function setTheme(theme){$('app').classList.remove('theme-sepia','theme-dark');if(theme!=='light')$('app').classList.add('theme-'+theme);document.querySelectorAll('[data-theme]').forEach(el=>el.classList.toggle('selected',el.dataset.theme===theme));const col=theme==='dark'?'#1f2524':theme==='sepia'?'#eee5d5':'#f6f5f1';document.querySelector('meta[name="theme-color"]')?.setAttribute('content',col)}
 function bindSetting(id,key,convert=val=>val,render=false){const el=$(id);el.addEventListener('input',()=>{state.settings[key]=convert(el.type==='checkbox'?el.checked:el.value);safeSave(STORAGE.settings,state.settings);syncSettingsLabels();if(key==='theme')setTheme(state.settings.theme);if(render)updateReaderTheme()})}
 function initSettings(){const saved=safeParse(STORAGE.settings,{});if(saved.layoutVersion!==2){if(Number.isFinite(saved.pageWidth))saved.pageWidth=clamp(Math.round(saved.pageWidth*1.65/20)*20,700,2200);saved.layoutVersion=2;}state.settings={...DEFAULTS,...saved};safeSave(STORAGE.settings,state.settings);state.progress=safeParse(STORAGE.progress,{});state.bookmarks=safeParse(STORAGE.bookmarks,{});setTheme(state.settings.theme);
@@ -300,9 +300,9 @@ function syncSettingsLabels(){$('fontSizeVal').textContent=`${state.settings.fon
 // The body is translated by exactly one spread stride, never vertically scrolled.
 function clamp(v,min,max){return Math.max(min,Math.min(max,v))}
 function pageFraction(){const p=state.paging;return p.pages<=1?0:p.page/(p.pages-1)}
-function saveProgress(){if(!state.book||state.chapter<0)return;const frac=pageFraction(),percent=overallProgress(state.chapter,frac);state.progress[state.book.id]={chapter:state.chapter,fraction:frac,percent,updatedAt:Date.now()};safeSave(STORAGE.progress,state.progress);updateProgressUI(frac,percent)}
+function saveProgress(){if(!state.book||state.chapter<0)return;const frac=pageFraction();if(state.noteReturn){updateProgressUI(frac,state.noteReturn.percent);return}const percent=overallProgress(state.chapter,frac);state.progress[state.book.id]={chapter:state.chapter,fraction:frac,percent,updatedAt:Date.now()};safeSave(STORAGE.progress,state.progress);updateProgressUI(frac,percent)}
 function overallProgress(index,fraction){if(!state.spine.length)return 0;const weights=state.spine.map(x=>x.weight||1000),total=weights.reduce((a,b)=>a+b,0);let n=0;for(let i=0;i<index;i++)n+=weights[i];n+=(weights[index]||0)*fraction;return clamp(n/total*100,0,100)}
-function updateProgressUI(frac,percent){$('progressFill').style.width=percent+'%';$('progressText').textContent=`≈ ${Math.round(percent)}% · saved locally`;$('chapterInfo').textContent=`${chapterTitle(state.chapter)} · ${Math.round(frac*100)}%`;$('pageIndicator').textContent=`${state.paging.page+1} / ${state.paging.pages}`;setButtonState()}
+function updateProgressUI(frac,percent){if(state.noteReturn)percent=state.noteReturn.percent;$('progressFill').style.width=percent+'%';$('progressText').textContent=state.noteReturn?'Viewing note · position preserved':`≈ ${Math.round(percent)}% · saved locally`;$('chapterInfo').textContent=`${chapterTitle(state.chapter)} · ${Math.round(frac*100)}%`;$('pageIndicator').textContent=`${state.paging.page+1} / ${state.paging.pages}`;setButtonState()}
 function getPageFraction(){return pageFraction()}
 function goToPage(target,save=true){hideNotePopup();if(!$('folioWordCard').hidden)hideWordCard();const p=state.paging,doc=$('readerFrame').contentDocument;if(!doc?.body)return;p.page=clamp(Math.round(target),0,p.pages-1);doc.body.style.transform=`translate3d(${-p.page*p.step}px,0,0)`;if(save)saveProgress();else updateProgressUI(pageFraction(),overallProgress(state.chapter,pageFraction()))}
 function paginateChapter(fraction=pageFraction(),token=state.renderToken){
@@ -406,7 +406,7 @@ async function parseBook(zip,filename){const container=zipFile(zip,'META-INF/con
  return {opfPath,title:title||filename.replace(/\.epub$/i,''),author:author||'',manifest,spine,toc,coverBlob}}
 async function hashFile(data,filename){if(globalThis.crypto?.subtle){try{const hash=await crypto.subtle.digest('SHA-256',data);return 'b-'+[...new Uint8Array(hash)].slice(0,16).map(x=>x.toString(16).padStart(2,'0')).join('')}catch{}}const u=new Uint8Array(data),step=Math.max(1,Math.floor(u.length/4096));let h=2166136261;for(let i=0;i<u.length;i+=step){h^=u[i];h=Math.imul(h,16777619)}for(const c of filename){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return 'b-'+(h>>>0).toString(16)+'-'+u.length}
 async function importFiles(files){const valid=[...files].filter(f=>/\.epub$/i.test(f.name)||f.type==='application/epub+zip');if(!valid.length){notify('Please choose a .epub book');return}loading(true,'Importing EPUB books…');let first=null,done=0;try{for(const file of valid){try{const buffer=await file.arrayBuffer();const zip=await JSZip.loadAsync(buffer);const parsed=await parseBook(zip,file.name);const id=await hashFile(buffer,file.name),prior=getBookRecord(id);const record={id,title:parsed.title,author:parsed.author,filename:file.name,size:file.size,createdAt:prior?.createdAt||Date.now(),lastOpened:Date.now(),cover:parsed.coverBlob,epub:new Blob([buffer],{type:'application/epub+zip'})};if(state.db){await database('readwrite',s=>s.put(record))}else state.temporary.set(id,record);done++;if(!first)first=id}catch(e){console.error(e);notify(`${file.name}: ${e.message}`)}}await refreshLibrary();if(first)await openBook(first);if(done>1)notify(`Imported ${done} books`)}finally{loading(false)}}
-async function openBook(id){const record=getBookRecord(id);if(!record){notify('Could not find that book');return}stopSpeech();closeDrawer();const token=++state.loadToken;loading(true,'Preparing your reading space…');try{const zip=await JSZip.loadAsync(record.epub);const parsed=await parseBook(zip,record.filename||record.title);if(token!==state.loadToken)return;for(const u of state.urls.values())URL.revokeObjectURL(u);state.urls.clear();state.chapterCache.clear();state.noteDocCache.clear();state.preparePromises.clear();state.styleCache.clear();state.zip=zip;state.book=record;state.meta=parsed;state.manifest=parsed.manifest;state.spine=parsed.spine;state.toc=parsed.toc;record.lastOpened=Date.now();if(state.db){try{await database('readwrite',s=>s.put(record))}catch(e){console.warn(e)}}else state.temporary.set(id,record);
+async function openBook(id){state.noteReturn=null;$('noteBack').hidden=true;const record=getBookRecord(id);if(!record){notify('Could not find that book');return}stopSpeech();closeDrawer();const token=++state.loadToken;loading(true,'Preparing your reading space…');try{const zip=await JSZip.loadAsync(record.epub);const parsed=await parseBook(zip,record.filename||record.title);if(token!==state.loadToken)return;for(const u of state.urls.values())URL.revokeObjectURL(u);state.urls.clear();state.chapterCache.clear();state.noteDocCache.clear();state.preparePromises.clear();state.styleCache.clear();state.zip=zip;state.book=record;state.meta=parsed;state.manifest=parsed.manifest;state.spine=parsed.spine;state.toc=parsed.toc;record.lastOpened=Date.now();if(state.db){try{await database('readwrite',s=>s.put(record))}catch(e){console.warn(e)}}else state.temporary.set(id,record);
  $('emptyView').hidden=true;$('readerView').hidden=false;$('topTitle').textContent=record.title;$('topSubtitle').textContent=record.author||'Enjoy your reading';setButtonState();const pos=state.progress[id];await renderChapter(Math.max(0,Math.min(state.spine.length-1,pos?.chapter??0)),pos?.fraction||0);renderLibrary();if(window.innerWidth<=950)setRail(false)}catch(e){console.error(e);notify(`Could not open book: ${e.message}`);toLibrary()}finally{if(token===state.loadToken)loading(false)}}
 async function assetURL(path){const key=normalize(path);if(state.urls.has(key))return state.urls.get(key);const entry=zipFile(state.zip,key);if(!entry)return null;const bytes=await entry.async('uint8array');const url=URL.createObjectURL(new Blob([bytes],{type:mime(key)}));state.urls.set(key,url);return url}
 async function asyncReplace(source,regex,fn){const items=[...source.matchAll(regex)],values=await Promise.all(items.map(m=>fn(m)));let i=0;return source.replace(regex,()=>values[i++])}
@@ -588,7 +588,7 @@ function readerCSS(){const s=state.settings,night=s.theme==='dark',warm=s.theme=
  body .folio-speaking{background:${mark}!important;border-radius:4px;box-shadow:0 0 0 3px ${mark};}
  body hr{border:0;border-top:1px solid ${secondary}66;margin:1.5em 0}body :is(sub,sup){line-height:0!important}body [hidden]{display:none!important}
  body [data-folio-popup-note="true"]{display:none!important}
- body a[data-folio-note-ref]{color:${link}!important;cursor:help;text-decoration:none;border-bottom:1px dotted currentColor;}
+ body a[data-folio-note-ref]{color:${link}!important;cursor:pointer;text-decoration:none;border-bottom:1px dotted currentColor;}
  body a[data-folio-note-ref]:hover{background:${mark}!important;border-radius:3px;}
  @media(max-width:920px){:root{--folio-gap:0px;--folio-side:clamp(36px,6.5vw,58px)}body{column-count:1!important;}}
  @media(max-height:450px){:root{--folio-top:14px;--folio-bottom:14px}}
@@ -634,7 +634,7 @@ function loadRemoteReaderFonts(doc,token){
 }
 function updateReaderTheme(){if(!state.book)return;const doc=$('readerFrame').contentDocument;if(!doc)return;const oldFrac=pageFraction(),token=state.renderToken;const styles=readerStyleParts(),fontStyle=doc.getElementById('folioFontStyle'),style=doc.getElementById('folioReaderStyle');if(fontStyle)fontStyle.textContent=compactReaderFontRules(styles.fonts);if(style)style.textContent=styles.layout;schedulePagination(oldFrac,token);doc.fonts?.ready.then(()=>schedulePagination(pageFraction(),token)).catch(()=>{})}
 // EPUB 2/3 notes: standard noteref, ARIA doc-noteref and common superscript links.
-const notePreview={request:0,timer:0,closeTimer:0,pinned:false,link:null};
+const notePreview={request:0,timer:0,closeTimer:0,link:null};
 function isSemanticNote(el){return /(?:^|\s)(?:footnote|endnote)(?:\s|$)/i.test(el?.getAttribute?.('epub:type')||'')||/^(?:doc-footnote|doc-endnote)$/i.test(el?.getAttribute?.('role')||'')}
 function isNoteReference(a){
  if(!a||!a.hasAttribute('data-book-href'))return false;
@@ -651,13 +651,13 @@ function initNoteReferences(doc,path){
   const target=splitRef(path,a.getAttribute('data-book-href'));
   if(target.external||!target.hash||!zipFile(state.zip,target.path))continue;
   a.setAttribute('data-folio-note-ref','');a.setAttribute('aria-haspopup','dialog');
-  a.setAttribute('title','Show footnote');
+  a.removeAttribute('title'); // Avoid a second delayed native tooltip beside the quick preview.
  }
 }
-function closeNoteHoverSoon(){clearTimeout(notePreview.closeTimer);if(notePreview.pinned)return;notePreview.closeTimer=setTimeout(()=>hideNotePopup(),270)}
+function closeNoteHoverSoon(){clearTimeout(notePreview.closeTimer);notePreview.closeTimer=setTimeout(()=>hideNotePopup(),120)}
 function hideNotePopup(){
  clearTimeout(notePreview.timer);clearTimeout(notePreview.closeTimer);
- notePreview.request++;notePreview.link=null;notePreview.pinned=false;
+ notePreview.request++;notePreview.link=null;
  const p=document.getElementById('folioNotePopup');if(p)p.hidden=true;
 }
 async function findNoteDocument(path){
@@ -703,7 +703,7 @@ function positionNotePopup(anchor){
  let top=y+12;if(top+h>vh-12)top=Math.max(12,frame.top+rect.top-h-10);
  p.style.left=Math.round(left)+'px';p.style.top=Math.round(top)+'px';
 }
-async function openNotePreview(a,pin){
+async function openNotePreview(a){
  if(!state.book||!a?.isConnected)return false;
  const token=++notePreview.request,book=state.book,path=state.spine[state.chapter]?.path;
  const ref=splitRef(path,a.getAttribute('data-book-href'));
@@ -720,34 +720,36 @@ async function openNotePreview(a,pin){
   const marker=a.textContent.trim().replace(/[\[\]]/g,'').slice(0,15);
   $('folioNoteLabel').textContent=label+(marker?' · '+marker:'');
   const host=$('folioNoteText');host.replaceChildren(...content.childNodes);
-  $('folioNotePopup').hidden=false;notePreview.pinned=Boolean(pin);notePreview.link=a;
+  $('folioNotePopup').hidden=false;notePreview.link=a;
   positionNotePopup(a);return true;
  }catch(err){console.warn('Cannot preview EPUB note',err);return false}
 }
+// Click always follows the EPUB link. Hover is the only way to preview a note.
 function handleNoteClick(event){
  const a=event.target.closest?.('a[data-folio-note-ref]');
  if(!a)return;
  event.preventDefault();event.stopImmediatePropagation();
- clearTimeout(notePreview.timer);clearTimeout(notePreview.closeTimer);
- openNotePreview(a,true).then(ok=>{
-  if(ok||!state.book)return;
-  const path=state.spine[state.chapter]?.path,ref=splitRef(path,a.getAttribute('data-book-href'));
-  if(!ref.external&&state.spine.some(item=>item.path===ref.path))navigateToPath(ref.path,ref.hash);
-  else notify('This footnote could not be opened');
- });
+ const path=state.spine[state.chapter]?.path;
+ const ref=splitRef(path,a.getAttribute('data-book-href'));
+ hideNotePopup();
+ if(!ref.external&&ref.hash)navigateToNoteLocation(ref.path,ref.hash);
 }
 function handleNotePointerOver(event){
  const a=event.target.closest?.('a[data-folio-note-ref]');
- if(!a||notePreview.pinned||event.pointerType==='touch')return;
+ if(!a||event.pointerType==='touch')return;
  if(a===notePreview.link&&!$('folioNotePopup').hidden){clearTimeout(notePreview.closeTimer);return}
  clearTimeout(notePreview.closeTimer);clearTimeout(notePreview.timer);
- notePreview.timer=setTimeout(()=>openNotePreview(a,false),260);
+ notePreview.timer=setTimeout(()=>{void openNotePreview(a)},75);
 }
 function handleNotePointerOut(event){
  const a=event.target.closest?.('a[data-folio-note-ref]');if(!a)return;
  if(a.contains(event.relatedTarget))return;
- clearTimeout(notePreview.timer);closeNoteHoverSoon();
+ clearTimeout(notePreview.timer);
+ // A pending asynchronous preview must not pop open after the pointer leaves.
+ if($('folioNotePopup').hidden)notePreview.request++;
+ closeNoteHoverSoon();
 }
+
 $('folioNoteClose').addEventListener('click',hideNotePopup);
 $('folioNotePopup').addEventListener('pointerenter',()=>clearTimeout(notePreview.closeTimer));
 $('folioNotePopup').addEventListener('pointerleave',closeNoteHoverSoon);
@@ -800,9 +802,67 @@ async function renderChapter(index,fraction=0,opts={}){hideNotePopup();if(!state
  if(doc.fonts)doc.fonts.ready.then(repaginate).catch(()=>{});
  paginateChapter(fraction,token);
  if(opts.hash){const target=doc.getElementById(opts.hash)||doc.getElementsByName(opts.hash)[0];if(target)goToElement(target)}
- renderTOC();setButtonState();saveProgress();scheduleNeighborPreparation(index);
+ renderTOC();setButtonState();saveProgress();if(!state.noteReturn)scheduleNeighborPreparation(index);
  }catch(e){if(token===state.renderToken){console.error(e);notify(`Chapter could not be displayed: ${e.message}`)}}}
-function navigateToPath(path,hash=''){const i=state.spine.findIndex(x=>x.path===path);if(i<0){notify('This section is not in the reading spine');return}if(i===state.chapter&&hash){const doc=$('readerFrame').contentDocument;const node=doc.getElementById(hash)||doc.getElementsByName(hash)[0];if(node){goToElement(node);return}}stopSpeech();renderChapter(i,0,{hash});closeDrawer()}
+function returnFromNote(){
+ const prior=state.noteReturn;if(!prior)return;
+ state.noteReturn=null;
+ $('noteBack').hidden=true;
+ if(prior.inlineNode){
+  prior.inlineNode.style.removeProperty('display');
+  prior.inlineNode.removeAttribute('data-folio-revealed-note');
+  paginateChapter(prior.fraction,state.renderToken);
+  return;
+ }
+ state.spine=state.spine.filter(item=>!item.folioDetached);
+ stopSpeech();void renderChapter(prior.chapter,prior.fraction);
+}
+function navigateToNoteLocation(path,hash=''){
+ if(!zipFile(state.zip,path)){notify('The footnote target is missing from this EPUB');return}
+ // Inline footnote asides are normally withheld from the prose flow. Reveal the
+ // real note at its source location on click, and repaginate before jumping.
+ if(path===state.spine[state.chapter]?.path&&hash){
+  const doc=$('readerFrame').contentDocument;
+  const node=doc?.getElementById(hash)||doc?.getElementsByName(hash)?.[0];
+  const hiddenNote=node?.closest('[data-folio-popup-note="true"]');
+  if(hiddenNote){
+   if(state.noteReturn?.inlineNode&&state.noteReturn.inlineNode!==hiddenNote){
+    state.noteReturn.inlineNode.style.removeProperty('display');
+    state.noteReturn.inlineNode.removeAttribute('data-folio-revealed-note');
+   }
+   if(!state.noteReturn)state.noteReturn={chapter:state.chapter,fraction:pageFraction(),percent:overallProgress(state.chapter,pageFraction())};
+   state.noteReturn.inlineNode=hiddenNote;
+   hiddenNote.style.setProperty('display','block','important');
+   hiddenNote.setAttribute('data-folio-revealed-note','');
+   $('noteBack').hidden=false;
+   paginateChapter(pageFraction(),state.renderToken);
+   requestAnimationFrame(()=>{if(node.isConnected&&state.noteReturn?.inlineNode===hiddenNote)goToElement(node)});
+   return;
+  }
+ }
+ if(state.spine.some(item=>item.path===path)){navigateToPath(path,hash);return}
+ // EPUBs sometimes keep endnotes in a non-linear file absent from the spine.
+ // Show that real file as a temporary section, without changing saved progress.
+ if(!state.noteReturn)state.noteReturn={chapter:state.chapter,fraction:pageFraction(),percent:overallProgress(state.chapter,pageFraction())};
+ state.spine=state.spine.filter(item=>!item.folioDetached);
+ state.spine.push({path,label:'Footnotes',weight:0,folioDetached:true});
+ $('noteBack').hidden=false;
+ stopSpeech();void renderChapter(state.spine.length-1,0,{hash});closeDrawer();
+}
+function navigateToPath(path,hash=''){
+ const i=state.spine.findIndex(x=>x.path===path);
+ if(i<0){notify('This section is not in the reading spine');return}
+ if(state.noteReturn&&!state.spine[i]?.folioDetached){
+  const oldNote=state.noteReturn.inlineNode;
+  if(oldNote?.isConnected){oldNote.style.removeProperty('display');oldNote.removeAttribute('data-folio-revealed-note')}
+  state.noteReturn=null;state.spine=state.spine.filter(item=>!item.folioDetached);
+  $('noteBack').hidden=true;
+  if(oldNote?.isConnected&&i===state.chapter)paginateChapter(pageFraction(),state.renderToken);
+ }
+ if(i===state.chapter&&hash){const doc=$('readerFrame').contentDocument;const node=doc.getElementById(hash)||doc.getElementsByName(hash)[0];if(node){goToElement(node);return}}
+ stopSpeech();void renderChapter(i,0,{hash});closeDrawer();
+}
+$('noteBack').addEventListener('click',returnFromNote);
 // Wheel moves one spread at a time. Trackpad micro-deltas accumulate;
 // the cooldown prevents a single inertial gesture from skipping many pages.
 const readerWheel={sum:0,lastInput:0,lastTurn:0,sign:0};
@@ -822,7 +882,7 @@ function handleReaderWheel(event){
  changePage(sign);
 }
 
-function changePage(step){if(!state.book)return;const p=state.paging;
+function changePage(step){if(!state.book)return;const p=state.paging;if(state.noteReturn&&((step<0&&p.page<=0)||(step>0&&p.page>=p.pages-1))){returnFromNote();return}
  if(step>0&&p.page>=p.pages-1){if(state.chapter<state.spine.length-1)renderChapter(state.chapter+1,0);else notify('You have reached the end of the book');return}
  if(step<0&&p.page<=0){if(state.chapter>0)renderChapter(state.chapter-1,1);return}
  goToPage(p.page+step);
