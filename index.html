@@ -4,7 +4,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <meta name="description" content="Folio, a single-file EPUB reader with browser speech, local books and optional online dictionaries.">
-<title>Folio — a quieter place to read</title>
+<title>Folio · EPUB Reader</title>
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#f6f5f1">
 <meta name="application-name" content="Folio EPUB Reader">
@@ -140,6 +140,92 @@
 .folio-note-text ul,.folio-note-text ol{padding-left:21px;margin:.4em 0}.folio-note-text blockquote{margin:.6em 0;padding-left:12px;border-left:2px solid var(--line)}
 .folio-note-text em,.folio-note-text i{font-style:italic}.folio-note-text strong,.folio-note-text b{font-weight:700}
 @media(max-width:680px){.folio-note-popup{width:min(370px,calc(100vw - 20px));max-height:48vh;padding:13px 14px}}
+
+/* Folio v18 — quieter reading chrome, coherent left-to-right navigation. */
+:root{--bg:#f5f4f0;--paper:#fcfbf8;--surface:#fffefa;--rail:#f0f1eb;--ink:#2d3530;--line:#e4e5df;--muted:#7a867d;--accent:#466a58;--accent-light:#e9efe8;--radius:16px}
+.app.theme-sepia{--bg:#eee7d9;--paper:#f5eddc;--surface:#faf1e2;--rail:#e9dfd0;--line:#ded2c1;--accent:#846b4d;--accent-light:#eadfca}
+.app.theme-dark{--bg:#1e2523;--paper:#252c29;--surface:#2a322e;--rail:#202a26;--line:#394840;--accent:#a5c8b4;--accent-light:#34473e}
+.topbar{height:68px;flex-basis:68px;padding-inline:clamp(16px,2.4vw,34px);gap:10px;border-bottom:1px solid var(--line);background:var(--paper)}
+.topbar .edge{min-width:0}
+.topbar .top-leading{display:flex;align-items:center;gap:5px;flex:0 0 auto}
+.topbar .top-leading .ibtn{width:auto;min-width:39px;height:38px}
+.topbar .top-leading .library-return,.topbar .top-leading .contents-action{display:none;align-items:center;gap:8px;padding:0 11px;font-size:12px;font-weight:650;color:var(--ink);border-radius:10px}
+.topbar .top-leading .library-return{color:var(--muted)}
+.topbar .top-leading .library-return:hover{color:var(--accent)}
+.topbar .top-leading .contents-action{background:var(--accent-light);color:var(--accent)}
+.topbar .top-leading .contents-action:hover{background:color-mix(in srgb,var(--accent) 17%,var(--paper))}
+.topbar-title strong{font-size:13px;font-weight:640;letter-spacing:.002em}
+.topbar-title small{font-size:11px;margin-top:2px}
+.top-actions{gap:3px}
+.ibtn{border-radius:10px;transition:background-color .12s,color .12s}
+.app.reader-active .rail{display:none!important}
+.app.reader-active .workspace{margin-left:0!important;width:100%!important}
+.app.reader-active #toggleRail,.app.reader-active #topImport{display:none!important}
+.app.reader-active .top-leading .library-return,.app.reader-active .top-leading .contents-action{display:inline-flex}
+.app:not(.reader-active) #topToc{display:none!important}
+.app.reader-active #topHome{display:inline-flex}
+.app:not(.reader-active) #topHome{display:none!important}
+.drawer.left{position:fixed;top:0;bottom:0;left:0;right:auto;height:100dvh;box-shadow:20px 0 60px #192b1d1c;width:min(370px,calc(100vw - 24px));z-index:18}
+.app.reader-active .scrim.visible{z-index:16}
+.app.reader-active .drawer.left.visible{z-index:19}
+.drawer-header{height:70px;flex-basis:70px;padding:0 24px}
+.drawer-header h2{font-family:Georgia,'Iowan Old Style',serif;font-weight:500;font-size:24px}
+.drawer-tabs{padding:9px 18px 0}
+.drawer-body{padding:19px 18px 28px}
+.toc-item{font-size:13px;line-height:1.48;padding:11px 13px;border-radius:10px}
+.toc-item.active{background:var(--accent-light);color:var(--accent)}
+.reader-view .reader-bottom{height:62px;flex-basis:62px;border-top:1px solid var(--line);background:var(--paper)}
+.reader-bottom .bottom-nav{background:color-mix(in srgb,var(--surface) 90%,var(--bg));border:1px solid var(--line);box-shadow:none}
+.reader-bottom .page-btn{width:35px;height:35px}
+.reader-bottom .page-indicator{font-size:12px;font-variant-numeric:tabular-nums;color:var(--ink)}
+.reader-progress{height:2px;background:transparent}
+.reader-progress-inner{opacity:.6}
+.edge-turn .icon{opacity:.2}
+.edge-turn:hover:not(:disabled) .icon{opacity:.7}
+.reader-view.two-column .reading-shell::after,.reader-view.three-column .reading-shell::before,.reader-view.three-column .reading-shell::after{opacity:.62}
+.tts-dock .tts-label strong{font-weight:650}
+.reader-view > .tts-dock{box-shadow:0 5px 20px #1d392212;border-color:var(--line);background:var(--surface)}
+.rail-bottom .privacy{font-size:11px}
+.welcome h1{letter-spacing:-.048em}
+.welcome-sub{margin-bottom:32px}
+.dropzone{border-style:solid;box-shadow:0 10px 32px #2739270b}
+.book-card .book-cover{transition:transform .16s,box-shadow .16s}
+.theme-choice{transition:border-color .13s,background-color .13s}
+.theme-choice.selected{background:var(--accent-light)}
+.setting-sub:empty{display:none}
+@media(max-width:700px){
+ .topbar{height:60px;flex-basis:60px;padding-inline:8px;gap:3px}
+ .topbar .top-leading .library-return span,.topbar .top-leading .contents-action span{display:none}
+ .topbar .top-leading .library-return,.topbar .top-leading .contents-action{padding:0;width:38px;justify-content:center}
+ .topbar .top-leading{gap:1px}
+ .topbar-title strong{font-size:11px}
+ .topbar-title small{font-size:10px}
+ .topbar .edge.right{min-width:0}
+ .top-actions .ibtn{width:36px;height:36px}
+ .drawer.left{width:min(355px,calc(100vw - 18px))}
+}
+@media(prefers-reduced-motion:reduce){.drawer,.edge-turn,.pillbtn,.ibtn{transition:none}}
+
+
+/* Search: quiet, unobtrusive reader tool. */
+.search-drawer{width:min(415px,100%)}
+.search-toolbar{padding:20px 23px 16px;border-bottom:1px solid var(--line)}
+.search-input-wrap{height:44px;display:flex;gap:11px;align-items:center;padding:0 13px;background:var(--paper);border:1px solid var(--line);border-radius:11px;color:var(--muted)}
+.search-input-wrap:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 9%,transparent)}
+.search-input-wrap input{border:0;outline:none;background:none;flex:1;min-width:0;font-size:14px;color:var(--ink)}
+.search-input-wrap input::-webkit-search-cancel-button{cursor:pointer}
+.search-scope{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:12px;margin-top:14px;cursor:pointer;user-select:none}
+.search-scope input{width:15px;height:15px;margin:0}
+.search-status{font-size:12px;color:var(--muted);min-height:17px;margin-top:13px;font-variant-numeric:tabular-nums}
+.search-results{padding:5px 12px 24px;overflow-y:auto;overscroll-behavior:contain;flex:1;min-height:0}
+.search-hit{display:block;text-align:left;width:100%;padding:15px 14px;border-bottom:1px solid var(--line);border-radius:8px;line-height:1.5}
+.search-hit:hover,.search-hit:focus-visible{background:var(--accent-light)}
+.search-hit-title{font-size:11px;font-weight:720;color:var(--accent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:6px}
+.search-hit-context{font-size:13px;color:var(--ink);line-height:1.6;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.search-hit mark{background:#efdcaa;color:#3a372f;border-radius:2px;padding:0 1px}
+.search-empty{padding:34px 15px;color:var(--muted);font-size:13px;text-align:center;line-height:1.7}
+.theme-dark .search-hit mark{background:#705d36;color:#fff7dc}
+@media(max-width:680px){.search-toolbar{padding:16px 18px 14px}.search-results{padding:4px 10px 20px}}
 </style>
 </head>
 <body>
@@ -150,6 +236,7 @@
  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4m-5 5 5-5 5 5M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></symbol>
  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16M9 4v6M15 14v6"/><circle cx="9" cy="7" r="2.2"/><circle cx="15" cy="17" r="2.2"/></symbol>
  <symbol id="i-headphones" viewBox="0 0 24 24"><path d="M4 14V12a8 8 0 0 1 16 0v2M4 14h3v7H5a2 2 0 0 1-2-2v-3a2 2 0 0 1 1-2zm16 0h-3v7h2a2 2 0 0 0 2-2v-3a2 2 0 0 0-1-2z"/></symbol>
+ <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></symbol>
  <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12M3 6h2M3 12h2M3 18h2"/></symbol>
  <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6 4h12v17l-6-4-6 4z"/></symbol>
  <symbol id="i-bookmark-fill" viewBox="0 0 24 24"><path d="M6 4h12v17l-6-4-6 4z" fill="currentColor" stroke="currentColor"/></symbol>
@@ -172,23 +259,23 @@
   <div class="rail-top"><button type="button" class="brand" id="homeBrand" title="Your library">folio<span>.</span></button><button class="ibtn" id="closeRail" title="Close library" aria-label="Close library"><svg class="icon"><use href="#i-x"/></svg></button></div>
   <div class="rail-section">
    <div class="rail-label">Workspace</div>
-   <nav class="rail-nav"><button id="navLibrary" class="active"><svg class="icon"><use href="#i-book"/></svg> My library <span class="count" id="railCount">0</span></button><button id="navContents"><svg class="icon"><use href="#i-list"/></svg> Table of contents</button><button id="navBookmarks"><svg class="icon"><use href="#i-bookmark"/></svg> Bookmarks</button><button id="navSettings"><svg class="icon"><use href="#i-settings"/></svg> Appearance &amp; data</button></nav>
+   <nav class="rail-nav"><button id="navLibrary" class="active"><svg class="icon"><use href="#i-book"/></svg> My library <span class="count" id="railCount">0</span></button><button id="navContents"><svg class="icon"><use href="#i-list"/></svg> Table of contents</button><button id="navSearch"><svg class="icon"><use href="#i-search"/></svg> Search in book</button><button id="navBookmarks"><svg class="icon"><use href="#i-bookmark"/></svg> Bookmarks</button><button id="navSettings"><svg class="icon"><use href="#i-settings"/></svg> Appearance &amp; data</button></nav>
    <div class="shelf-title"><span class="rail-label">On your shelf</span><button class="ibtn" id="railAdd" title="Import EPUB"><svg class="icon sm"><use href="#i-plus"/></svg></button></div>
    <div id="shelfList" class="shelf-list"></div>
   </div>
-  <div class="rail-bottom"><button class="pillbtn" id="railOpen"><svg class="icon sm"><use href="#i-plus"/></svg> Import EPUB</button><div class="privacy"><svg class="icon sm"><use href="#i-lock"/></svg><span>Files stay in your browser. No account, no upload.</span></div></div>
+  <div class="rail-bottom"><button class="pillbtn" id="railOpen"><svg class="icon sm"><use href="#i-plus"/></svg> Import EPUB</button><div class="privacy"><svg class="icon sm"><use href="#i-lock"/></svg><span>Stored on this device</span></div></div>
  </aside>
  <div class="workspace">
   <header class="topbar">
-   <div class="edge"><button class="ibtn" title="Toggle library" id="toggleRail"><svg class="icon"><use href="#i-menu"/></svg></button><button class="ibtn hide-mobile" title="Import an EPUB" id="topImport"><svg class="icon"><use href="#i-plus"/></svg></button></div>
-   <div class="topbar-title"><strong id="topTitle">Your reading space</strong><small id="topSubtitle">A private EPUB library</small></div>
-   <div class="edge right"><div class="top-actions"><button class="ibtn" id="topToc" title="Table of contents" aria-label="Table of contents"><svg class="icon"><use href="#i-list"/></svg></button><button class="ibtn" id="topBookmark" title="Add bookmark" aria-label="Add bookmark"><svg class="icon"><use id="bookmarkUse" href="#i-bookmark"/></svg></button><button class="ibtn" id="topTTS" title="Read aloud" aria-label="Read aloud"><svg class="icon"><use href="#i-headphones"/></svg></button><button class="ibtn" id="topSettings" title="Reading settings" aria-label="Reading settings"><svg class="icon"><use href="#i-settings"/></svg></button></div></div>
+   <div class="edge top-leading"><button type="button" class="ibtn contents-action" id="topToc" title="Contents" aria-label="Table of contents"><svg class="icon"><use href="#i-list"/></svg><span>Contents</span></button><button type="button" class="ibtn library-return" id="topHome" title="Back to library" aria-label="Back to library"><svg class="icon sm"><use href="#i-chevron-left"/></svg><span>Library</span></button><button class="ibtn" title="Toggle library" id="toggleRail"><svg class="icon"><use href="#i-menu"/></svg></button><button class="ibtn hide-mobile" title="Import an EPUB" id="topImport"><svg class="icon"><use href="#i-plus"/></svg></button></div>
+   <div class="topbar-title"><strong id="topTitle">Your reading space</strong><small id="topSubtitle">Your books</small></div>
+   <div class="edge right"><div class="top-actions"><button class="ibtn" id="topSearch" title="Search book" aria-label="Search in book"><svg class="icon"><use href="#i-search"/></svg></button><button class="ibtn" id="topBookmark" title="Bookmark page" aria-label="Add bookmark"><svg class="icon"><use id="bookmarkUse" href="#i-bookmark"/></svg></button><button class="ibtn" id="topTTS" title="Read aloud" aria-label="Read aloud"><svg class="icon"><use href="#i-headphones"/></svg></button><button class="ibtn" id="topSettings" title="Appearance and settings" aria-label="Reading settings"><svg class="icon"><use href="#i-settings"/></svg></button></div></div>
   </header>
   <main class="main" id="main">
    <section class="empty-view" id="emptyView">
-    <div class="welcome"><div class="welcome-head"><div class="eyebrow">Your own little reading corner</div><h1>A quieter place <em>to read.</em></h1><p class="welcome-sub">Keep your books close, set every detail just right, and let a natural voice read along. Beautiful reading, without the distractions.</p></div>
-    <div class="dropzone" id="dropzone"><div class="drop-copy"><div class="dropicon"><svg class="icon lg"><use href="#i-upload"/></svg></div><div><strong>Bring your books in</strong><small>Drag EPUB files here, or choose them from your computer</small></div></div><button class="pillbtn" id="browse"><svg class="icon sm"><use href="#i-plus"/></svg> Choose EPUB</button></div>
-    <div class="recent-area"><div class="hrow"><h2 id="recentTitle">Your library</h2><div class="folio-actions"><button class="ghostbtn" id="installFolio" hidden type="button">Install app</button><button id="demoBtn" class="ghostbtn"><svg class="icon sm"><use href="#i-spark"/></svg> Explore a sample</button></div></div><div class="book-cards" id="bookCards"></div><p class="hint">Supports standard, DRM-free, reflowable EPUB books. Your reading position, bookmarks and preferences are saved locally.</p></div>
+    <div class="welcome"><div class="welcome-head"><div class="eyebrow">Folio Library</div><h1>A quieter place <em>to read.</em></h1><p class="welcome-sub">Your books, your reading space. Beautiful reading, without the distractions.</p></div>
+    <div class="dropzone" id="dropzone"><div class="drop-copy"><div class="dropicon"><svg class="icon lg"><use href="#i-upload"/></svg></div><div><strong>Import an EPUB</strong><small>Drop a file here or browse</small></div></div><button class="pillbtn" id="browse"><svg class="icon sm"><use href="#i-plus"/></svg> Choose EPUB</button></div>
+    <div class="recent-area"><div class="hrow"><h2 id="recentTitle">Your library</h2><div class="folio-actions"><button class="ghostbtn" id="installFolio" hidden type="button">Install app</button><button id="demoBtn" class="ghostbtn"><svg class="icon sm"><use href="#i-spark"/></svg> Explore a sample</button></div></div><div class="book-cards" id="bookCards"></div><p class="hint">DRM-free EPUB · Saved on this device</p></div>
     </div>
    </section>
    <section class="reader-view" id="readerView" hidden>
@@ -202,24 +289,33 @@
    </section>
    <div class="scrim" id="scrim"></div>
    <aside class="drawer left" id="tocDrawer" aria-label="Contents and bookmarks"><header class="drawer-header"><h2>In this book</h2><button class="ibtn" id="closeToc"><svg class="icon"><use href="#i-x"/></svg></button></header><div class="drawer-tabs"><button class="active" id="tabChapters">Contents</button><button id="tabBookmarks">Bookmarks</button></div><div class="drawer-body"><div id="tocList" class="toc-list"></div><div id="bookmarkList" hidden></div></div></aside>
+   <aside class="drawer left search-drawer" id="searchDrawer" aria-label="Search this book">
+    <header class="drawer-header"><h2>Search</h2><button class="ibtn" id="closeSearch" title="Close search" aria-label="Close search"><svg class="icon"><use href="#i-x"/></svg></button></header>
+    <div class="search-toolbar">
+      <label class="search-input-wrap" for="folioSearchInput"><svg class="icon sm"><use href="#i-search"/></svg><input id="folioSearchInput" type="search" placeholder="Find a word or phrase" autocomplete="off" spellcheck="false" aria-label="Search book text"></label>
+      <label class="search-scope"><input type="checkbox" id="folioSearchChapter"> Current chapter only</label>
+      <div id="folioSearchStatus" class="search-status" role="status" aria-live="polite">Search within this book.</div>
+    </div>
+    <div class="search-results" id="folioSearchResults" role="list" aria-label="Search results"></div>
+   </aside>
    <aside class="drawer" id="settingsDrawer" aria-label="Reader preferences and storage"><header class="drawer-header"><h2>Make it yours</h2><button class="ibtn" id="closeSettings"><svg class="icon"><use href="#i-x"/></svg></button></header>
     <div class="drawer-body">
      <div class="drawer-group"><h3>Page tone</h3><div class="theme-options"><button class="theme-choice selected" data-theme="light"><div class="theme-preview light">Aa 字</div>Paper</button><button class="theme-choice" data-theme="sepia"><div class="theme-preview sepia">Aa 字</div>Warm</button><button class="theme-choice" data-theme="dark"><div class="theme-preview dark">Aa 字</div>Night</button></div></div>
      <div class="drawer-group"><h3>Typography</h3><label for="enFont" class="setting-label">English font <span class="muted">A–Z</span></label><select id="enFont" class="select"><option value="Georgia">Georgia · classic serif</option><option value="Bookerly">Bookerly · Kindle style</option><option value="Palatino Linotype">Palatino · book serif</option><option value="Charter">Charter · readable serif</option><option value="Baskerville">Baskerville · classic</option><option value="Baskerville Old Face">Baskerville Old Face · Windows</option><option value="Sitka Text">Sitka Text · Windows book serif</option><option value="Sitka Display">Sitka Display · Windows display serif</option><option value="Garamond">Garamond · traditional serif</option><option value="EB Garamond">EB Garamond · literary serif</option><option value="Libertinus Serif">Libertinus Serif · literary & scholarly</option><option value="Cambria">Cambria · screen serif</option><option value="Constantia">Constantia · modern serif</option><option value="Times New Roman">Times New Roman</option><option value="Arial">Arial · sans-serif</option><option value="Segoe UI">Segoe UI · modern sans</option></select><p class="setting-sub">English text keeps its chosen typeface, even inside Chinese paragraphs. Libertinus Serif and EB Garamond use web fonts when not installed; other Windows and macOS fallback choices remain available.</p>
      <label for="zhFont" class="setting-label" style="margin-top:22px">Chinese font <span class="muted">中文</span></label><select id="zhFont" class="select"><option value="Noto Serif CJK SC">思源宋体 · Source Han Serif / Noto Serif</option><option value="Noto Sans CJK SC">思源黑体 · Source Han Sans / Noto Sans</option><option value="LXGW WenKai">霞鹜文楷 · LXGW WenKai</option><option value="Microsoft YaHei">微软雅黑 · Microsoft YaHei</option><option value="Microsoft YaHei UI">微软雅黑 UI · Microsoft YaHei UI</option><option value="DengXian">等线 · DengXian</option><option value="SimHei">黑体 · SimHei</option><option value="SimSun">宋体 · SimSun</option><option value="NSimSun">新宋体 · NSimSun</option><option value="KaiTi">楷体 · KaiTi</option><option value="FangSong">仿宋 · FangSong</option><option value="Microsoft JhengHei">微軟正黑體 · Microsoft JhengHei</option><option value="PingFang SC">苹方 · PingFang SC</option><option value="Songti SC">华文宋体 · Songti SC</option><option value="STKaiti">华文楷体 · STKaiti</option></select>
-     <p class="setting-sub">For 思源宋体、思源黑体 and 霞鹜文楷, Folio can load an online web-font fallback when no local copy is available. Online font loading requires internet access.</p>
+     <p class="setting-sub"></p>
       <div style="margin-top:23px"><label class="setting-label" for="fontSize">Text size <span id="fontSizeVal" class="muted">20 px</span></label><input class="range" type="range" id="fontSize" min="14" max="32" step="1"></div>
      <div style="margin-top:23px"><label class="setting-label" for="lineHeight">Line spacing <span id="lineHeightVal" class="muted">1.8</span></label><input class="range" type="range" id="lineHeight" min="1.3" max="2.4" step="0.05"></div>
      <div style="margin-top:23px"><label class="setting-label" for="paragraphSpace">Paragraph spacing <span id="paragraphSpaceVal" class="muted">1.0 em</span></label><input class="range" type="range" id="paragraphSpace" min="0.3" max="2.0" step="0.1"></div>
      <div style="margin-top:23px"><label class="setting-label" for="pageWidth">Reading area <span id="pageWidthVal" class="muted">1280 px</span></label><input class="range" type="range" id="pageWidth" min="700" max="2400" step="20"></div>
      </div>
-     <p class="setting-sub">Columns automatically stay wide enough for comfortable reading, switching to fewer columns when necessary. On extra-wide screens the reading area may expand for three columns. Each spread fits the viewport; turn pages instead of scrolling.</p>
+     <p class="setting-sub"></p>
      <div class="setting-divider"></div>
      <div class="drawer-group"><h3>Read aloud · Web Speech</h3><label class="setting-label" for="zhVoice">Chinese voice</label><select class="select" id="zhVoice"><option value="">System default</option></select><label class="setting-label" style="margin-top:18px" for="enVoice">English voice</label><select class="select" id="enVoice"><option value="">System default</option></select><p class="setting-sub">Edge may expose online Natural voices. These need internet, even though your EPUB stays local. Chrome offers whatever voices it exposes.</p>
      <div class="switch-row"><label for="autoAdvance">Continue into next chapter</label><input type="checkbox" id="autoAdvance" checked></div><div class="switch-row"><label for="autoScroll">Follow narration across pages</label><input type="checkbox" id="autoScroll" checked></div><button class="secondary-action" id="openDock"><svg class="icon sm"><use href="#i-headphones"/></svg> Show read-aloud controls</button>
      </div>
      <div class="setting-divider"></div>
-     <div class="drawer-group"><h3>Local storage</h3><div class="storage-row"><div><strong>Saved books</strong><small id="storageStats">Calculating…</small></div><svg class="icon sm muted"><use href="#i-lock"/></svg></div><p class="setting-sub" style="margin-bottom:14px">Books are kept in IndexedDB. Your reading positions, bookmarks and settings are kept in localStorage. Folio never uploads the EPUB files. Online browser voices may send spoken text to their speech provider.</p><button class="secondary-action" id="clearReading"><svg class="icon sm"><use href="#i-trash"/></svg> Clear reading history &amp; bookmarks</button><button class="secondary-action danger" style="margin-top:9px" id="clearAll"><svg class="icon sm"><use href="#i-trash"/></svg> Clear all local reader data</button><button class="secondary-action danger" style="margin-top:9px" id="removeBook"><svg class="icon sm"><use href="#i-x"/></svg> Remove current book</button></div>
+     <div class="drawer-group"><h3>Local storage</h3><div class="storage-row"><div><strong>Saved books</strong><small id="storageStats">Calculating…</small></div><svg class="icon sm muted"><use href="#i-lock"/></svg></div><p class="setting-sub" style="margin-bottom:14px">Books and reading history are stored on this device. Online speech voices may transmit spoken text.</p><button class="secondary-action" id="clearReading"><svg class="icon sm"><use href="#i-trash"/></svg> Clear reading history &amp; bookmarks</button><button class="secondary-action danger" style="margin-top:9px" id="clearAll"><svg class="icon sm"><use href="#i-trash"/></svg> Clear all local reader data</button><button class="secondary-action danger" style="margin-top:9px" id="removeBook"><svg class="icon sm"><use href="#i-x"/></svg> Remove current book</button></div>
      <div class="hint">Folio reads books locally and works offline. Word lookups use documented online dictionaries; US/UK recorded audio is provided when available, with browser voices as fallback. DRM-protected and fixed-layout EPUBs are not supported.</div>
     </div>
    </aside>
@@ -242,7 +338,7 @@
     <div class="word-links"><a id="wordVocabLink" href="https://www.vocabulary.com/dictionary/" target="_blank" rel="noopener noreferrer">Vocabulary.com ↗</a><a id="wordICibaLink" href="https://3325.cn/" target="_blank" rel="noopener noreferrer">3325 英语词典 ↗</a><button type="button" id="wordEnhancedToggle" class="enhanced-toggle" title="Use a personal UAPI key for richer explanations and US/UK recordings">Enhanced lookup</button></div>
     <div id="wordEnhancedPanel" class="word-enhanced-panel" hidden><div class="enhanced-title">Enhanced English dictionary</div><div class="enhanced-help">UAPI supplies learner-friendly definitions, examples and UK/US audio. Its documented browser interface requires your own API key. The key is stored only in this tab's session and is sent directly to uapis.cn. <a href="https://uapis.cn/en/docs/api-reference/get-dictionary-lookup" target="_blank" rel="noopener noreferrer">Documentation ↗</a></div><div class="enhanced-field"><input type="password" id="wordUapiKey" autocomplete="off" spellcheck="false" placeholder="Paste your UAPI key"><button type="button" id="wordUapiSave">Use key</button><button type="button" id="wordUapiClear">Clear</button></div><div id="wordUapiStatus" class="enhanced-status" aria-live="polite"></div></div>
   </aside>
-<script>/*!
+<script id="folio-jszip">/*!
 
 JSZip v3.10.1 - A JavaScript class for generating and reading zip files
 <http://stuartk.com/jszip>
@@ -268,7 +364,7 @@ const safeSave=(key,v)=>{try{localStorage.setItem(key,JSON.stringify(v));return 
 const escapeHTML=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function notify(message){const n=$('toast');n.textContent=message;n.classList.add('show');clearTimeout(state.toastTimer);state.toastTimer=setTimeout(()=>n.classList.remove('show'),3200)}
 function loading(show,message='Opening your book…'){$('loadingText').textContent=message;$('loading').hidden=!show}
-function setButtonState(){const reading=!!state.book;for(const id of ['topToc','topBookmark','topTTS','navContents','navBookmarks','prevPage','nextPage','edgePrev','edgeNext'])$(id).disabled=!reading;$('removeBook').hidden=!reading;if(reading){$('prevPage').disabled=$('edgePrev').disabled=state.chapter===0&&state.paging.page===0;$('nextPage').disabled=$('edgeNext').disabled=state.chapter===state.spine.length-1&&state.paging.page===state.paging.pages-1}$('topBookmark').classList.toggle('on',reading&&hasNearbyBookmark());$('bookmarkUse').setAttribute('href',reading&&hasNearbyBookmark()?'#i-bookmark-fill':'#i-bookmark')}
+function setButtonState(){const reading=!!state.book;for(const id of ['topToc','topSearch','topBookmark','topTTS','navContents','navSearch','navBookmarks','prevPage','nextPage','edgePrev','edgeNext'])$(id).disabled=!reading;$('removeBook').hidden=!reading;if(reading){$('prevPage').disabled=$('edgePrev').disabled=state.chapter===0&&state.paging.page===0;$('nextPage').disabled=$('edgeNext').disabled=state.chapter===state.spine.length-1&&state.paging.page===state.paging.pages-1}$('topBookmark').classList.toggle('on',reading&&hasNearbyBookmark());$('bookmarkUse').setAttribute('href',reading&&hasNearbyBookmark()?'#i-bookmark-fill':'#i-bookmark')}
 function shortDate(ts){return ts?new Date(ts).toLocaleDateString(undefined,{month:'short',day:'numeric'}):''}
 function colorFor(s){let a=0;for(const c of String(s||''))a=(a*33+c.codePointAt(0))>>>0;return PALETTE[a%PALETTE.length]}
 function bookPct(id){const p=state.progress[id];return p?`${Math.round(p.percent||0)}% read`:'Not started'}
@@ -281,9 +377,9 @@ function coverHTML(rec,mini=false){const color=colorFor(rec.id),url=getCoverURL(
 function renderLibrary(){const records=state.library;$('railCount').textContent=records.length;const shelf=$('shelfList');shelf.innerHTML=records.map(r=>`<button class="shelf-item ${state.book?.id===r.id?'active':''}" data-open="${r.id}">${coverHTML(r,true)}<span class="shelf-copy"><strong>${escapeHTML(r.title)}</strong><small>${bookPct(r.id)}</small></span></button>`).join('')||'<div class="empty-shelf" style="padding:12px">Your shelf is empty.</div>';
  $('recentTitle').textContent=records.length?'Continue your journey':'Your library';$('bookCards').innerHTML=records.map(r=>`<div class="book-card"><button type="button" class="book-card-open" data-open="${escapeHTML(r.id)}" aria-label="Open ${escapeHTML(r.title)}">${coverHTML(r)}<strong>${escapeHTML(r.title)}</strong><small>${escapeHTML(r.author||bookPct(r.id))}</small></button><button type="button" class="book-remove" data-book-remove="${escapeHTML(r.id)}" title="Remove book and saved data" aria-label="Remove ${escapeHTML(r.title)} and its saved data">${ICON('trash')}</button></div>`).join('')||'<div class="empty-shelf">No books yet. Add an EPUB or explore the sample.</div>';document.querySelectorAll('[data-open]').forEach(el=>el.addEventListener('click',()=>openBook(el.dataset.open)));document.querySelectorAll('[data-book-remove]').forEach(el=>el.addEventListener('click',event=>{event.stopPropagation();removeBookById(el.dataset.bookRemove)}));}
 function setRail(show){state.railOpen=show;$('app').classList.toggle('rail-hidden',!show)}
-function closeDrawer(){state.drawer=null;$('scrim').classList.remove('visible');$('tocDrawer').classList.remove('visible');$('settingsDrawer').classList.remove('visible')}
-function showDrawer(which){if(state.drawer===which){closeDrawer();return}closeDrawer();state.drawer=which;$('scrim').classList.add('visible');$(which==='toc'?'tocDrawer':'settingsDrawer').classList.add('visible');if(which==='toc')renderTOC();if(which==='settings')updateStorageStats();if(window.innerWidth<=680)setRail(false)}
-function toLibrary(){hideNotePopup();state.noteReturn=null;$('noteBack').hidden=true;if(!$('folioWordCard').hidden)hideWordCard();if(state.book){saveProgress();stopSpeech();state.renderToken++;if(state.zip){for(const url of state.urls.values())URL.revokeObjectURL(url)}state.urls.clear();state.chapterCache.clear();state.noteDocCache.clear();state.preparePromises.clear();state.styleCache.clear();state.book=null;state.meta=null;state.zip=null;state.chapter=-1;state.spine=[];state.toc=[];$('readerFrame').srcdoc='';state.paging={page:0,pages:1,columns:2,step:0,gap:0,restore:0};}closeDrawer();$('readerView').hidden=true;$('emptyView').hidden=false;$('topTitle').textContent='Your reading space';$('topSubtitle').textContent='A private EPUB library';$('ttsDock').hidden=true;setButtonState();renderLibrary();}
+function closeDrawer(){state.drawer=null;$('scrim').classList.remove('visible');$('tocDrawer').classList.remove('visible');$('settingsDrawer').classList.remove('visible');$('searchDrawer').classList.remove('visible');if(typeof folioSearch!=='undefined')folioSearch.worker?.postMessage({type:'cancel'})}
+function showDrawer(which){if(state.drawer===which){closeDrawer();return}closeDrawer();state.drawer=which;$('scrim').classList.add('visible');$(which==='toc'?'tocDrawer':which==='search'?'searchDrawer':'settingsDrawer').classList.add('visible');if(which==='toc')renderTOC();if(which==='settings')updateStorageStats();if(which==='search')onOpenFolioSearch();if(window.innerWidth<=680)setRail(false)}
+function toLibrary(){resetFolioSearch();hideNotePopup();state.noteReturn=null;$('noteBack').hidden=true;if(!$('folioWordCard').hidden)hideWordCard();if(state.book){saveProgress();stopSpeech();state.renderToken++;if(state.zip){for(const url of state.urls.values())URL.revokeObjectURL(url)}state.urls.clear();state.chapterCache.clear();state.noteDocCache.clear();state.preparePromises.clear();state.styleCache.clear();state.book=null;state.meta=null;state.zip=null;state.chapter=-1;state.spine=[];state.toc=[];$('readerFrame').srcdoc='';state.paging={page:0,pages:1,columns:2,step:0,gap:0,restore:0};}closeDrawer();$('readerView').hidden=true;$('emptyView').hidden=false;$('app').classList.remove('reader-active');$('topTitle').textContent='Your reading space';$('topSubtitle').textContent='A private EPUB library';$('ttsDock').hidden=true;setButtonState();renderLibrary();}
 function setTheme(theme){$('app').classList.remove('theme-sepia','theme-dark');if(theme!=='light')$('app').classList.add('theme-'+theme);document.querySelectorAll('[data-theme]').forEach(el=>el.classList.toggle('selected',el.dataset.theme===theme));const col=theme==='dark'?'#1f2524':theme==='sepia'?'#eee5d5':'#f6f5f1';document.querySelector('meta[name="theme-color"]')?.setAttribute('content',col)}
 function bindSetting(id,key,convert=val=>val,render=false){const el=$(id);el.addEventListener('input',()=>{state.settings[key]=convert(el.type==='checkbox'?el.checked:el.value);safeSave(STORAGE.settings,state.settings);syncSettingsLabels();if(key==='theme')setTheme(state.settings.theme);if(render)updateReaderTheme()})}
 function initSettings(){const saved=safeParse(STORAGE.settings,{});if(saved.layoutVersion!==2){if(Number.isFinite(saved.pageWidth))saved.pageWidth=clamp(Math.round(saved.pageWidth*1.65/20)*20,700,2200);saved.layoutVersion=2;}state.settings={...DEFAULTS,...saved};safeSave(STORAGE.settings,state.settings);state.progress=safeParse(STORAGE.progress,{});state.bookmarks=safeParse(STORAGE.bookmarks,{});setTheme(state.settings.theme);
@@ -356,9 +452,13 @@ function paginateChapter(fraction=pageFraction(),token=state.renderToken){
  const shell=$('readingShell');
  shell.style.setProperty('--folio-divider-one',(leftMargin+colWidth+gap/2)+'px');
  shell.style.setProperty('--folio-divider-two',(leftMargin+2*colWidth+1.5*gap)+'px');
- $('folioLeftMask').style.width=Math.max(0,leftMargin-1)+'px';
- $('folioRightMask').style.width=Math.max(0,rightMargin-1)+'px';
- const clickBuffer=frame.clientWidth<=680?18:34;
+ // Mask exactly to the text-box bounds. Any exposed portion of the next
+ // multicolumn fragment causes a distracting ghost of the next page.
+ // Instead of exposing the margins, protect hanging indents *inside* the
+ // column with the normalized EPUB list/paragraph styles.
+ $('folioLeftMask').style.width=Math.max(0,leftMargin+.5)+'px';
+ $('folioRightMask').style.width=Math.max(0,rightMargin+.5)+'px';
+ const clickBuffer=frame.clientWidth<=680?24:39;
  $('edgePrev').style.width=Math.max(0,leftMargin-clickBuffer)+'px';$('edgeNext').style.width=Math.max(0,rightMargin-clickBuffer)+'px';
  const totalWidth=Math.max(width,body.scrollWidth);
  const count=Math.max(1,Math.ceil((totalWidth+gap-1)/(colWidth+gap)));
@@ -406,8 +506,8 @@ async function parseBook(zip,filename){const container=zipFile(zip,'META-INF/con
  return {opfPath,title:title||filename.replace(/\.epub$/i,''),author:author||'',manifest,spine,toc,coverBlob}}
 async function hashFile(data,filename){if(globalThis.crypto?.subtle){try{const hash=await crypto.subtle.digest('SHA-256',data);return 'b-'+[...new Uint8Array(hash)].slice(0,16).map(x=>x.toString(16).padStart(2,'0')).join('')}catch{}}const u=new Uint8Array(data),step=Math.max(1,Math.floor(u.length/4096));let h=2166136261;for(let i=0;i<u.length;i+=step){h^=u[i];h=Math.imul(h,16777619)}for(const c of filename){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return 'b-'+(h>>>0).toString(16)+'-'+u.length}
 async function importFiles(files){const valid=[...files].filter(f=>/\.epub$/i.test(f.name)||f.type==='application/epub+zip');if(!valid.length){notify('Please choose a .epub book');return}loading(true,'Importing EPUB books…');let first=null,done=0;try{for(const file of valid){try{const buffer=await file.arrayBuffer();const zip=await JSZip.loadAsync(buffer);const parsed=await parseBook(zip,file.name);const id=await hashFile(buffer,file.name),prior=getBookRecord(id);const record={id,title:parsed.title,author:parsed.author,filename:file.name,size:file.size,createdAt:prior?.createdAt||Date.now(),lastOpened:Date.now(),cover:parsed.coverBlob,epub:new Blob([buffer],{type:'application/epub+zip'})};if(state.db){await database('readwrite',s=>s.put(record))}else state.temporary.set(id,record);done++;if(!first)first=id}catch(e){console.error(e);notify(`${file.name}: ${e.message}`)}}await refreshLibrary();if(first)await openBook(first);if(done>1)notify(`Imported ${done} books`)}finally{loading(false)}}
-async function openBook(id){state.noteReturn=null;$('noteBack').hidden=true;const record=getBookRecord(id);if(!record){notify('Could not find that book');return}stopSpeech();closeDrawer();const token=++state.loadToken;loading(true,'Preparing your reading space…');try{const zip=await JSZip.loadAsync(record.epub);const parsed=await parseBook(zip,record.filename||record.title);if(token!==state.loadToken)return;for(const u of state.urls.values())URL.revokeObjectURL(u);state.urls.clear();state.chapterCache.clear();state.noteDocCache.clear();state.preparePromises.clear();state.styleCache.clear();state.zip=zip;state.book=record;state.meta=parsed;state.manifest=parsed.manifest;state.spine=parsed.spine;state.toc=parsed.toc;record.lastOpened=Date.now();if(state.db){try{await database('readwrite',s=>s.put(record))}catch(e){console.warn(e)}}else state.temporary.set(id,record);
- $('emptyView').hidden=true;$('readerView').hidden=false;$('topTitle').textContent=record.title;$('topSubtitle').textContent=record.author||'Enjoy your reading';setButtonState();const pos=state.progress[id];await renderChapter(Math.max(0,Math.min(state.spine.length-1,pos?.chapter??0)),pos?.fraction||0);renderLibrary();if(window.innerWidth<=950)setRail(false)}catch(e){console.error(e);notify(`Could not open book: ${e.message}`);toLibrary()}finally{if(token===state.loadToken)loading(false)}}
+async function openBook(id){resetFolioSearch();state.noteReturn=null;$('noteBack').hidden=true;const record=getBookRecord(id);if(!record){notify('Could not find that book');return}stopSpeech();closeDrawer();const token=++state.loadToken;loading(true,'Preparing your reading space…');try{const zip=await JSZip.loadAsync(record.epub);const parsed=await parseBook(zip,record.filename||record.title);if(token!==state.loadToken)return;for(const u of state.urls.values())URL.revokeObjectURL(u);state.urls.clear();state.chapterCache.clear();state.noteDocCache.clear();state.preparePromises.clear();state.styleCache.clear();state.zip=zip;state.book=record;state.meta=parsed;state.manifest=parsed.manifest;state.spine=parsed.spine;state.toc=parsed.toc;record.lastOpened=Date.now();if(state.db){try{await database('readwrite',s=>s.put(record))}catch(e){console.warn(e)}}else state.temporary.set(id,record);
+ $('emptyView').hidden=true;$('readerView').hidden=false;$('app').classList.add('reader-active');setRail(false);$('topTitle').textContent=record.title;$('topSubtitle').textContent=record.author||'Enjoy your reading';setButtonState();const pos=state.progress[id];await renderChapter(Math.max(0,Math.min(state.spine.length-1,pos?.chapter??0)),pos?.fraction||0);renderLibrary();if(window.innerWidth<=950)setRail(false)}catch(e){console.error(e);notify(`Could not open book: ${e.message}`);toLibrary()}finally{if(token===state.loadToken)loading(false)}}
 async function assetURL(path){const key=normalize(path);if(state.urls.has(key))return state.urls.get(key);const entry=zipFile(state.zip,key);if(!entry)return null;const bytes=await entry.async('uint8array');const url=URL.createObjectURL(new Blob([bytes],{type:mime(key)}));state.urls.set(key,url);return url}
 async function asyncReplace(source,regex,fn){const items=[...source.matchAll(regex)],values=await Promise.all(items.map(m=>fn(m)));let i=0;return source.replace(regex,()=>values[i++])}
 async function rewriteCSS(css,base,depth=0){if(depth>5)return css;css=await asyncReplace(css,/\@import\s+(?:url\(\s*)?["']?([^\s"')]+)["']?\s*\)?\s*;/gi,async m=>{const ref=splitRef(base,m[1]);if(ref.external)return '';const file=zipFile(state.zip,ref.path);if(!file)return '';try{return await rewriteCSS(await file.async('string'),ref.path,depth+1)}catch{return ''}});
@@ -450,6 +550,7 @@ async function renderContent(path,chapterToken){
 }
 function makeChapterDocument(prepared){
  const parts=readerStyleParts();
+ parts.layout += "\n::highlight(folio-search-hit){background:rgba(213,167,62,.38);color:inherit}\n";
  return `<!doctype html><html lang="${escapeHTML(prepared.lang)}"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src blob: data:; style-src blob: 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src blob: data: https://fonts.gstatic.com https://cdn.jsdelivr.net; media-src blob: data:; connect-src 'none'; script-src 'none'; frame-src 'none'; form-action 'none'"><style>${prepared.css.replace(/<\/style/gi,'<\\/style')}</style><style id="folioFontStyle">${compactReaderFontRules(parts.fonts)}</style><style id="folioReaderStyle">${parts.layout}</style></head><body>${prepared.bodyHTML}</body></html>`;
 }
 
@@ -555,7 +656,7 @@ function readerCSS(){const s=state.settings,night=s.theme==='dark',warm=s.theme=
  ${localEnglishAlias}
  ${BUNDLED_EN_FONT_RULES[s.enFont]||''}
  ${localWenkaiAlias}
- :root{--folio-side:clamp(70px,5vw,104px);--folio-top:clamp(26px,4vh,48px);--folio-bottom:var(--folio-top);--folio-gap:clamp(32px,5vw,82px);--folio-max:${s.pageWidth}px;}
+ :root{--folio-side:clamp(76px,5.5vw,112px);--folio-top:clamp(26px,4vh,48px);--folio-bottom:var(--folio-top);--folio-gap:clamp(32px,5vw,82px);--folio-max:${s.pageWidth}px;}
  html.folio-read-mode{--folio-bottom:clamp(14px,2vh,24px)}
  html{height:100%!important;width:100%!important;overflow:hidden!important;overscroll-behavior:none;scroll-behavior:auto!important;background:${bg}!important;color-scheme:${night?'dark':'light'};}
  html::before,html::after{display:none!important;content:none!important;}
@@ -577,6 +678,15 @@ function readerCSS(){const s=state.settings,night=s.theme==='dark',warm=s.theme=
 
 
  body :is(p,li,blockquote,dd){font-size:1em!important;line-height:${s.lineHeight}!important;margin-block:0 ${s.paragraphSpace}em!important;break-inside:auto!important;}
+ /* Contain publisher hanging indents and list markers inside column boundaries. */
+ body :is(ol,ul){padding-inline-start:max(2.05em,32px)!important;margin-inline:0!important;}
+ body li{padding-inline-start:.14em!important;max-width:100%;}
+ body :is(p,li,div,blockquote){min-width:0;}
+ body :is(p,li,blockquote){overflow-wrap:break-word;}
+ body :is(h1,h2,h3,h4,h5,h6){overflow-wrap:anywhere;}
+ body :is(p,li,blockquote)[style*="text-indent: -"],body :is(p,li,blockquote)[style*="text-indent:-"]{text-indent:0!important;}
+ body :is(ol,ul)[style*="margin-left: -"],body :is(ol,ul)[style*="margin-left:-"]{margin-left:0!important;}
+
  body :is(h1,h2,h3,h4,h5,h6){text-indent:0!important;padding-inline:0!important;line-height:1.32!important;margin-block:1.25em .7em!important;font-weight:650!important;break-after:avoid;break-inside:avoid;}
  body h1{font-size:1.65em!important}body h2{font-size:1.35em!important}body h3{font-size:1.18em!important}
  body :is(img,svg,video){max-width:100%!important;max-height:calc(100vh - var(--folio-top) - var(--folio-bottom) - 55px)!important;object-fit:contain;height:auto;break-inside:avoid;}
@@ -585,12 +695,39 @@ function readerCSS(){const s=state.settings,night=s.theme==='dark',warm=s.theme=
  body table{border-collapse:collapse}body :is(pre,code,kbd,samp){font-family:ui-monospace,Consolas,monospace!important;font-size:.88em;white-space:pre-wrap;overflow-wrap:anywhere}
  body a{color:${link}!important;text-decoration-color:${link};}
  body :is(small,aside,figcaption){color:${secondary}}body *::selection{background:${mark}!important}
- body .folio-speaking{background:${mark}!important;border-radius:4px;box-shadow:0 0 0 3px ${mark};}
+ body .folio-speaking{background:${mark}!important;border-radius:3px;box-shadow:none!important;outline:none!important;}
  body hr{border:0;border-top:1px solid ${secondary}66;margin:1.5em 0}body :is(sub,sup){line-height:0!important}body [hidden]{display:none!important}
  body [data-folio-popup-note="true"]{display:none!important}
- body a[data-folio-note-ref]{color:${link}!important;cursor:pointer;text-decoration:none;border-bottom:1px dotted currentColor;}
- body a[data-folio-note-ref]:hover{background:${mark}!important;border-radius:3px;}
- @media(max-width:920px){:root{--folio-gap:0px;--folio-side:clamp(36px,6.5vw,58px)}body{column-count:1!important;}}
+ /* Optical spacing for footnote marks in Chinese and English prose.
+    Based on CLReq's no-break annotation principle; spacing is em-relative. */
+ body :is(sup,sub):has(> a[data-folio-note-ref]){
+   font-size:.76em!important;line-height:0!important;vertical-align:super!important;
+   white-space:nowrap!important;letter-spacing:0!important;
+ }
+ body a[data-folio-note-ref]{
+   --folio-note-before:.13em; --folio-note-after:.045em;
+   display:inline!important; position:relative!important; white-space:nowrap!important;
+   color:${link}!important;cursor:pointer;text-decoration:none!important;
+   font-weight:680!important;line-height:1!important;letter-spacing:0!important;
+   border:0!important;border-radius:.28em!important;
+   padding:.025em .105em!important;
+   margin-inline-start:var(--folio-note-before)!important;
+   margin-inline-end:var(--folio-note-after)!important;
+   background:color-mix(in srgb,${link} 8%,transparent)!important;
+   box-decoration-break:clone;-webkit-box-decoration-break:clone;
+ }
+ body a.folio-note-cjk[data-folio-note-ref]{--folio-note-before:.205em;--folio-note-after:.075em}
+ body a.folio-note-latin[data-folio-note-ref]{--folio-note-before:.12em;--folio-note-after:.04em}
+ /* For publishers placing a note link directly in a paragraph, raise the
+    annotation without changing the baseline or height of the whole line. */
+ body a[data-folio-note-ref]:not(sup a):not(sub a){font-size:.76em!important;top:-.37em!important}
+ body a[data-folio-note-ref]::before{content:'\\2060';font-size:0!important}
+ body a[data-folio-note-ref]:hover,body a[data-folio-note-ref]:focus-visible{
+   background:color-mix(in srgb,${link} 18%,transparent)!important;
+   text-decoration:none!important;
+ }
+
+ @media(max-width:920px){:root{--folio-gap:0px;--folio-side:clamp(40px,7vw,64px)}body{column-count:1!important;}}
  @media(max-height:450px){:root{--folio-top:14px;--folio-bottom:14px}}
  `}
 const readerStyleMemo={key:'',parts:null};
@@ -651,6 +788,21 @@ function initNoteReferences(doc,path){
   const target=splitRef(path,a.getAttribute('data-book-href'));
   if(target.external||!target.hash||!zipFile(state.zip,target.path))continue;
   a.setAttribute('data-folio-note-ref','');a.setAttribute('aria-haspopup','dialog');
+  // Use the closest preceding visible character rather than the chapter's
+  // declared language. Mixed Chinese/English paragraphs need local spacing.
+  let el=a.closest('sup,sub')||a,prevText='';
+  while(el && el!==doc.body && !prevText){
+   let prev=el.previousSibling;
+   while(prev && !prevText){
+    prevText=(prev.textContent||'').replace(/[\s\u200b\u2060]+$/g,'');
+    if(!prevText)prev=prev.previousSibling;
+   }
+   el=el.parentNode;
+  }
+  const last=Array.from(prevText).at(-1)||'';
+  const hasHan=/[\u3400-\u9fff\uf900-\ufaff]/.test(last);
+  const isCJKPunct=/[\u3000-\u303f\uff00-\uffef]/.test(last);
+  a.classList.add(hasHan||isCJKPunct?'folio-note-cjk':'folio-note-latin');
   a.removeAttribute('title'); // Avoid a second delayed native tooltip beside the quick preview.
  }
 }
@@ -801,6 +953,7 @@ async function renderChapter(index,fraction=0,opts={}){hideNotePopup();if(!state
  for(const img of doc.images)if(!img.complete)img.addEventListener('load',repaginate,{once:true});
  if(doc.fonts)doc.fonts.ready.then(repaginate).catch(()=>{});
  paginateChapter(fraction,token);
+ if(opts.searchMatch)requestAnimationFrame(()=>{if(token===state.renderToken){focusFolioSearchMatch(opts.searchMatch);setTimeout(()=>{if(token===state.renderToken)focusFolioSearchMatch(opts.searchMatch)},180)}});
  if(opts.hash){const target=doc.getElementById(opts.hash)||doc.getElementsByName(opts.hash)[0];if(target)goToElement(target)}
  renderTOC();setButtonState();saveProgress();if(!state.noteReturn)scheduleNeighborPreparation(index);
  }catch(e){if(token===state.renderToken){console.error(e);notify(`Chapter could not be displayed: ${e.message}`)}}}
@@ -1055,7 +1208,7 @@ async function createDemo(){const zip=new JSZip();zip.file('mimetype','applicati
  zip.file('OEBPS/two.xhtml',`<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN"><head><title>留一点时间给自己</title></head><body><h1>留一点时间给自己</h1><p>读书的时候，最难得的也许不是读完多少页，而是允许自己慢下来。窗外的光在移动，桌上的茶渐渐凉了，文字却把时间留在了这一刻。</p><p>好的阅读体验，应该安静、自由。中文可以选择宋体、楷体或黑体；English text, such as Georgia and Bookerly, should use the selected English font. 全角英文ＡＢＣ也应显示成标准字宽。字号、行距和页面宽度，都应该由读者决定。</p><p>你可以打开朗读功能，让浏览器用中文自然语音读出这一段，也可以暂停，回到刚刚停下的位置。</p><p>如果一本书值得反复阅读，那么一个书签就像留给未来自己的小纸条。你不必记住所有事情，只需要记住自己曾在哪里停留。</p><p>愿每次打开一本书，都像推开一扇熟悉的窗。</p></body></html>`);
  const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE'});const file=new File([blob],'folio-sample.epub',{type:'application/epub+zip'});await importFiles([file])}
 function bindEvents(){const upload=()=>{$('fileInput').value='';$('fileInput').click()};for(const id of ['railOpen','railAdd','topImport','browse'])$(id).addEventListener('click',upload);$('fileInput').addEventListener('change',e=>importFiles(e.target.files));$('demoBtn').addEventListener('click',()=>createDemo().catch(e=>notify(e.message)));
- $('toggleRail').addEventListener('click',()=>setRail(!state.railOpen));$('closeRail').addEventListener('click',()=>setRail(false));$('homeBrand').addEventListener('click',()=>{toLibrary();setRail(false)});$('navLibrary').addEventListener('click',()=>{toLibrary();setRail(false)});
+ $('topHome').addEventListener('click',()=>{toLibrary();setRail(false)});$('toggleRail').addEventListener('click',()=>setRail(!state.railOpen));$('closeRail').addEventListener('click',()=>setRail(false));$('homeBrand').addEventListener('click',()=>{toLibrary();setRail(false)});$('navLibrary').addEventListener('click',()=>{toLibrary();setRail(false)});
  for(const id of ['topToc','navContents'])$(id).addEventListener('click',()=>{switchTocTab('toc');showDrawer('toc')});$('navBookmarks').addEventListener('click',()=>{switchTocTab('bookmarks');showDrawer('toc')});$('topBookmark').addEventListener('click',toggleBookmark);for(const id of ['topSettings','navSettings'])$(id).addEventListener('click',()=>showDrawer('settings'));
  for(const id of ['closeToc','closeSettings','scrim'])$(id).addEventListener('click',closeDrawer);$('tabChapters').addEventListener('click',()=>switchTocTab('toc'));$('tabBookmarks').addEventListener('click',()=>switchTocTab('bookmarks'));
  $('prevPage').addEventListener('click',()=>changePage(-1));$('nextPage').addEventListener('click',()=>changePage(1));$('edgePrev').addEventListener('click',()=>changePage(-1));$('edgeNext').addEventListener('click',()=>changePage(1));$('readingShell').addEventListener('wheel',handleReaderWheel,{passive:false});$('topTTS').addEventListener('click',()=>{if($('ttsDock').hidden)startSpeech();else closeDock()});$('openDock').addEventListener('click',()=>{closeDrawer();showDock()});$('ttsPlay').addEventListener('click',toggleSpeech);$('ttsStop').addEventListener('click',stopSpeech);$('ttsClose').addEventListener('click',closeDock);
@@ -1331,6 +1484,160 @@ $('wordUK').addEventListener('click',()=>playDictionaryAudio('uk'));
 document.addEventListener('pointerdown',event=>{if(!$('folioWordCard').hidden&&!$('folioWordCard').contains(event.target)&&!$('readerFrame').contains(event.target))hideWordCard()});
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('folioWordCard').hidden){event.stopPropagation();hideWordCard()}});
 
+
+// EPUB search runs in a Web Worker. The existing embedded JSZip implementation is
+// reused, so neither a WASM download nor an external index is required.
+const folioSearch={worker:null,workerURL:null,ready:false,bookId:null,run:0,debounce:0,
+  results:[],found:0,done:false,scanned:0,limit:260,term:'',scope:-1,paintTimer:0};
+function resetFolioSearch(){
+ clearTimeout(folioSearch.debounce);clearTimeout(folioSearch.paintTimer);
+ if(folioSearch.worker)folioSearch.worker.terminate();
+ if(folioSearch.workerURL)URL.revokeObjectURL(folioSearch.workerURL);
+ Object.assign(folioSearch,{worker:null,workerURL:null,ready:false,bookId:null,run:0,
+  results:[],found:0,done:false,scanned:0,term:'',scope:-1,paintTimer:0});
+ const input=$('folioSearchInput');if(input)input.value='';
+ const results=$('folioSearchResults');if(results)results.innerHTML='';
+ const status=$('folioSearchStatus');if(status)status.textContent='Search within this book.';
+}
+function onOpenFolioSearch(){
+ if(!state.book)return;
+ setTimeout(()=>{if(state.drawer==='search')$('folioSearchInput').focus()},80);
+ if($('folioSearchInput').value.trim())scheduleFolioSearch(0);
+}
+function openFolioSearch(){if(!state.book)return;showDrawer('search')}
+function scheduleFolioSearch(delay=200){
+ clearTimeout(folioSearch.debounce);
+ folioSearch.debounce=setTimeout(beginFolioSearch,delay);
+}
+function ensureFolioSearchWorker(){
+ if(folioSearch.worker&&folioSearch.bookId===state.book?.id)return true;
+ if(!state.book)return false;
+ if(folioSearch.worker)folioSearch.worker.terminate();
+ if(folioSearch.workerURL)URL.revokeObjectURL(folioSearch.workerURL);
+ try{
+  const library=$('folio-jszip').textContent;
+  const code=$('folio-search-worker').textContent;
+  folioSearch.workerURL=URL.createObjectURL(new Blob([library,'\n',code],{type:'text/javascript'}));
+  folioSearch.worker=new Worker(folioSearch.workerURL);
+  folioSearch.ready=false;
+  folioSearch.bookId=state.book.id;
+  folioSearch.worker.onmessage=handleFolioSearchMessage;
+  folioSearch.worker.onerror=event=>{console.warn('EPUB search worker error:',event.message);$('folioSearchStatus').textContent='Search is unavailable in this browser.'};
+  folioSearch.worker.postMessage({type:'init',epub:state.book.epub,paths:state.spine.map(x=>x.path)});
+  return true;
+ }catch(error){console.warn('Could not start search worker',error);$('folioSearchStatus').textContent='Search requires Web Worker support.';return false}
+}
+function beginFolioSearch(){
+ if(!state.book)return;
+ const term=$('folioSearchInput').value.trim().slice(0,160);
+ const scope=$('folioSearchChapter').checked?state.chapter:-1;
+ folioSearch.term=term;folioSearch.scope=scope;folioSearch.results=[];folioSearch.found=0;
+ folioSearch.scanned=0;folioSearch.done=false;folioSearch.run++;
+ if(!term){
+  folioSearch.worker?.postMessage({type:'cancel'});
+  $('folioSearchStatus').textContent='Search within this book.';$('folioSearchResults').innerHTML='';return;
+ }
+ if(!ensureFolioSearchWorker())return;
+ $('folioSearchResults').innerHTML='';
+ $('folioSearchStatus').textContent='Preparing search…';
+ if(folioSearch.ready)folioSearch.worker.postMessage({type:'search',seq:folioSearch.run,term,scope,limit:folioSearch.limit});
+}
+function handleFolioSearchMessage(event){
+ const data=event.data;
+ if(data.type==='ready'){
+  folioSearch.ready=true;
+  if(folioSearch.term&&state.book?.id===folioSearch.bookId)
+   folioSearch.worker?.postMessage({type:'search',seq:folioSearch.run,term:folioSearch.term,scope:folioSearch.scope,limit:folioSearch.limit});
+  return;
+ }
+ if(data.type==='failure'){
+  if(data.seq===folioSearch.run)$('folioSearchStatus').textContent='Could not search this EPUB.';
+  return;
+ }
+ if(data.seq!==folioSearch.run||!state.book||state.book.id!==folioSearch.bookId)return;
+ if(data.type==='batch'||data.type==='done'){
+  if(data.matches?.length)folioSearch.results.push(...data.matches);
+  folioSearch.scanned=data.scanned;
+  folioSearch.found=data.found;
+  folioSearch.done=data.type==='done';
+  clearTimeout(folioSearch.paintTimer);
+  folioSearch.paintTimer=setTimeout(paintFolioSearchResults,data.type==='done'?0:70);
+ }
+}
+function folioSearchSnippet(snippet,term){
+ const low=snippet.toLocaleLowerCase(),p=low.indexOf(term.toLocaleLowerCase());
+ if(p<0)return escapeHTML(snippet);
+ return escapeHTML(snippet.slice(0,p))+'<mark>'+escapeHTML(snippet.slice(p,p+term.length))+'</mark>'+escapeHTML(snippet.slice(p+term.length));
+}
+function paintFolioSearchResults(){
+ const list=$('folioSearchResults'),count=folioSearch.results.length;
+ const scoped=folioSearch.scope>=0;
+ $('folioSearchStatus').textContent=folioSearch.done
+  ?count?`${count}${folioSearch.found>=folioSearch.limit?'+' :''} result${count===1?'':'s'}${folioSearch.found>=folioSearch.limit?' · showing first matches':''}`:'No matches found'
+  :`Searching · ${folioSearch.scanned}/${scoped?1:state.spine.length} chapters · ${count} found`;
+ if(!count){list.innerHTML=folioSearch.done?'<div class="search-empty">No matches in this book.</div>':'<div class="search-empty">Searching chapters…</div>';return}
+ list.innerHTML=folioSearch.results.map((r,i)=>`<button type="button" role="listitem" class="search-hit" data-search-result="${i}"><div class="search-hit-title">${escapeHTML(chapterTitle(r.chapter))}</div><div class="search-hit-context">${folioSearchSnippet(r.snippet,folioSearch.term)}</div></button>`).join('');
+}
+async function goToFolioSearchResult(index){
+ const r=folioSearch.results[index];if(!r||!state.book)return;
+ const target={term:folioSearch.term,ratio:r.ratio};
+ closeDrawer();
+ if(r.chapter===state.chapter){focusFolioSearchMatch(target);return}
+ await renderChapter(r.chapter,0,{searchMatch:target});
+}
+// Locate a DOM Range at the selected occurrence. The worker extracts text
+// without laying out a chapter; we use its normalized fractional position to
+// choose the closest true text match in the rendered chapter.
+function focusFolioSearchMatch(target){
+ const doc=$('readerFrame').contentDocument;
+ if(!doc?.body||!target?.term)return;
+ const walk=doc.createTreeWalker(doc.body,NodeFilter.SHOW_TEXT);
+ const nodes=[],starts=[],chunks=[];let total=0;
+ for(let node;node=walk.nextNode();){
+  if(!node.nodeValue||node.parentElement?.closest('script,style,svg,math,rt,rp'))continue;
+  nodes.push(node);starts.push(total);chunks.push(node.nodeValue);total+=node.nodeValue.length;
+ }
+ if(!total)return;
+ const full=chunks.join(''),haystack=full.toLocaleLowerCase();
+ const needle=target.term.toLocaleLowerCase();if(!needle)return;
+ const expected=Math.round(Math.min(1,Math.max(0,target.ratio||0))*haystack.length);
+ let best=-1,bestDistance=Infinity,at=haystack.indexOf(needle);
+ while(at>=0){const dist=Math.abs(at-expected);if(dist<bestDistance){best=at;bestDistance=dist}
+  if(at>expected&&dist>bestDistance)break;
+  at=haystack.indexOf(needle,at+Math.max(1,needle.length));
+ }
+ if(best<0){notify('The matching passage could not be located');return}
+ function point(index){let lo=0,hi=nodes.length-1;while(lo<hi){const mid=(lo+hi+1)>>1;if(starts[mid]<=index)lo=mid;else hi=mid-1}return [nodes[lo],Math.min(nodes[lo].nodeValue.length,index-starts[lo])]}
+ const [a,ao]=point(best),[b,bo]=point(Math.min(total-1,best+target.term.length-1));
+ const range=doc.createRange();range.setStart(a,ao);range.setEnd(b,Math.min(b.nodeValue.length,bo+1));
+ const rect=range.getClientRects()[0];
+ if(rect){
+  const p=state.paging;
+  const body=doc.body;const left=parseFloat(doc.defaultView.getComputedStyle(body).left)||0;
+  const offset=p.page*p.step;
+  const page=Math.floor((rect.left+offset-left+1)/Math.max(1,p.step));
+  goToPage(Math.min(p.pages-1,Math.max(0,page)));
+ }
+ try{
+  const win=doc.defaultView;
+  if(win.CSS?.highlights&&win.Highlight){win.CSS.highlights.set('folio-search-hit',new win.Highlight(range))}
+ }catch(e){console.debug('Search highlighting unavailable',e)}
+}
+$('topSearch').addEventListener('click',openFolioSearch);
+$('navSearch').addEventListener('click',openFolioSearch);
+$('closeSearch').addEventListener('click',closeDrawer);
+$('folioSearchInput').addEventListener('input',()=>scheduleFolioSearch());
+$('folioSearchInput').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();scheduleFolioSearch(0)}});
+$('folioSearchChapter').addEventListener('change',()=>scheduleFolioSearch(0));
+$('folioSearchResults').addEventListener('click',event=>{
+ const item=event.target.closest('[data-search-result]');if(item)void goToFolioSearchResult(Number(item.dataset.searchResult));
+});
+document.addEventListener('keydown',event=>{
+ if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='f'&&state.book){
+  event.preventDefault();if(state.drawer!=='search')showDrawer('search');else $('folioSearchInput').focus();
+ }
+});
+
 // Install prompt only on a hosted index.html; standalone file:// is still usable.
 let folioInstallPrompt=null;
 window.addEventListener('beforeinstallprompt',event=>{
@@ -1348,6 +1655,89 @@ if('serviceWorker' in navigator&&(/^https:$/.test(location.protocol)||/^(localho
 }
 start().catch(e=>{console.error(e);notify('Could not initialize the reader')});
 })();
+</script>
+<script type="text/plain" id="folio-search-worker">
+/* Folio book search worker · browser-native JS, no external dependencies. */
+'use strict';
+let folioZip=null,folioPaths=[],currentSeq=0;
+let textCache=new Map(),units=0;
+const MAX_CACHE_UNITS=4_000_000; // UTF-16 code units: at most ~8 MB of extracted text
+const entities={amp:'&',lt:'<',gt:'>',quot:'"',apos:"'",nbsp:' ',ndash:'–',mdash:'—',hellip:'…',lsquo:'‘',rsquo:'’',ldquo:'“',rdquo:'”'};
+function decodeEntities(v){return v.replace(/&(#x[0-9a-f]+|#[0-9]+|[a-z]+);/gi,(_,name)=>{
+ if(name[0]==='#'){
+  const cp=name[1].toLowerCase()==='x'?parseInt(name.slice(2),16):parseInt(name.slice(1),10);
+  try{return String.fromCodePoint(cp)}catch{return ' '}
+ }
+ return entities[name.toLowerCase()]??' ';
+})}
+function chapterText(source){
+ let html=source.replace(/<!--[\s\S]*?-->/g,' ')
+ .replace(/<\s*(script|style|svg|math|head)\b[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi,' ');
+ const match=/<body\b[^>]*>([\s\S]*?)<\/body\s*>/i.exec(html);
+ if(match)html=match[1];
+ html=html.replace(/<\s*\/?\s*(?:p|div|h[1-6]|li|br|hr|section|article|aside|ul|ol|blockquote|table|tr|td|th|dt|dd|figcaption|figure)\b[^>]*>/gi,' ')
+  .replace(/<[^>]*>/g,'');
+ return decodeEntities(html).replace(/[\s\u00a0\u200b\ufeff]+/g,' ').trim();
+}
+async function getText(i){
+ const key=folioPaths[i];
+ if(textCache.has(key)){
+  const v=textCache.get(key);textCache.delete(key);textCache.set(key,v);return v;
+ }
+ const item=folioZip.file(key);if(!item)return '';
+ const txt=chapterText(await item.async('string'));
+ const size=txt.length;
+ if(size<=MAX_CACHE_UNITS){
+  textCache.set(key,txt);units+=size;
+  while(units>MAX_CACHE_UNITS){const oldest=textCache.keys().next().value;units-=textCache.get(oldest).length;textCache.delete(oldest)}
+ }
+ return txt;
+}
+async function scan(data){
+ const {seq,term,scope,limit}=data;
+ currentSeq=seq;
+ const folded=term.normalize('NFKC').toLocaleLowerCase();
+ const paths=scope>=0?[scope]:folioPaths.map((_,i)=>i);
+ let scanned=0,found=0,pending=[],lastFlush=performance.now();
+ try{
+  for(const chapter of paths){
+   if(seq!==currentSeq)return;
+   let text;
+   try{text=await getText(chapter)}catch(e){text=''}
+   if(seq!==currentSeq)return;
+   const haystack=text.normalize('NFKC').toLocaleLowerCase();
+   let idx=haystack.indexOf(folded);
+   while(idx>=0){
+    found++;
+    const start=Math.max(0,idx-68),end=Math.min(text.length,idx+term.length+125);
+    const snippet=(start>0?'…':'')+text.slice(start,end)+(end<text.length?'…':'');
+    pending.push({chapter,snippet,ratio:idx/Math.max(1,haystack.length)});
+    if(found>=limit)break;
+    idx=haystack.indexOf(folded,idx+Math.max(1,folded.length));
+   }
+   scanned++;
+   if(pending.length>=12||performance.now()-lastFlush>120){
+    self.postMessage({type:'batch',seq,matches:pending,scanned,found});pending=[];lastFlush=performance.now();
+   }
+   if(found>=limit)break; // bounded output and work for very common terms
+   // Let newer queries/cancel messages interrupt long book scans.
+   await new Promise(resolve=>setTimeout(resolve,0));
+  }
+  if(seq===currentSeq)self.postMessage({type:'done',seq,matches:pending,scanned,found});
+ }catch(error){if(seq===currentSeq)self.postMessage({type:'failure',seq,message:String(error)})}
+}
+self.addEventListener('message',async event=>{
+ const data=event.data||{};
+ if(data.type==='cancel'){currentSeq++;return}
+ if(data.type==='init'){
+  currentSeq++;textCache.clear();units=0;
+  folioPaths=data.paths;
+  try{folioZip=await self.JSZip.loadAsync(data.epub);self.postMessage({type:'ready'})}
+  catch(error){self.postMessage({type:'failure',seq:0,message:String(error)})}
+  return;
+ }
+ if(data.type==='search'&&folioZip)void scan(data);
+});
 </script>
 <script type="text/plain" id="bundled-font-license">Folio bundled font notices
 Libertinus Serif: Copyright © 2012–2024 The Libertinus Project Authors.
