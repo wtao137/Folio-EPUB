@@ -425,7 +425,7 @@ function paginateChapter(fraction=pageFraction(),token=state.renderToken){
  const root=doc.documentElement;
  root.style.removeProperty('--folio-max');
  const frameWidth=frame.clientWidth;
- const baseWidth=body.clientWidth;
+ const baseWidth=body.getBoundingClientRect().width;
  const candidateGap=parseFloat(doc.defaultView.getComputedStyle(body).columnGap)||0;
  const minColumnWidth=Math.max(440,Math.ceil(state.settings.fontSize*22));
  // The user's reading-width preference remains the normal limit. On a very
@@ -440,23 +440,24 @@ function paginateChapter(fraction=pageFraction(),token=state.renderToken){
  const wantedColumns=fitsThree?3:fitsTwo?2:1;
  if(fitsThree)root.style.setProperty('--folio-max',expandedMax+'px');
  body.style.setProperty('--folio-columns',String(wantedColumns));
- const cs=doc.defaultView.getComputedStyle(body),width=body.clientWidth,gap=parseFloat(cs.columnGap)||0;
- const cols=Math.max(1,parseInt(cs.columnCount,10)||1),colWidth=(width-gap*(cols-1))/cols;
- let stride=width+gap;
- // Read the measured start of the next spread from actual column fragments.
- // Chromium quantizes multicolumn widths to 1/64 CSS px; this prevents
- // fractional rounding from building up over long chapters.
- const expectedNext=parseFloat(cs.left)+width+gap;
- let closest=Infinity;
- for(const el of [...body.querySelectorAll('p,h1,h2,h3,h4,h5,h6,li,blockquote,dt,dd,figcaption')].slice(0,140)){
-  for(const rect of el.getClientRects()){
-   const distance=Math.abs(rect.left-expectedNext);
-   if(rect.width>0&&distance<Math.abs(closest-expectedNext))closest=rect.left;
-  }
- }
- if(Number.isFinite(closest)&&Math.abs(closest-expectedNext)<5)stride=closest-parseFloat(cs.left);
+ // clientWidth rounds to integer pixels, but multicol layout retains 1/64 px
+ // precision. Rounding the spread width here drifts by several pixels over a
+ // long chapter and can hide the first digit behind the margin mask.
+ const bodyBounds=body.getBoundingClientRect();
+ const cs=doc.defaultView.getComputedStyle(body),width=bodyBounds.width,gap=parseFloat(cs.columnGap)||0;
+ const cols=Math.max(1,parseInt(cs.columnCount,10)||1);
+ // Chromium quantizes each column width down to its 1/64 CSS-pixel layout
+ // unit. Use the actual column pitch, not the leftover fractional width of
+ // the containing box, to avoid cumulative drift across dozens of spreads.
+ const idealColumnWidth=(width-gap*(cols-1))/cols;
+ const colWidth=Math.floor(idealColumnWidth*64+1e-6)/64;
+ // A multicolumn spread advances by its layout box width plus one gap.
+ // Never estimate that origin from paragraph rectangles: hanging indents,
+ // positioned spans, and list markers are not column boundaries. Using them
+ // caused a small offset to compound on every page and crop leading digits.
+ const stride=(colWidth+gap)*cols;
  // Clickable margins must match the responsive body precisely (including custom page width).
- const leftMargin=Math.max(0,parseFloat(cs.left)||0),rightMargin=Math.max(0,frame.clientWidth-leftMargin-width);
+ const leftMargin=Math.max(0,bodyBounds.left),rightMargin=Math.max(0,frame.clientWidth-leftMargin-width);
  // Position both subtle rules from the measured column dimensions, so a
  // wider custom spread or resized window never misaligns the separators.
  const shell=$('readingShell');
@@ -476,6 +477,49 @@ function paginateChapter(fraction=pageFraction(),token=state.renderToken){
  state.paging={page:0,pages,columns:cols,step:stride,gap,restore:clamp(Number(fraction)||0,0,1)};
  $('readerView').classList.toggle('two-column',cols===2);$('readerView').classList.toggle('three-column',cols===3);
  goToPage(Math.round(state.paging.restore*(pages-1)),false);
+}
+// EPUB styles can indent the first line negatively or use three- and
+// four-digit ordered-list markers. Both can extend outside a CSS column and
+// disappear beneath the navigation mask. Make room INSIDE each column,
+// without modifying any EPUB file or globally discarding normal paragraph
+// first-line indentation.
+function protectColumnEdges(doc){
+ const win=doc.defaultView;
+ const canvas=doc.createElement('canvas');
+ const measure=canvas.getContext('2d');
+ const edits=[];
+ for(const list of doc.body.querySelectorAll('ol,ul')){
+  const style=win.getComputedStyle(list);
+  if(style.listStylePosition==='inside'||style.listStyleType==='none')continue;
+  const size=parseFloat(style.fontSize)||20;
+  const children=Array.from(list.children).filter(el=>el.tagName.toLowerCase()==='li');
+  let minWidth=size*2.2;
+  if(list.tagName.toLowerCase()==='ol'){
+   const start=list.hasAttribute('start')?Number(list.getAttribute('start')):(list.hasAttribute('reversed')?children.length:1);
+   let maxNum=Math.abs(start+children.length-1);
+   for(const li of children)if(li.hasAttribute('value'))maxNum=Math.max(maxNum,Math.abs(Number(li.getAttribute('value'))||0));
+   const digits=Math.max(1,String(Math.floor(maxNum)).length);
+   // The widest numeral (8) plus punctuation is a safe bound for proportional fonts.
+   measure.font=style.font||`${size}px ${style.fontFamily}`;
+   const marker=style.listStyleType.includes('roman')?'M'.repeat(Math.max(4,Math.min(9,digits*3)))+'.':
+     style.listStyleType.includes('alpha')?'WWW.':'8'.repeat(digits)+'.';
+   minWidth=Math.max(size*2.45,measure.measureText(marker).width+size*.74);
+  }
+  const current=parseFloat(style.paddingInlineStart)||0;
+  if(current+0.5<minWidth)edits.push([list,'padding-inline-start',`${Math.ceil(minWidth)}px`]);
+ }
+ // Read computed values first, then write once. This avoids repeated forced
+ // layout on large EPUB chapters with thousands of paragraphs.
+ for(const el of doc.body.querySelectorAll('p,li,blockquote,dd,dt,h1,h2,h3,h4,h5,h6')){
+  const st=win.getComputedStyle(el),indent=parseFloat(st.textIndent)||0;
+  const padding=parseFloat(st.paddingInlineStart)||0;
+  if(indent < -0.5 && padding+indent < 6){
+   edits.push([el,'padding-inline-start',`${Math.ceil(-indent+6)}px`]);
+  }
+  const margin=parseFloat(st.marginInlineStart)||0;
+  if(margin < -0.5)edits.push([el,'margin-inline-start','0px']);
+ }
+ for(const [el,name,value] of edits)el.style.setProperty(name,value,'important');
 }
 // getClientRects accounts for elements which fragment across several columns.
 function elementPage(el){if(!el)return 0;const rects=[...el.getClientRects()].filter(r=>r.width>0&&r.height>0);if(!rects.length)return 0;const p=state.paging,body=$('readerFrame').contentDocument.body;
@@ -983,6 +1027,7 @@ function scheduleNeighborPreparation(index){
 async function renderChapter(index,fraction=0,opts={}){hideNotePopup();if(!state.book||index<0||index>=state.spine.length)return;const token=++state.renderToken;if(!opts.keepSpeech)stopSpeech();else selectSpeechOrigin(null);state.chapter=index;state.paging={page:0,pages:1,columns:2,step:0,gap:0,restore:fraction};$('chapterInfo').textContent=`Chapter ${index+1} / ${state.spine.length}`;const entry=state.spine[index];try{const html=await renderContent(entry.path,token);if(token!==state.renderToken||!html)return;const frame=$('readerFrame');await new Promise(resolve=>{let done=false;const ready=()=>{if(done)return;done=true;resolve()};frame.onload=ready;frame.srcdoc=html;setTimeout(ready,1800)});if(token!==state.renderToken)return;
  const doc=frame.contentDocument;if(!doc||!doc.body)throw new Error('Browser blocked book rendering');
  applyScriptFonts(doc);
+ protectColumnEdges(doc);
  const faces=doc.getElementById('folioFontStyle');if(faces)faces.textContent += '\n/* folio-ready */';
  setReadMode(!$('ttsDock').hidden);
  initNoteReferences(doc,entry.path);

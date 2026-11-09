@@ -21,7 +21,7 @@ Folio is a lightweight, paginated reading application for Microsoft Edge and Chr
 
 ### Standalone HTML
 
-Download `Folio-EPUB-Reader-v20-Standalone.html` and open it in Edge or Chrome. Import a DRM-free EPUB from the library view. The reader itself can function offline; dictionary lookups and some web fonts require an internet connection. Direct `file://` browsing cannot be installed as a PWA, and its storage is separate from an HTTPS-hosted copy.
+Download `Folio-EPUB-Reader-v21-Standalone.html` and open it in Edge or Chrome. Import a DRM-free EPUB from the library view. The reader itself can function offline; dictionary lookups and some web fonts require an internet connection. Direct `file://` browsing cannot be installed as a PWA, and its storage is separate from an HTTPS-hosted copy.
 
 ### Install as a PWA
 
@@ -83,7 +83,7 @@ folio/
 └── README.md
 ```
 
-The separately distributed `Folio-EPUB-Reader-v20-Standalone.html` contains the reader but no installable PWA resources.
+The separately distributed `Folio-EPUB-Reader-v21-Standalone.html` contains the reader but no installable PWA resources.
 
 ## Development and contributing
 
