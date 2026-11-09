@@ -96,3 +96,13 @@ Contributions and bug reports are welcome. A useful issue includes the browser/v
 Folio includes JSZip and selected bundled English fonts. Their upstream licenses and copyright notices are retained in the HTML distribution, including the embedded font notices. EPUB books remain the property of their respective authors and publishers.
 
 **Folio's original source code is licensed under the [MIT License](LICENSE).** See `LICENSE` for the full terms. Third-party libraries, embedded fonts and their associated assets retain their own licenses and copyright notices; the MIT license for Folio does not relicense those dependencies.
+
+
+### Publisher typography
+
+Folio uses your selected Chinese and English fonts for ordinary prose while retaining font families explicitly assigned by an EPUB. This includes sans-serif headings, styled quotations, and character voices. If a book explicitly chooses a sans-serif typeface for its entire body, Folio retains that publisher-provided family and fallback order.
+
+
+### Font overrides
+
+Appearance → Typography → **Override book fonts** lets readers choose whether to keep EPUB-defined fonts or use the Chinese and English typefaces selected in Folio throughout the book. This setting is disabled by default, preserving publisher formatting. It is stored locally and does not modify the EPUB file. Switching modes repaginates the current chapter.

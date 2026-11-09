@@ -1,5 +1,5 @@
 // Folio app-shell cache. EPUBs remain in IndexedDB, not in Cache Storage.
-const CACHE='folio-shell-v22';
+const CACHE='folio-shell-v24';
 const SHELL=['./index.html','./manifest.webmanifest','./icons/folio-192.png','./icons/folio-512.png'];
 self.addEventListener('install',event=>{
  event.waitUntil((async()=>{

@@ -358,7 +358,7 @@
      <div class="drawer-group"><h3>Page tone</h3><div class="theme-options"><button class="theme-choice selected" data-theme="light"><div class="theme-preview light">Aa 字</div>Paper</button><button class="theme-choice" data-theme="sepia"><div class="theme-preview sepia">Aa 字</div>Warm</button><button class="theme-choice" data-theme="dark"><div class="theme-preview dark">Aa 字</div>Night</button></div></div>
      <div class="drawer-group"><h3>Typography</h3><label for="enFont" class="setting-label">English font <span class="muted">A–Z</span></label><select id="enFont" class="select"><option value="Georgia">Georgia</option><option value="Bookerly">Bookerly</option><option value="Palatino Linotype">Palatino</option><option value="Charter">Charter</option><option value="Baskerville">Baskerville</option><option value="Baskerville Old Face">Baskerville Old Face</option><option value="Sitka Text">Sitka Text</option><option value="Sitka Display">Sitka Display</option><option value="Garamond">Garamond</option><option value="EB Garamond">EB Garamond</option><option value="Libertinus Serif">Libertinus Serif</option><option value="Cambria">Cambria</option><option value="Constantia">Constantia</option><option value="Times New Roman">Times New Roman</option><option value="Arial">Arial</option><option value="Segoe UI">Segoe UI</option></select>
      <label for="zhFont" class="setting-label" style="margin-top:22px">Chinese font <span class="muted">中文</span></label><select id="zhFont" class="select"><option value="Noto Serif CJK SC">思源宋体 · Source Han Serif / Noto Serif</option><option value="Noto Sans CJK SC">思源黑体 · Source Han Sans / Noto Sans</option><option value="LXGW WenKai">霞鹜文楷 · LXGW WenKai</option><option value="Microsoft YaHei">微软雅黑 · Microsoft YaHei</option><option value="Microsoft YaHei UI">微软雅黑 UI · Microsoft YaHei UI</option><option value="DengXian">等线 · DengXian</option><option value="SimHei">黑体 · SimHei</option><option value="SimSun">宋体 · SimSun</option><option value="NSimSun">新宋体 · NSimSun</option><option value="KaiTi">楷体 · KaiTi</option><option value="FangSong">仿宋 · FangSong</option><option value="Microsoft JhengHei">微軟正黑體 · Microsoft JhengHei</option><option value="PingFang SC">苹方 · PingFang SC</option><option value="Songti SC">华文宋体 · Songti SC</option><option value="STKaiti">华文楷体 · STKaiti</option></select>
-     
+     <div class="switch-row"><label for="forceBookFonts">Override book fonts</label><input type="checkbox" id="forceBookFonts"></div>
       <div style="margin-top:23px"><label class="setting-label" for="fontSize">Text size <span id="fontSizeVal" class="muted">20 px</span></label><input class="range" type="range" id="fontSize" min="14" max="32" step="1"></div>
      <div style="margin-top:23px"><label class="setting-label" for="lineHeight">Line spacing <span id="lineHeightVal" class="muted">1.8</span></label><input class="range" type="range" id="lineHeight" min="1.3" max="2.4" step="0.05"></div>
      <div style="margin-top:23px"><label class="setting-label" for="paragraphSpace">Paragraph spacing <span id="paragraphSpaceVal" class="muted">1.0 em</span></label><input class="range" type="range" id="paragraphSpace" min="0.3" max="2.0" step="0.1"></div>
@@ -410,7 +410,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 const $=id=>document.getElementById(id);
 const ICON=(name,cls='')=>`<svg class="icon ${cls}"><use href="#i-${name}"/></svg>`;
 const STORAGE={settings:'folio.settings.v1',progress:'folio.progress.v1',bookmarks:'folio.bookmarks.v1'};
-const DEFAULTS={theme:'light',enFont:'Georgia',zhFont:'Noto Serif CJK SC',fontSize:20,lineHeight:1.8,paragraphSpace:1.0,pageWidth:1280,rate:1,zhVoice:'',enVoice:'',quickVoice:'auto',lastVoiceByLang:{},autoAdvance:true,autoScroll:true};
+const DEFAULTS={theme:'light',enFont:'Georgia',zhFont:'Noto Serif CJK SC',forceBookFonts:false,fontSize:20,lineHeight:1.8,paragraphSpace:1.0,pageWidth:1280,rate:1,zhVoice:'',enVoice:'',quickVoice:'auto',lastVoiceByLang:{},autoAdvance:true,autoScroll:true};
 const PALETTE=['#6f847d','#8b766c','#697e91','#86856d','#986c66','#736c85','#53776d','#87735e'];
 const MIME={svg:'image/svg+xml',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',webp:'image/webp',avif:'image/avif',bmp:'image/bmp',css:'text/css',woff:'font/woff',woff2:'font/woff2',ttf:'font/ttf',otf:'font/otf',mp3:'audio/mpeg',mp4:'video/mp4',m4a:'audio/mp4',ogg:'audio/ogg'};
 const state={db:null,library:[],temporary:new Map(),book:null,zip:null,meta:null,manifest:new Map(),spine:[],toc:[],chapter:-1,urls:new Map(),chapterCache:new Map(),preparePromises:new Map(),styleCache:new Map(),noteDocCache:new Map(),noteReturn:null,coverUrls:new Map(),loadToken:0,renderToken:0,settings:{...DEFAULTS},progress:{},bookmarks:{},railOpen:false,drawer:null,tocTab:'toc',voices:[],synth:window.speechSynthesis||null,tts:{mode:'stopped',token:0,segments:[],index:0,activeEl:null,selectedEl:null,utterance:null},paging:{page:0,pages:1,columns:2,step:0,gap:0,restore:0},resizeTimer:0,toastTimer:0};
@@ -438,8 +438,9 @@ function toLibrary(){resetFolioSearch();hideNotePopup();state.noteReturn=null;$(
 function setTheme(theme){$('app').classList.remove('theme-sepia','theme-dark');if(theme!=='light')$('app').classList.add('theme-'+theme);document.querySelectorAll('[data-theme]').forEach(el=>el.classList.toggle('selected',el.dataset.theme===theme));const col=theme==='dark'?'#1f2524':theme==='sepia'?'#eee5d5':'#f6f5f1';document.querySelector('meta[name="theme-color"]')?.setAttribute('content',col)}
 function bindSetting(id,key,convert=val=>val,render=false){const el=$(id);el.addEventListener('input',()=>{state.settings[key]=convert(el.type==='checkbox'?el.checked:el.value);safeSave(STORAGE.settings,state.settings);syncSettingsLabels();if(key==='theme')setTheme(state.settings.theme);if(render)updateReaderTheme()})}
 function initSettings(){const saved=safeParse(STORAGE.settings,{});if(saved.layoutVersion!==2){if(Number.isFinite(saved.pageWidth))saved.pageWidth=clamp(Math.round(saved.pageWidth*1.65/20)*20,700,2200);saved.layoutVersion=2;}state.settings={...DEFAULTS,...saved};safeSave(STORAGE.settings,state.settings);state.progress=safeParse(STORAGE.progress,{});state.bookmarks=safeParse(STORAGE.bookmarks,{});setTheme(state.settings.theme);
- for(const id of ['enFont','zhFont','fontSize','lineHeight','paragraphSpace','pageWidth','zhVoice','enVoice','quickRate','quickVoice','autoAdvance','autoScroll']){if(id==='quickRate')$('quickRate').value=state.settings.rate;else if(id==='quickVoice')$('quickVoice').value=state.settings.quickVoice;else {const field=state.settings[id];$(id).type==='checkbox'?$(id).checked=!!field:$(id).value=field}}
+ for(const id of ['enFont','zhFont','forceBookFonts','fontSize','lineHeight','paragraphSpace','pageWidth','zhVoice','enVoice','quickRate','quickVoice','autoAdvance','autoScroll']){if(id==='quickRate')$('quickRate').value=state.settings.rate;else if(id==='quickVoice')$('quickVoice').value=state.settings.quickVoice;else {const field=state.settings[id];$(id).type==='checkbox'?$(id).checked=!!field:$(id).value=field}}
  for(const btn of document.querySelectorAll('[data-theme]'))btn.addEventListener('click',()=>{state.settings.theme=btn.dataset.theme;safeSave(STORAGE.settings,state.settings);setTheme(state.settings.theme);updateReaderTheme()});
+ $('forceBookFonts').addEventListener('change',()=>{state.settings.forceBookFonts=$('forceBookFonts').checked;safeSave(STORAGE.settings,state.settings);if(state.book)renderChapter(state.chapter,pageFraction());});
  for(const id of ['enFont','zhFont','fontSize','lineHeight','paragraphSpace','pageWidth'])bindSetting(id,id,el=>['fontSize','lineHeight','paragraphSpace','pageWidth'].includes(id)?Number(el):el,true);
  for(const id of ['zhVoice','enVoice','quickVoice'])bindSetting(id,id);
  for(const id of ['autoAdvance','autoScroll'])bindSetting(id,id);
@@ -691,20 +692,88 @@ function fontStack(name,kind){const base=kind==='en'?'Georgia, "Times New Roman"
 // Only wrap Latin runs: Chinese characters retain the selected Chinese typeface.
 // Works in mixed-language paragraphs and respects EPUB links, emphasis and headings.
 // Fullwidth Latin letters/numbers are normalized so they do not retain CJK fullwidth forms.
+// Preserve font families explicitly chosen by the EPUB (e.g. sans-serif
+// chapter headings and the Phaedrus voice in Zen and the Art). Folio's
+// language-specific choices are only defaults for otherwise unstyled text.
+function publisherBodyFont(doc){
+ let value='';
+ const matchesBody=selector=>{
+  try{return doc.body.matches(selector)}catch{return false}
+ };
+ const visit=rules=>{
+  for(const rule of rules){
+   if(rule.type===1&&rule.style?.fontFamily){
+    // EPUB styles may include comma-separated selectors, including headings.
+    // Only accept rules that actually target the body.
+    if((rule.selectorText||'').split(',').some(s=>matchesBody(s.trim())))
+     value=rule.style.fontFamily;
+   }else if(rule.cssRules){try{visit(rule.cssRules)}catch{}}
+  }
+ };
+ for(const style of doc.querySelectorAll('style:not(#folioFontStyle):not(#folioReaderStyle)')){
+  try{if(style.sheet)visit(style.sheet.cssRules)}catch{}
+ }
+ return doc.body.style.fontFamily||value;
+}
+function sansFamilyIsExplicit(family){
+ return /(?:sans-serif|(?:noto|source han|lxgw)[ -]?sans|pingfang|heiti|yahei|jhenghei|simhei|dengxian|arial|helvetica|inter|segoe|roboto|黑体|雅黑|苹方|思源黑)/i.test(family||'');
+}
+function removePublisherFontFamilies(doc){
+ const clearRules=rules=>{
+  for(const rule of rules){
+   if(rule.type===CSSRule.STYLE_RULE){
+    rule.style?.removeProperty('font-family');
+   }else if(rule.cssRules){
+    try{clearRules(rule.cssRules)}catch{}
+   }
+  }
+ };
+ for(const sheet of doc.styleSheets){
+  const owner=sheet.ownerNode;
+  if(owner?.id==='folioFontStyle'||owner?.id==='folioReaderStyle'||owner?.id==='folioRemoteFonts')continue;
+  try{clearRules(sheet.cssRules)}catch{}
+ }
+ for(const el of doc.querySelectorAll('[style]')){
+  if(el.style.fontFamily)el.style.removeProperty('font-family');
+ }
+}
 function applyScriptFonts(doc){
+ const force=!!state.settings.forceBookFonts;
+ if(force){
+  removePublisherFontFamilies(doc);
+  doc.documentElement.classList.add('folio-force-fonts');
+ }
+ const authorBody=force?'':publisherBodyFont(doc);
+ const authorBodySans=sansFamilyIsExplicit(authorBody);
+ if(authorBodySans){
+  // An explicit book-wide sans-serif choice takes priority over the default
+  // serif selections. Keep the exact publisher stack, including embedded fonts.
+  doc.body.style.setProperty('font-family',authorBody,'important');
+  doc.documentElement.classList.add('folio-book-body-sans');
+ }
  if(!/[㐀-鿿]/.test(doc.body.textContent)){
   doc.documentElement.classList.add('folio-english-chapter');
   return;
  }
- // Capture Latin text runs inside any paragraph, heading, link or emphasis.
- // Book-level CJK fonts must not substitute their fullwidth Latin glyphs.
+ // With a book-wide sans setting we leave its typography intact. For normal
+ // mixed-script prose, Latin uses the selected English family, unless the
+ // EPUB explicitly styles the containing text (headings, voices, captions...).
+ if(authorBodySans)return;
+ const baseFamily=doc.defaultView.getComputedStyle(doc.body).fontFamily;
+ const authoredFont=new WeakMap();
+ const hasPublisherFont=parent=>{
+  if(authoredFont.has(parent))return authoredFont.get(parent);
+  const result=doc.defaultView.getComputedStyle(parent).fontFamily!==baseFamily;
+  authoredFont.set(parent,result);
+  return result;
+ };
  const re=/[A-Za-z0-9\u00C0-\u024F\u1E00-\u1EFF\uFF10-\uFF19\uFF21-\uFF3A\uFF41-\uFF5A]+(?:[ \t\u00A0.,:;!?'’‘“”()\[\]{}\/+_&=\-–—]*[A-Za-z0-9\u00C0-\u024F\u1E00-\u1EFF\uFF10-\uFF19\uFF21-\uFF3A\uFF41-\uFF5A]+)*/g;
  const textNodes=[];
  const walk=doc.createTreeWalker(doc.body,NodeFilter.SHOW_TEXT);
  for(let node;node=walk.nextNode();){
   if(!node.nodeValue || !/[A-Za-z0-9\u00C0-\u024F\u1E00-\u1EFF\uFF10-\uFF19\uFF21-\uFF3A\uFF41-\uFF5A]/.test(node.nodeValue))continue;
   const parent=node.parentElement;
-  if(!parent||parent.closest('script,style,textarea,pre,code,kbd,samp,svg,math,rt,rp,.folio-latin'))continue;
+  if(!parent||parent.closest('script,style,textarea,pre,code,kbd,samp,svg,math,rt,rp,.folio-latin')||(!force&&hasPublisherFont(parent)))continue;
   textNodes.push(node);
  }
  for(const node of textNodes){
@@ -802,10 +871,11 @@ function readerCSS(){const s=state.settings,night=s.theme==='dark',warm=s.theme=
   background:${bg}!important;color:${ink}!important;font-family:${zhStack}!important;font-size:${s.fontSize}px!important;
   line-height:${s.lineHeight}!important;font-weight:400!important;overflow-wrap:anywhere;word-break:normal;hyphens:auto;
  }
- body :is(p,div,span,li,blockquote,h1,h2,h3,h4,h5,h6,a,em,strong,small,dt,dd,figcaption){font-family:${zhStack}!important;line-height:inherit!important;color:inherit;}
+ /* The selected Chinese font is the reading default, not an override of EPUB font semantics. */
+ body :is(p,div,span,li,blockquote,h1,h2,h3,h4,h5,h6,a,em,strong,small,dt,dd,figcaption){line-height:inherit!important;color:inherit;}
  body span.folio-latin{font-family:${enStack}!important;letter-spacing:normal;}
- html.folio-english-chapter body,
- html.folio-english-chapter body :is(p,div,span,li,blockquote,h1,h2,h3,h4,h5,h6,a,em,strong,small,dt,dd,figcaption){font-family:${enStack}!important;}
+ html.folio-english-chapter body{font-family:${enStack}!important;}
+ html.folio-force-fonts body font{font-family:inherit!important;}
  body .folio-speaking{outline:none!important;outline-offset:0!important}
  body .folio-speech-origin{outline:none!important}
 
@@ -865,7 +935,7 @@ function readerCSS(){const s=state.settings,night=s.theme==='dark',warm=s.theme=
  `}
 const readerStyleMemo={key:'',parts:null};
 function readerStyleParts(){
- const s=state.settings,key=JSON.stringify([s.theme,s.enFont,s.zhFont,s.fontSize,s.lineHeight,s.paragraphSpace,s.pageWidth]);
+ const s=state.settings,key=JSON.stringify([s.theme,s.enFont,s.zhFont,s.forceBookFonts,s.fontSize,s.lineHeight,s.paragraphSpace,s.pageWidth]);
  if(readerStyleMemo.key===key&&readerStyleMemo.parts)return readerStyleMemo.parts;
  const css=readerCSS(),cut=css.indexOf(' :root{--folio-side:');
  readerStyleMemo.key=key;
