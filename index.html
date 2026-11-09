@@ -236,6 +236,51 @@
 .app.reader-active .main > .drawer.visible { z-index:51; pointer-events:auto; }
 .app .main > .drawer:not(.visible) { pointer-events:none; }
 
+
+/* v22 · Compact library. A short window must always be able to scroll to the first heading. */
+.app:not(.reader-active) .topbar{height:56px;flex-basis:56px}
+.app:not(.reader-active) .topbar-title strong{font-size:13px;letter-spacing:.01em}
+.app:not(.reader-active) .topbar-title small{display:none}
+.app:not(.reader-active) #topSearch,
+.app:not(.reader-active) #topBookmark,
+.app:not(.reader-active) #topTTS{display:none!important}
+.empty-view{display:block;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain;scrollbar-gutter:stable;padding:clamp(20px,3vw,34px) clamp(20px,4vw,56px) 48px;background:radial-gradient(ellipse at 94% 0%,color-mix(in srgb,var(--accent-light) 60%,transparent),transparent 42%),var(--bg)}
+.empty-view .welcome{width:min(1030px,100%);max-width:100%;margin:0 auto}
+.empty-view .welcome-head{max-width:none;margin:0 0 22px}
+.empty-view .welcome-head .eyebrow{font-size:10px;letter-spacing:.16em;margin-bottom:7px}
+.empty-view .welcome h1{font-size:clamp(30px,3.6vw,43px);line-height:1.12;letter-spacing:-.045em;margin:0 0 7px}
+.empty-view .welcome-sub{font-size:13px;line-height:1.55;max-width:none;margin:0;color:var(--muted)}
+.empty-view .dropzone{border:1px solid var(--line);border-radius:13px;box-shadow:none;padding:11px 15px;display:flex;align-items:center;justify-content:space-between;gap:15px;min-height:62px;max-width:100%}
+.empty-view .dropzone.dragging{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent);transform:none}
+.empty-view .drop-copy{gap:12px;margin:0;min-width:0}
+.empty-view .dropicon{width:36px;height:36px;border-radius:10px;flex:none}
+.empty-view .dropicon .icon{width:18px;height:18px}
+.empty-view .drop-copy strong{font-size:13px;line-height:1.35}
+.empty-view .drop-copy small{font-size:11px;line-height:1.35;margin-top:2px}
+.empty-view .dropzone .pillbtn{flex:none;min-height:36px;width:auto;padding:0 13px;border-radius:9px;font-size:12px}
+.empty-view .recent-area{margin-top:29px}
+.empty-view .hrow h2{font-size:14px}
+.empty-view .book-cards{margin-top:17px;gap:18px;grid-template-columns:repeat(auto-fill,minmax(142px,1fr))}
+.empty-view .empty-shelf{padding:12px 0;grid-column:1/-1;font-size:13px;max-width:none}
+@media(max-width:700px){
+ .app:not(.reader-active) .topbar{height:52px;flex-basis:52px;padding-inline:11px}
+ .app:not(.reader-active) .topbar-title strong{font-size:13px}
+ .app:not(.reader-active) .topbar .edge.right{min-width:36px}
+ .empty-view{padding:20px 17px 36px;scrollbar-gutter:auto}
+ .empty-view .welcome-head{margin:0 0 18px!important}
+ .empty-view .welcome h1{font-size:clamp(28px,8vw,36px);margin:0 0 6px}
+ .empty-view .welcome-sub{font-size:12px}
+ .empty-view .dropzone{padding:10px 11px;gap:8px;display:flex;min-height:57px}
+ .empty-view .drop-copy{gap:9px;margin:0;flex:1}
+ .empty-view .dropicon{width:32px;height:32px}
+ .empty-view .drop-copy small{display:none}
+ .empty-view .dropzone .pillbtn{width:auto;min-height:34px;padding:0 10px;font-size:11px;white-space:nowrap}
+ .empty-view .recent-area{margin-top:23px}
+ .empty-view .book-cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
+}
+@media(max-width:370px){.empty-view .dropicon{display:none}.empty-view .dropzone .pillbtn{padding:0 9px}}
+@media(max-height:460px){.empty-view{padding-top:15px}.empty-view .welcome-head{margin-bottom:14px}.empty-view .recent-area{margin-top:19px}}
+
 </style>
 </head>
 <body>
@@ -278,14 +323,14 @@
  <div class="workspace">
   <header class="topbar">
    <div class="edge top-leading"><button type="button" class="ibtn contents-action" id="topToc" title="Contents" aria-label="Table of contents"><svg class="icon"><use href="#i-list"/></svg><span>Contents</span></button><button type="button" class="ibtn library-return" id="topHome" title="Back to library" aria-label="Back to library"><svg class="icon sm"><use href="#i-chevron-left"/></svg><span>Library</span></button><button class="ibtn" title="Toggle library" id="toggleRail"><svg class="icon"><use href="#i-menu"/></svg></button><button class="ibtn hide-mobile" title="Import an EPUB" id="topImport"><svg class="icon"><use href="#i-plus"/></svg></button></div>
-   <div class="topbar-title"><strong id="topTitle">Your reading space</strong><small id="topSubtitle">Your books</small></div>
+   <div class="topbar-title"><strong id="topTitle">Folio</strong><small id="topSubtitle">Your library</small></div>
    <div class="edge right"><div class="top-actions"><button class="ibtn" id="topSearch" title="Search book" aria-label="Search in book"><svg class="icon"><use href="#i-search"/></svg></button><button class="ibtn" id="topBookmark" title="Bookmark page" aria-label="Add bookmark"><svg class="icon"><use id="bookmarkUse" href="#i-bookmark"/></svg></button><button class="ibtn" id="topTTS" title="Read aloud" aria-label="Read aloud"><svg class="icon"><use href="#i-headphones"/></svg></button><button class="ibtn" id="topSettings" title="Appearance and settings" aria-label="Reading settings"><svg class="icon"><use href="#i-settings"/></svg></button></div></div>
   </header>
   <main class="main" id="main">
    <section class="empty-view" id="emptyView">
-    <div class="welcome"><div class="welcome-head"><div class="eyebrow">Folio Library</div><h1>A quieter place <em>to read.</em></h1><p class="welcome-sub">Your books, your reading space. Beautiful reading, without the distractions.</p></div>
-    <div class="dropzone" id="dropzone"><div class="drop-copy"><div class="dropicon"><svg class="icon lg"><use href="#i-upload"/></svg></div><div><strong>Import an EPUB</strong><small>Drop a file here or browse</small></div></div><button class="pillbtn" id="browse"><svg class="icon sm"><use href="#i-plus"/></svg> Choose EPUB</button></div>
-    <div class="recent-area"><div class="hrow"><h2 id="recentTitle">Your library</h2><div class="folio-actions"><button class="ghostbtn" id="installFolio" hidden type="button">Install app</button><button id="demoBtn" class="ghostbtn"><svg class="icon sm"><use href="#i-spark"/></svg> Explore a sample</button></div></div><div class="book-cards" id="bookCards"></div><p class="hint">DRM-free EPUB · Saved on this device</p></div>
+    <div class="welcome"><div class="welcome-head"><div class="eyebrow">Folio</div><h1>Your <em>library.</em></h1><p class="welcome-sub">A quiet place for your books.</p></div>
+    <div class="dropzone" id="dropzone"><div class="drop-copy"><div class="dropicon"><svg class="icon lg"><use href="#i-upload"/></svg></div><div><strong>Add an EPUB</strong><small>Drop a book here, or choose a file</small></div></div><button class="pillbtn" id="browse"><svg class="icon sm"><use href="#i-plus"/></svg> Import book</button></div>
+    <div class="recent-area"><div class="hrow"><h2 id="recentTitle">Your library</h2><div class="folio-actions"><button class="ghostbtn" id="installFolio" hidden type="button">Install app</button><button id="demoBtn" class="ghostbtn"><svg class="icon sm"><use href="#i-spark"/></svg> Explore a sample</button></div></div><div class="book-cards" id="bookCards"></div></div>
     </div>
    </section>
    <section class="reader-view" id="readerView" hidden>
@@ -311,17 +356,17 @@
    <aside class="drawer" id="settingsDrawer" aria-label="Reader preferences and storage"><header class="drawer-header"><h2>Make it yours</h2><button class="ibtn" id="closeSettings"><svg class="icon"><use href="#i-x"/></svg></button></header>
     <div class="drawer-body">
      <div class="drawer-group"><h3>Page tone</h3><div class="theme-options"><button class="theme-choice selected" data-theme="light"><div class="theme-preview light">Aa 字</div>Paper</button><button class="theme-choice" data-theme="sepia"><div class="theme-preview sepia">Aa 字</div>Warm</button><button class="theme-choice" data-theme="dark"><div class="theme-preview dark">Aa 字</div>Night</button></div></div>
-     <div class="drawer-group"><h3>Typography</h3><label for="enFont" class="setting-label">English font <span class="muted">A–Z</span></label><select id="enFont" class="select"><option value="Georgia">Georgia · classic serif</option><option value="Bookerly">Bookerly · Kindle style</option><option value="Palatino Linotype">Palatino · book serif</option><option value="Charter">Charter · readable serif</option><option value="Baskerville">Baskerville · classic</option><option value="Baskerville Old Face">Baskerville Old Face · Windows</option><option value="Sitka Text">Sitka Text · Windows book serif</option><option value="Sitka Display">Sitka Display · Windows display serif</option><option value="Garamond">Garamond · traditional serif</option><option value="EB Garamond">EB Garamond · literary serif</option><option value="Libertinus Serif">Libertinus Serif · literary & scholarly</option><option value="Cambria">Cambria · screen serif</option><option value="Constantia">Constantia · modern serif</option><option value="Times New Roman">Times New Roman</option><option value="Arial">Arial · sans-serif</option><option value="Segoe UI">Segoe UI · modern sans</option></select><p class="setting-sub">English text keeps its chosen typeface, even inside Chinese paragraphs. Libertinus Serif and EB Garamond use web fonts when not installed; other Windows and macOS fallback choices remain available.</p>
+     <div class="drawer-group"><h3>Typography</h3><label for="enFont" class="setting-label">English font <span class="muted">A–Z</span></label><select id="enFont" class="select"><option value="Georgia">Georgia</option><option value="Bookerly">Bookerly</option><option value="Palatino Linotype">Palatino</option><option value="Charter">Charter</option><option value="Baskerville">Baskerville</option><option value="Baskerville Old Face">Baskerville Old Face</option><option value="Sitka Text">Sitka Text</option><option value="Sitka Display">Sitka Display</option><option value="Garamond">Garamond</option><option value="EB Garamond">EB Garamond</option><option value="Libertinus Serif">Libertinus Serif</option><option value="Cambria">Cambria</option><option value="Constantia">Constantia</option><option value="Times New Roman">Times New Roman</option><option value="Arial">Arial</option><option value="Segoe UI">Segoe UI</option></select>
      <label for="zhFont" class="setting-label" style="margin-top:22px">Chinese font <span class="muted">中文</span></label><select id="zhFont" class="select"><option value="Noto Serif CJK SC">思源宋体 · Source Han Serif / Noto Serif</option><option value="Noto Sans CJK SC">思源黑体 · Source Han Sans / Noto Sans</option><option value="LXGW WenKai">霞鹜文楷 · LXGW WenKai</option><option value="Microsoft YaHei">微软雅黑 · Microsoft YaHei</option><option value="Microsoft YaHei UI">微软雅黑 UI · Microsoft YaHei UI</option><option value="DengXian">等线 · DengXian</option><option value="SimHei">黑体 · SimHei</option><option value="SimSun">宋体 · SimSun</option><option value="NSimSun">新宋体 · NSimSun</option><option value="KaiTi">楷体 · KaiTi</option><option value="FangSong">仿宋 · FangSong</option><option value="Microsoft JhengHei">微軟正黑體 · Microsoft JhengHei</option><option value="PingFang SC">苹方 · PingFang SC</option><option value="Songti SC">华文宋体 · Songti SC</option><option value="STKaiti">华文楷体 · STKaiti</option></select>
-     <p class="setting-sub"></p>
+     
       <div style="margin-top:23px"><label class="setting-label" for="fontSize">Text size <span id="fontSizeVal" class="muted">20 px</span></label><input class="range" type="range" id="fontSize" min="14" max="32" step="1"></div>
      <div style="margin-top:23px"><label class="setting-label" for="lineHeight">Line spacing <span id="lineHeightVal" class="muted">1.8</span></label><input class="range" type="range" id="lineHeight" min="1.3" max="2.4" step="0.05"></div>
      <div style="margin-top:23px"><label class="setting-label" for="paragraphSpace">Paragraph spacing <span id="paragraphSpaceVal" class="muted">1.0 em</span></label><input class="range" type="range" id="paragraphSpace" min="0.3" max="2.0" step="0.1"></div>
      <div style="margin-top:23px"><label class="setting-label" for="pageWidth">Reading area <span id="pageWidthVal" class="muted">1280 px</span></label><input class="range" type="range" id="pageWidth" min="700" max="2400" step="20"></div>
      </div>
-     <p class="setting-sub"></p>
+     
      <div class="setting-divider"></div>
-     <div class="drawer-group"><h3>Read aloud · Web Speech</h3><label class="setting-label" for="zhVoice">Chinese voice</label><select class="select" id="zhVoice"><option value="">System default</option></select><label class="setting-label" style="margin-top:18px" for="enVoice">English voice</label><select class="select" id="enVoice"><option value="">System default</option></select><p class="setting-sub">Edge may expose online Natural voices. These need internet, even though your EPUB stays local. Chrome offers whatever voices it exposes.</p>
+     <div class="drawer-group"><h3>Read aloud · Web Speech</h3><label class="setting-label" for="zhVoice">Chinese voice</label><select class="select" id="zhVoice"><option value="">System default</option></select><label class="setting-label" style="margin-top:18px" for="enVoice">English voice</label><select class="select" id="enVoice"><option value="">System default</option></select>
      <div class="switch-row"><label for="autoAdvance">Continue into next chapter</label><input type="checkbox" id="autoAdvance" checked></div><div class="switch-row"><label for="autoScroll">Follow narration across pages</label><input type="checkbox" id="autoScroll" checked></div><button class="secondary-action" id="openDock"><svg class="icon sm"><use href="#i-headphones"/></svg> Show read-aloud controls</button>
      </div>
      <div class="setting-divider"></div>
@@ -385,11 +430,11 @@ function getBookRecord(id){return state.library.find(b=>b.id===id)||state.tempor
 function getCoverURL(rec){if(!rec.cover)return null;if(!state.coverUrls.has(rec.id))state.coverUrls.set(rec.id,URL.createObjectURL(rec.cover));return state.coverUrls.get(rec.id)}
 function coverHTML(rec,mini=false){const color=colorFor(rec.id),url=getCoverURL(rec);if(mini)return `<span class="shelf-thumb" style="background:${color}">${url?`<img alt="" src="${url}">`:escapeHTML((rec.title||'B').charAt(0))}</span>`;return `<div class="book-cover" style="background:${color}">${url?`<img src="${url}" alt="Cover of ${escapeHTML(rec.title)}">`:`<span class="cover-title">${escapeHTML(rec.title)}</span>`}</div>`}
 function renderLibrary(){const records=state.library;$('railCount').textContent=records.length;const shelf=$('shelfList');shelf.innerHTML=records.map(r=>`<button class="shelf-item ${state.book?.id===r.id?'active':''}" data-open="${r.id}">${coverHTML(r,true)}<span class="shelf-copy"><strong>${escapeHTML(r.title)}</strong><small>${bookPct(r.id)}</small></span></button>`).join('')||'<div class="empty-shelf" style="padding:12px">Your shelf is empty.</div>';
- $('recentTitle').textContent=records.length?'Continue your journey':'Your library';$('bookCards').innerHTML=records.map(r=>`<div class="book-card"><button type="button" class="book-card-open" data-open="${escapeHTML(r.id)}" aria-label="Open ${escapeHTML(r.title)}">${coverHTML(r)}<strong>${escapeHTML(r.title)}</strong><small>${escapeHTML(r.author||bookPct(r.id))}</small></button><button type="button" class="book-remove" data-book-remove="${escapeHTML(r.id)}" title="Remove book and saved data" aria-label="Remove ${escapeHTML(r.title)} and its saved data">${ICON('trash')}</button></div>`).join('')||'<div class="empty-shelf">No books yet. Add an EPUB or explore the sample.</div>';document.querySelectorAll('[data-open]').forEach(el=>el.addEventListener('click',()=>openBook(el.dataset.open)));document.querySelectorAll('[data-book-remove]').forEach(el=>el.addEventListener('click',event=>{event.stopPropagation();removeBookById(el.dataset.bookRemove)}));}
+ $('recentTitle').textContent=records.length?'Continue reading':'On your shelf';$('bookCards').innerHTML=records.map(r=>`<div class="book-card"><button type="button" class="book-card-open" data-open="${escapeHTML(r.id)}" aria-label="Open ${escapeHTML(r.title)}">${coverHTML(r)}<strong>${escapeHTML(r.title)}</strong><small>${escapeHTML(r.author||bookPct(r.id))}</small></button><button type="button" class="book-remove" data-book-remove="${escapeHTML(r.id)}" title="Remove book and saved data" aria-label="Remove ${escapeHTML(r.title)} and its saved data">${ICON('trash')}</button></div>`).join('')||'<div class="empty-shelf">No books yet. Add an EPUB or explore the sample.</div>';document.querySelectorAll('[data-open]').forEach(el=>el.addEventListener('click',()=>openBook(el.dataset.open)));document.querySelectorAll('[data-book-remove]').forEach(el=>el.addEventListener('click',event=>{event.stopPropagation();removeBookById(el.dataset.bookRemove)}));}
 function setRail(show){state.railOpen=show;$('app').classList.toggle('rail-hidden',!show)}
 function closeDrawer(){state.drawer=null;$('scrim').classList.remove('visible');$('tocDrawer').classList.remove('visible');$('settingsDrawer').classList.remove('visible');$('searchDrawer').classList.remove('visible');if(typeof folioSearch!=='undefined')folioSearch.worker?.postMessage({type:'cancel'})}
 function showDrawer(which){if(state.drawer===which){closeDrawer();return}closeDrawer();state.drawer=which;$('scrim').classList.add('visible');$(which==='toc'?'tocDrawer':which==='search'?'searchDrawer':'settingsDrawer').classList.add('visible');if(which==='toc')renderTOC();if(which==='settings')updateStorageStats();if(which==='search')onOpenFolioSearch();if(window.innerWidth<=680)setRail(false)}
-function toLibrary(){resetFolioSearch();hideNotePopup();state.noteReturn=null;$('noteBack').hidden=true;if(!$('folioWordCard').hidden)hideWordCard();if(state.book){saveProgress();stopSpeech();state.renderToken++;if(state.zip){for(const url of state.urls.values())URL.revokeObjectURL(url)}state.urls.clear();state.chapterCache.clear();state.noteDocCache.clear();state.preparePromises.clear();state.styleCache.clear();state.book=null;state.meta=null;state.zip=null;state.chapter=-1;state.spine=[];state.toc=[];$('readerFrame').srcdoc='';state.paging={page:0,pages:1,columns:2,step:0,gap:0,restore:0};}closeDrawer();$('readerView').hidden=true;$('emptyView').hidden=false;$('app').classList.remove('reader-active');$('topTitle').textContent='Your reading space';$('topSubtitle').textContent='A private EPUB library';$('ttsDock').hidden=true;setButtonState();renderLibrary();}
+function toLibrary(){resetFolioSearch();hideNotePopup();state.noteReturn=null;$('noteBack').hidden=true;if(!$('folioWordCard').hidden)hideWordCard();if(state.book){saveProgress();stopSpeech();state.renderToken++;if(state.zip){for(const url of state.urls.values())URL.revokeObjectURL(url)}state.urls.clear();state.chapterCache.clear();state.noteDocCache.clear();state.preparePromises.clear();state.styleCache.clear();state.book=null;state.meta=null;state.zip=null;state.chapter=-1;state.spine=[];state.toc=[];$('readerFrame').srcdoc='';state.paging={page:0,pages:1,columns:2,step:0,gap:0,restore:0};}closeDrawer();$('readerView').hidden=true;$('emptyView').hidden=false;$('app').classList.remove('reader-active');$('topTitle').textContent='Folio';$('topSubtitle').textContent='Your library';$('ttsDock').hidden=true;setButtonState();renderLibrary();}
 function setTheme(theme){$('app').classList.remove('theme-sepia','theme-dark');if(theme!=='light')$('app').classList.add('theme-'+theme);document.querySelectorAll('[data-theme]').forEach(el=>el.classList.toggle('selected',el.dataset.theme===theme));const col=theme==='dark'?'#1f2524':theme==='sepia'?'#eee5d5':'#f6f5f1';document.querySelector('meta[name="theme-color"]')?.setAttribute('content',col)}
 function bindSetting(id,key,convert=val=>val,render=false){const el=$(id);el.addEventListener('input',()=>{state.settings[key]=convert(el.type==='checkbox'?el.checked:el.value);safeSave(STORAGE.settings,state.settings);syncSettingsLabels();if(key==='theme')setTheme(state.settings.theme);if(render)updateReaderTheme()})}
 function initSettings(){const saved=safeParse(STORAGE.settings,{});if(saved.layoutVersion!==2){if(Number.isFinite(saved.pageWidth))saved.pageWidth=clamp(Math.round(saved.pageWidth*1.65/20)*20,700,2200);saved.layoutVersion=2;}state.settings={...DEFAULTS,...saved};safeSave(STORAGE.settings,state.settings);state.progress=safeParse(STORAGE.progress,{});state.bookmarks=safeParse(STORAGE.bookmarks,{});setTheme(state.settings.theme);
@@ -1308,7 +1353,7 @@ function bindEvents(){const upload=()=>{$('fileInput').value='';$('fileInput').c
  if(state.synth){state.synth.addEventListener?.('voiceschanged',voicesAvailable);voicesAvailable();setTimeout(voicesAvailable,500);setTimeout(voicesAvailable,1600)}else $('ttsSubstatus').textContent='Speech is not supported in this browser';
  }
 async function start(){initSettings();bindEvents();setButtonState();try{state.db=await openDB()}catch(e){console.warn('Book storage unavailable',e);notify('Browser storage is limited: imported books may not persist')}await refreshLibrary();const last=Object.entries(state.progress).sort((a,b)=>(b[1].updatedAt||0)-(a[1].updatedAt||0))[0];if(last&&getBookRecord(last[0])){ // Keep a restful library landing instead of auto-loading the last book.
- $('topSubtitle').textContent='Your next chapter is waiting';}}
+ $('topSubtitle').textContent='Your library';}}
 
 // v10: Inflection-aware word lookup, while keeping the original clicked word.
 const wordLookup={id:0,word:'',surface:'',data:null,vocab:null,audio:null,cache:new Map(),request:null,candidates:[]};
