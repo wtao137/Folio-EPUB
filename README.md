@@ -21,7 +21,7 @@ Folio is a lightweight, paginated reading application for Microsoft Edge and Chr
 
 ### Standalone HTML
 
-Download `Folio-EPUB-Reader-v19-Standalone.html` and open it in Edge or Chrome. Import a DRM-free EPUB from the library view. The reader itself can function offline; dictionary lookups and some web fonts require an internet connection. Direct `file://` browsing cannot be installed as a PWA, and its storage is separate from an HTTPS-hosted copy.
+Download `Folio-EPUB-Reader-v20-Standalone.html` and open it in Edge or Chrome. Import a DRM-free EPUB from the library view. The reader itself can function offline; dictionary lookups and some web fonts require an internet connection. Direct `file://` browsing cannot be installed as a PWA, and its storage is separate from an HTTPS-hosted copy.
 
 ### Install as a PWA
 
@@ -72,6 +72,7 @@ To remove one book, use its delete control in Library. To erase all data, use th
 ```text
 folio/
 ├── index.html                 # Self-contained reader, including bundled JS and English fonts
+├── LICENSE                    # MIT license for Folio source code
 ├── manifest.webmanifest       # PWA metadata
 ├── sw.js                      # Offline app-shell cache
 ├── icons/
@@ -82,7 +83,7 @@ folio/
 └── README.md
 ```
 
-The separately distributed `Folio-EPUB-Reader-v19-Standalone.html` contains the reader but no installable PWA resources.
+The separately distributed `Folio-EPUB-Reader-v20-Standalone.html` contains the reader but no installable PWA resources.
 
 ## Development and contributing
 
@@ -94,4 +95,4 @@ Contributions and bug reports are welcome. A useful issue includes the browser/v
 
 Folio includes JSZip and selected bundled English fonts. Their upstream licenses and copyright notices are retained in the HTML distribution, including the embedded font notices. EPUB books remain the property of their respective authors and publishers.
 
-A project-wide source-code license has not been selected in this package; add a top-level `LICENSE` file before declaring the complete project open-source on GitHub. Embedded dependencies retain their own licenses.
+**Folio's original source code is licensed under the [MIT License](LICENSE).** See `LICENSE` for the full terms. Third-party libraries, embedded fonts and their associated assets retain their own licenses and copyright notices; the MIT license for Folio does not relicense those dependencies.

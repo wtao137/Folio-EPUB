@@ -1,4 +1,5 @@
 <!doctype html>
+<!-- Folio original source code: MIT License. Bundled third-party libraries and fonts retain their own license notices. -->
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -226,6 +227,15 @@
 .search-empty{padding:34px 15px;color:var(--muted);font-size:13px;text-align:center;line-height:1.7}
 .theme-dark .search-hit mark{background:#705d36;color:#fff7dc}
 @media(max-width:680px){.search-toolbar{padding:16px 18px 14px}.search-results{padding:4px 10px 20px}}
+
+/* v20: every open drawer must be above the modal scrim, in all reading modes.
+   Hidden drawers must never capture pointer events. */
+.app .main > .scrim.visible,
+.app.reader-active .main > .scrim.visible { z-index:50; }
+.app .main > .drawer.visible,
+.app.reader-active .main > .drawer.visible { z-index:51; pointer-events:auto; }
+.app .main > .drawer:not(.visible) { pointer-events:none; }
+
 </style>
 </head>
 <body>
@@ -400,7 +410,7 @@ function saveProgress(){if(!state.book||state.chapter<0)return;const frac=pageFr
 function overallProgress(index,fraction){if(!state.spine.length)return 0;const weights=state.spine.map(x=>x.weight||1000),total=weights.reduce((a,b)=>a+b,0);let n=0;for(let i=0;i<index;i++)n+=weights[i];n+=(weights[index]||0)*fraction;return clamp(n/total*100,0,100)}
 function updateProgressUI(frac,percent){if(state.noteReturn)percent=state.noteReturn.percent;$('progressFill').style.width=percent+'%';$('progressText').textContent=state.noteReturn?'Viewing note · position preserved':`≈ ${Math.round(percent)}% · saved locally`;$('chapterInfo').textContent=`${chapterTitle(state.chapter)} · ${Math.round(frac*100)}%`;$('pageIndicator').textContent=`${state.paging.page+1} / ${state.paging.pages}`;setButtonState()}
 function getPageFraction(){return pageFraction()}
-function goToPage(target,save=true){hideNotePopup();if(!$('folioWordCard').hidden)hideWordCard();const p=state.paging,doc=$('readerFrame').contentDocument;if(!doc?.body)return;p.page=clamp(Math.round(target),0,p.pages-1);doc.body.style.transform=`translate3d(${-p.page*p.step}px,0,0)`;if(save)saveProgress();else updateProgressUI(pageFraction(),overallProgress(state.chapter,pageFraction()))}
+function goToPage(target,save=true){hideNotePopup();if(!$('folioWordCard').hidden)hideWordCard();const p=state.paging,doc=$('readerFrame').contentDocument;if(!doc?.body)return;p.page=clamp(Math.round(target),0,p.pages-1);doc.body.style.transform=`translate3d(${-p.page*p.step}px,0,0)`;if(state.drawer==='toc'&&state.tocTab==='toc')syncTocHighlight();if(save)saveProgress();else updateProgressUI(pageFraction(),overallProgress(state.chapter,pageFraction()))}
 function paginateChapter(fraction=pageFraction(),token=state.renderToken){
  if(token!==state.renderToken||!state.book)return;
  const frame=$('readerFrame'),doc=frame.contentDocument,body=doc?.body;
@@ -480,7 +490,41 @@ function schedulePagination(frac=pageFraction(),token=state.renderToken){clearTi
 function hasNearbyBookmark(){if(!state.book)return false;return (state.bookmarks[state.book.id]||[]).some(x=>x.chapter===state.chapter&&Math.abs(x.fraction-getPageFraction())<0.025)}
 function toggleBookmark(){if(!state.book)return;const items=state.bookmarks[state.book.id]||[],fraction=getPageFraction();const index=items.findIndex(x=>x.chapter===state.chapter&&Math.abs(x.fraction-fraction)<0.025);if(index>=0){items.splice(index,1);notify('Bookmark removed')}else{const label=chapterTitle(state.chapter);items.push({id:'m-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),chapter:state.chapter,fraction,label,date:Date.now()});notify('Bookmark saved')};state.bookmarks[state.book.id]=items;safeSave(STORAGE.bookmarks,state.bookmarks);renderBookmarks();setButtonState()}
 function chapterTitle(i){const s=state.spine[i];if(!s)return'';const matching=state.toc.find(t=>t.path===s.path);return matching?.label||s.label||`Chapter ${i+1}`}
-function renderTOC(){const list=$('tocList');list.innerHTML=state.toc.length?state.toc.map((t,i)=>{const active=state.spine[state.chapter]?.path===t.path;return `<button class="toc-item ${active?'active':''}" data-toc="${i}" style="padding-left:${12+Math.min(t.depth||0,5)*16}px">${escapeHTML(t.label)}</button>`}).join(''):'<p class="drawer-empty">This book has no table of contents.</p>';list.querySelectorAll('[data-toc]').forEach(b=>b.addEventListener('click',()=>{const item=state.toc[Number(b.dataset.toc)];navigateToPath(item.path,item.hash);closeDrawer()}));renderBookmarks()}
+// Select exactly one entry, based on the chapter and the anchor at the visible page.
+// Several TOC subsections commonly link to different #ids in the same XHTML file.
+function activeTocIndex(){
+ const path=state.spine[state.chapter]?.path;
+ if(!path||!state.toc.length)return -1;
+ const indices=[];
+ for(let i=0;i<state.toc.length;i++)if(state.toc[i].path===path)indices.push(i);
+ if(!indices.length)return -1;
+ if(indices.length===1)return indices[0];
+ const doc=$('readerFrame').contentDocument;
+ if(!doc?.body)return indices[0];
+ const current=state.paging.page;
+ let best=indices[0],lastPage=-1;
+ for(const i of indices){
+  const hash=state.toc[i].hash;
+  if(!hash)continue;
+  let id=hash;
+  try{id=decodeURIComponent(hash)}catch{}
+  const target=doc.getElementById(id)||doc.getElementsByName(id)[0];
+  if(!target)continue;
+  const page=elementPage(target);
+  if(page<=current&&page>=lastPage){best=i;lastPage=page}
+ }
+ return best;
+}
+function syncTocHighlight(){
+ const selected=activeTocIndex();
+ for(const b of $('tocList').querySelectorAll('[data-toc]')){
+  const active=Number(b.dataset.toc)===selected;
+  b.classList.toggle('active',active);
+  if(active)b.setAttribute('aria-current','location');
+  else b.removeAttribute('aria-current');
+ }
+}
+function renderTOC(){const list=$('tocList');list.innerHTML=state.toc.length?state.toc.map((t,i)=>`<button class="toc-item" data-toc="${i}" style="padding-left:${12+Math.min(t.depth||0,5)*16}px">${escapeHTML(t.label)}</button>`).join(''):'<p class="drawer-empty">This book has no table of contents.</p>';list.querySelectorAll('[data-toc]').forEach(b=>b.addEventListener('click',()=>{const item=state.toc[Number(b.dataset.toc)];navigateToPath(item.path,item.hash);closeDrawer()}));syncTocHighlight();renderBookmarks()}
 function renderBookmarks(){const list=$('bookmarkList'),items=(state.bookmarks[state.book?.id]||[]).slice().sort((a,b)=>a.chapter-b.chapter||a.fraction-b.fraction);list.innerHTML=items.map(item=>`<div class="bookmark-item" role="button" tabindex="0" data-mark="${escapeHTML(item.id)}"><strong>${escapeHTML(item.label)}</strong><small>${Math.round(item.fraction*100)}% of chapter · ${shortDate(item.date)}</small><button class="ibtn remove-mark" title="Remove bookmark" aria-label="Remove bookmark" data-delmark="${escapeHTML(item.id)}">${ICON('x','sm')}</button></div>`).join('')||'<p class="drawer-empty">Nothing bookmarked yet. Use the bookmark icon while reading to save your place.</p>';list.querySelectorAll('[data-mark]').forEach(el=>{const go=()=>{const item=items.find(x=>x.id===el.dataset.mark);if(item){stopSpeech();renderChapter(item.chapter,item.fraction);closeDrawer()}};el.addEventListener('click',e=>{if(!e.target.closest('[data-delmark]'))go()});el.addEventListener('keydown',e=>{if(e.key==='Enter')go()})});list.querySelectorAll('[data-delmark]').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();state.bookmarks[state.book.id]=items.filter(x=>x.id!==el.dataset.delmark);safeSave(STORAGE.bookmarks,state.bookmarks);renderBookmarks();setButtonState();notify('Bookmark removed')}))}
 function switchTocTab(tab){state.tocTab=tab;$('tabChapters').classList.toggle('active',tab==='toc');$('tabBookmarks').classList.toggle('active',tab==='bookmarks');$('tocList').hidden=tab!=='toc';$('bookmarkList').hidden=tab!=='bookmarks';renderTOC()}
 function mime(path){return MIME[path.split('.').pop().toLowerCase()]||'application/octet-stream'}
