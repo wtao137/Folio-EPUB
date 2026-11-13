@@ -516,6 +516,102 @@
   .app.theme-sepia ::-webkit-scrollbar-corner{background:var(--folio-scroll-track)}
 }
 
+
+/* v37: the compact read-aloud voice picker and every checkbox now follow Folio's
+   active palette instead of relying on a system-colored native control. */
+.app{color-scheme:light}
+.app.theme-dark{color-scheme:dark}
+/* A real checkbox remains focusable, keyboard-operable, and connected to its label. */
+.app input[type="checkbox"]{
+  -webkit-appearance:none;appearance:none;
+  display:inline-grid;place-items:center;vertical-align:middle;
+  width:16px;height:16px;min-width:16px;flex:0 0 16px;
+  margin:0;border:1.5px solid color-mix(in srgb,var(--accent) 58%,var(--line));
+  border-radius:5px;background:var(--surface);color:#fff;
+  cursor:pointer;transition:background-color .14s,border-color .14s,box-shadow .14s;
+}
+.app input[type="checkbox"]::before{
+  content:"";width:4px;height:8px;
+  border:solid currentColor;border-width:0 2px 2px 0;
+  transform:translateY(-1px) rotate(45deg) scale(0);
+  transition:transform .12s ease;
+}
+.app input[type="checkbox"]:hover{border-color:var(--accent);background:var(--accent-light)}
+.app input[type="checkbox"]:checked{border-color:var(--accent);background:var(--accent);color:#fff}
+.app.theme-dark input[type="checkbox"]:checked{color:#1b2921}
+.app input[type="checkbox"]:checked::before{transform:translateY(-1px) rotate(45deg) scale(1)}
+.app input[type="checkbox"]:checked:hover{background:color-mix(in srgb,var(--accent) 85%,var(--ink))}
+.app input[type="checkbox"]:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.app input[type="checkbox"]:disabled{opacity:.45;cursor:default}
+.app .search-scope{color:var(--ink)}
+.app .search-scope:hover{color:var(--accent)}
+/* Use the same inward-offset custom chevron as Appearance & data, but stay
+   narrow enough for the inline read-aloud toolbar. */
+#ttsDock .folio-quick-select-wrap{
+  width:clamp(112px,12vw,140px);min-width:0;flex:0 1 140px;
+  color:var(--muted);
+}
+#ttsDock .folio-quick-select-wrap::after{right:13px;width:6px;height:6px}
+#ttsDock .folio-quick-select-wrap .voice-quick{
+  display:block;width:100%;max-width:100%;min-width:0;
+  min-height:34px;padding:7px 28px 7px 10px;
+  border:1px solid var(--line);border-radius:9px;
+  background:var(--paper);color:var(--ink);font:500 12px/1.35 Inter,ui-sans-serif,"Segoe UI",sans-serif;
+  appearance:none;-webkit-appearance:none;cursor:pointer;text-overflow:ellipsis;
+  box-shadow:0 1px 2px #18271d08;
+  transition:background-color .15s,border-color .15s,box-shadow .15s;
+}
+#ttsDock .folio-quick-select-wrap .voice-quick:hover{
+  background:var(--surface);border-color:color-mix(in srgb,var(--accent) 50%,var(--line));
+}
+#ttsDock .folio-quick-select-wrap .voice-quick:focus-visible{
+  outline:2px solid var(--accent);outline-offset:2px;border-color:var(--accent);
+}
+.app.theme-dark #ttsDock .folio-quick-select-wrap .voice-quick{background:#25302b;border-color:#506258;color:var(--ink)}
+.app.theme-dark #ttsDock .folio-quick-select-wrap .voice-quick:hover{background:#303f36;border-color:#769986}
+.app.theme-dark #ttsDock .folio-quick-select-wrap{color:#bed0c2}
+/* Best effort if base-select is unavailable: the system still owns the popup. */
+#ttsDock .folio-quick-select-wrap .voice-quick option{background:var(--surface);color:var(--ink)}
+@supports (appearance:base-select){
+  #ttsDock .folio-quick-select-wrap .voice-quick,
+  #ttsDock .folio-quick-select-wrap .voice-quick::picker(select){appearance:base-select}
+  #ttsDock .folio-quick-select-wrap .voice-quick::picker-icon{display:none}
+  #ttsDock .folio-quick-select-wrap .voice-quick::picker(select){
+    box-sizing:border-box;max-width:min(290px,calc(100vw - 26px));
+    min-width:170px;max-height:min(320px,55dvh);
+    overflow-y:auto;scrollbar-width:thin;overscroll-behavior:contain;
+    padding:5px;margin:3px 0;border:1px solid var(--line);
+    border-radius:11px;background:var(--surface);color:var(--ink);
+    box-shadow:0 14px 36px #172c2030;
+  }
+  #ttsDock .folio-quick-select-wrap .voice-quick option{
+    display:flex;align-items:center;box-sizing:border-box;min-height:32px;
+    padding:7px 11px;border-radius:7px;white-space:normal;
+    overflow-wrap:anywhere;background:transparent;color:var(--ink);
+    font-size:12px;line-height:1.35;cursor:pointer;
+  }
+  #ttsDock .folio-quick-select-wrap .voice-quick option::checkmark{display:none}
+  #ttsDock .folio-quick-select-wrap .voice-quick option:hover,
+  #ttsDock .folio-quick-select-wrap .voice-quick option:focus-visible,
+  #ttsDock .folio-quick-select-wrap .voice-quick option:checked{
+    outline:none;background:var(--accent-light);color:var(--ink);
+  }
+  #ttsDock .folio-quick-select-wrap .voice-quick option:checked{font-weight:650}
+  .app.theme-dark #ttsDock .folio-quick-select-wrap .voice-quick::picker(select){
+    background:#2a3630;border-color:#536b5b;box-shadow:0 16px 42px #0009;
+  }
+  .app.theme-dark #ttsDock .folio-quick-select-wrap .voice-quick option:hover,
+  .app.theme-dark #ttsDock .folio-quick-select-wrap .voice-quick option:focus-visible,
+  .app.theme-dark #ttsDock .folio-quick-select-wrap .voice-quick option:checked{
+    background:#395044;color:#e8f5eb;
+  }
+  .app.theme-sepia #ttsDock .folio-quick-select-wrap .voice-quick::picker(select){
+    scrollbar-color:#947657 #f0e4d2;
+  }
+}
+@media(max-width:680px){#ttsDock .folio-quick-select-wrap{display:none}}
+@media(prefers-reduced-motion:reduce){.app input[type="checkbox"],.app input[type="checkbox"]::before{transition:none}}
+
 </style>
 </head>
 <body>
@@ -585,7 +681,7 @@
     <div class="reading-shell" id="readingShell"><div class="reader-progress"><div id="progressFill" class="reader-progress-inner"></div></div><iframe id="readerFrame" class="reader-frame" sandbox="allow-same-origin" title="EPUB chapter"></iframe><div id="folioLeftMask" class="page-mask page-mask-left" aria-hidden="true"></div><div id="folioRightMask" class="page-mask page-mask-right" aria-hidden="true"></div><button type="button" id="edgePrev" class="edge-turn edge-turn-prev" aria-label="Previous page" title="Previous page"><svg class="icon sm"><use href="#i-chevron-left"/></svg></button><button type="button" id="edgeNext" class="edge-turn edge-turn-next" aria-label="Next page" title="Next page"><svg class="icon sm"><use href="#i-chevron-right"/></svg></button></div>
    <div id="ttsDock" class="tts-dock" hidden>
     <div class="primary"><button id="ttsPlay" class="play" title="Play / pause"><svg class="icon"><use id="ttsPlayIcon" href="#i-play"/></svg></button><div class="tts-label"><strong id="ttsStatus">Read aloud</strong><small id="ttsSubstatus">Reading starts at the current page</small></div></div>
-    <div class="tts-actions"><div class="ratebox">Speed <input id="quickRate" aria-label="Speech rate" type="range" min="0.7" max="1.5" step="0.05" value="1"><span id="rateValue">1×</span></div><div class="divider-v"></div><select class="voice-quick" id="quickVoice" aria-label="Reading voice"><option value="auto">Auto voice</option></select><button class="ibtn" id="ttsStop" title="Stop reading" aria-label="Stop"><svg class="icon"><use href="#i-stop"/></svg></button><button class="ibtn" id="ttsClose" title="Close read aloud" aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button></div>
+    <div class="tts-actions"><div class="ratebox">Speed <input id="quickRate" aria-label="Speech rate" type="range" min="0.7" max="1.5" step="0.05" value="1"><span id="rateValue">1×</span></div><div class="divider-v"></div><span class="folio-select-wrap folio-quick-select-wrap"><select class="voice-quick" id="quickVoice" aria-label="Reading voice"><option value="auto">Auto voice</option></select></span><button class="ibtn" id="ttsStop" title="Stop reading" aria-label="Stop"><svg class="icon"><use href="#i-stop"/></svg></button><button class="ibtn" id="ttsClose" title="Close read aloud" aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button></div>
    </div>
 
     <footer class="reader-bottom"><div class="meta"><span id="chapterInfo">Chapter</span><button type="button" id="noteBack" class="note-back" hidden aria-label="Return to previous reading position">← Back to text</button></div><div class="bottom-nav"><button id="prevPage" class="page-btn" aria-label="Previous page" title="Previous page / chapter"><svg class="icon sm"><use href="#i-chevron-left"/></svg></button><span id="pageIndicator" class="page-indicator" aria-live="polite">1 / 1</span><button id="nextPage" class="page-btn" aria-label="Next page" title="Next page / chapter"><svg class="icon sm"><use href="#i-chevron-right"/></svg></button></div><div class="reading-percent" id="progressText">0% · saved locally</div></footer>
