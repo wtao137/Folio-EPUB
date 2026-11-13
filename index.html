@@ -988,6 +988,18 @@ function visibleReadingAnchor(){
  }
  return null;
 }
+// Reuse an unchanged column layout. Fonts, images, notes, and appearance edits
+// explicitly invalidate it; a viewport/reading-width change alters the key.
+// The WeakMap never retains documents from chapters that have been closed.
+const folioPageLayoutMemo=new WeakMap();
+function invalidateFolioPageLayout(doc=$('readerFrame').contentDocument){
+ if(doc)folioPageLayoutMemo.delete(doc);
+}
+function folioPageLayoutKey(frame){
+ const s=state.settings;
+ return [frame.clientWidth,frame.clientHeight,s.theme,s.fontSize,s.lineHeight,
+   s.paragraphSpace,s.pageWidth,s.enFont,s.zhFont,+!!s.forceBookFonts].join('|');
+}
 // A chapter's scrollWidth includes publisher min-heights, padding, and empty
 // boxes; CSS columns can therefore continue after the last readable element.
 // Separate a spread's physical column position from its visible page number.
@@ -1058,6 +1070,15 @@ function paginateChapter(fraction=pageFraction(),token=state.renderToken){
  if(token!==state.renderToken||!state.book)return;
  const frame=$('readerFrame'),doc=frame.contentDocument,body=doc?.body;
  if(!body||frame.clientWidth<1||frame.clientHeight<1)return;
+ const layoutKey=folioPageLayoutKey(frame),lastLayout=folioPageLayoutMemo.get(doc);
+ if(lastLayout?.key===layoutKey&&lastLayout.body===body&&state.paging.step>0){
+  // A font/image/change-to-EPUB-content invalidates this memo explicitly.
+  // Otherwise not even a DOM geometry read is needed to respond to a stale
+  // resize callback or a second fonts.ready scheduling request.
+  const desired=Math.round(clamp(Number(fraction)||0,0,1)*(state.paging.pages-1));
+  if(desired!==state.paging.page)goToPage(desired,false);
+  return;
+ }
  // Reset translation before collecting measurements. The multicol element's scrollWidth
  // includes columns that extend beyond its fixed-width box.
  body.style.transform='translate3d(0px,0,0)';
@@ -1161,12 +1182,17 @@ function paginateChapter(fraction=pageFraction(),token=state.renderToken){
  // many *readable* pages exist: a publisher's trailing padding, min-height,
  // forced break, or empty box can create entire phantom spreads. Ignore any
  // spread with no text glyphs, illustration, or meaningful horizontal rule.
- const physicalPages=occupiedReaderSpreads(doc,body,stride);
+ // Short chapters fitting on one spread cannot have an interior blank spread;
+ // skip the text-node scan entirely for this very common case.
+ const rawColumns=Math.max(1,Math.ceil((Math.max(width,body.scrollWidth)+gap-1)/(colWidth+gap)));
+ const rawPages=Math.max(1,Math.ceil(rawColumns/cols));
+ const physicalPages=rawPages===1?[0]:occupiedReaderSpreads(doc,body,stride);
  const pages=physicalPages.length;
  state.paging={page:0,pages,physicalPages,columns:cols,step:stride,gap,restore:clamp(Number(fraction)||0,0,1)};
  $('readerView').classList.toggle('two-column',cols===2);$('readerView').classList.toggle('three-column',cols===3);
  const anchoredPage=pageForReadingAnchor(state.readingAnchor,doc,body,stride,pages);
  goToPage(anchoredPage??Math.round(state.paging.restore*(pages-1)),false);
+ folioPageLayoutMemo.set(doc,{key:layoutKey,body});
 }
 // EPUB styles can indent the first line negatively or use three- and
 // four-digit ordered-list markers. Both can extend outside a CSS column and
@@ -1893,10 +1919,10 @@ function loadRemoteReaderFonts(doc,token){
  doc.getElementById('folioRemoteFonts')?.remove();
  if(!href||!/[㐀-鿿]/.test(doc.body.textContent))return;
  const link=doc.createElement('link');link.id='folioRemoteFonts';link.rel='stylesheet';link.href=href;
- link.onload=()=>doc.fonts?.ready.then(()=>{if(token===state.renderToken)schedulePagination(pageFraction(),token)}).catch(()=>{});
+ link.onload=()=>doc.fonts?.ready.then(()=>{if(token===state.renderToken){invalidateFolioPageLayout(doc);schedulePagination(pageFraction(),token)}}).catch(()=>{});
  doc.head.append(link);
 }
-function updateReaderTheme(){if(!state.book)return;const doc=$('readerFrame').contentDocument;if(!doc)return;const oldFrac=pageFraction(),token=state.renderToken;const styles=readerStyleParts(),fontStyle=doc.getElementById('folioFontStyle'),style=doc.getElementById('folioReaderStyle');if(fontStyle)fontStyle.textContent=compactReaderFontRules(styles.fonts);if(style)style.textContent=styles.layout;schedulePagination(oldFrac,token);doc.fonts?.ready.then(()=>schedulePagination(pageFraction(),token)).catch(()=>{})}
+function updateReaderTheme(){if(!state.book)return;const doc=$('readerFrame').contentDocument;if(!doc)return;invalidateFolioPageLayout(doc);const oldFrac=pageFraction(),token=state.renderToken;const styles=readerStyleParts(),fontStyle=doc.getElementById('folioFontStyle'),style=doc.getElementById('folioReaderStyle');if(fontStyle)fontStyle.textContent=compactReaderFontRules(styles.fonts);if(style)style.textContent=styles.layout;schedulePagination(oldFrac,token);if(doc.fonts?.status==='loading')doc.fonts.ready.then(()=>{if(token===state.renderToken){invalidateFolioPageLayout(doc);schedulePagination(pageFraction(),token)}}).catch(()=>{})}
 // EPUB 2/3 notes: standard noteref, ARIA doc-noteref and common superscript links.
 const notePreview={request:0,timer:0,closeTimer:0,link:null};
 function isSemanticNote(el){return /(?:^|\s)(?:footnote|endnote)(?:\s|$)/i.test(el?.getAttribute?.('epub:type')||'')||/^(?:doc-footnote|doc-endnote)$/i.test(el?.getAttribute?.('role')||'')}
@@ -2089,9 +2115,16 @@ async function renderChapter(index,fraction=0,opts={}){hideNotePopup();if(!state
   if(event.key==='ArrowRight'||event.key==='PageDown'||event.key===' '){event.preventDefault();changePage(1)}
   else if(event.key==='ArrowLeft'||event.key==='PageUp'){event.preventDefault();changePage(-1)}
  });
- const repaginate=()=>schedulePagination(pageFraction(),token);
- for(const img of doc.images)if(!img.complete)img.addEventListener('load',repaginate,{once:true});
- if(doc.fonts)doc.fonts.ready.then(repaginate).catch(()=>{});
+ const repaginate=()=>{if(token!==state.renderToken)return;invalidateFolioPageLayout(doc);schedulePagination(pageFraction(),token)};
+ for(const img of doc.images)if(!img.complete){
+  img.addEventListener('load',repaginate,{once:true});
+  img.addEventListener('error',repaginate,{once:true});
+ }
+ // FontFaceSet.ready resolves immediately for chapters with no pending font
+ // loads. Avoid needlessly repeating the entire layout in that case.
+ if(doc.fonts?.status==='loading')doc.fonts.ready.then(repaginate).catch(()=>{});
+ // Fonts may start loading after the initial pagination (e.g. remote CJK CSS).
+ doc.fonts?.addEventListener?.('loadingdone',repaginate);
  paginateChapter(fraction,token);
  if(opts.searchMatch)requestAnimationFrame(()=>{if(token===state.renderToken){focusFolioSearchMatch(opts.searchMatch);setTimeout(()=>{if(token===state.renderToken)focusFolioSearchMatch(opts.searchMatch)},180)}});
  if(opts.hash){const target=doc.getElementById(opts.hash)||doc.getElementsByName(opts.hash)[0];if(target)goToElement(target)}
@@ -2104,6 +2137,7 @@ function returnFromNote(){
  if(prior.inlineNode){
   prior.inlineNode.style.removeProperty('display');
   prior.inlineNode.removeAttribute('data-folio-revealed-note');
+  invalidateFolioPageLayout(prior.inlineNode.ownerDocument);
   paginateChapter(prior.fraction,state.renderToken);
   return;
  }
@@ -2128,6 +2162,7 @@ function navigateToNoteLocation(path,hash=''){
    hiddenNote.style.setProperty('display','block','important');
    hiddenNote.setAttribute('data-folio-revealed-note','');
    $('noteBack').hidden=false;
+   invalidateFolioPageLayout(doc);
    paginateChapter(pageFraction(),state.renderToken);
    requestAnimationFrame(()=>{if(node.isConnected&&state.noteReturn?.inlineNode===hiddenNote)goToElement(node)});
    return;
@@ -2150,7 +2185,7 @@ function navigateToPath(path,hash=''){
   if(oldNote?.isConnected){oldNote.style.removeProperty('display');oldNote.removeAttribute('data-folio-revealed-note')}
   state.noteReturn=null;state.spine=state.spine.filter(item=>!item.folioDetached);
   $('noteBack').hidden=true;
-  if(oldNote?.isConnected&&i===state.chapter)paginateChapter(pageFraction(),state.renderToken);
+  if(oldNote?.isConnected&&i===state.chapter){invalidateFolioPageLayout(oldNote.ownerDocument);paginateChapter(pageFraction(),state.renderToken)}
  }
  if(i===state.chapter&&hash){const doc=$('readerFrame').contentDocument;const node=doc.getElementById(hash)||doc.getElementsByName(hash)[0];if(node){goToElement(node);return}}
  stopSpeech();void renderChapter(i,0,{hash});closeDrawer();
