@@ -1,5 +1,15 @@
 # Changelog
 
+## v30 — Semantic typography (2026-11-13)
+
+- Introduced a consistent, restrained typographic treatment for quotations, pull quotes, epigraphs, poetry, stanzas, sidebars, letters, code blocks, and definition lists.
+- Matched iframe and page-mask background colors across light, sepia, and dark modes to remove subtle asymmetric edge shading.
+- Replaced footnote reference badges with cleaner colored superscripts, script-sensitive optical spacing, and subtle hover underlines.
+- Style these using HTML elements, EPUB semantic `epub:type`, ARIA roles and well-known class tokens; no changes to the original EPUB files.
+- Use logical-direction spacing and `em` units for Chinese/English and responsive page columns, with muted, theme-sensitive separators and surfaces.
+- Avoid adding Folio decorations when an element already has authored decorative styling.
+- Maintain default font and publisher-font override behaviors, with no new settings or runtime search dependencies.
+
 ## v29 — Faster asset loading and clearer navigation (2026-11-13)
 
 - Prepare illustration-heavy chapters with at most six concurrent EPUB asset inflations and a bounded queue of HTML rewrite jobs. Identical asset requests share a single in-flight decode, and results from a book closed mid-load are discarded.

@@ -63,6 +63,14 @@
 .edge-turn-prev{left:0}.edge-turn-next{right:0}
 @media(max-width:680px){.reader-view .reader-bottom{column-gap:8px;padding-inline:12px}.reader-bottom .meta{font-size:10px;max-width:100%}.reader-bottom .reading-percent{font-size:10px}.reader-bottom .bottom-nav{gap:1px;padding:2px 4px}.reader-bottom .page-btn{width:31px;height:31px}.reader-bottom .page-indicator{min-width:48px;font-size:11px}.edge-turn .icon{width:14px;height:14px}}
 
+/* The iframe background and page masks must use the SAME paper color.
+   Otherwise the opaque left/right masks look like accidental page-edge shading. */
+.reader-view{--folio-reading-paper:#fbfaf7;background:var(--folio-reading-paper)}
+.app.theme-sepia .reader-view{--folio-reading-paper:#f1e7d4}
+.app.theme-dark .reader-view{--folio-reading-paper:#242b29}
+.reader-view .reading-shell,.reader-view .reader-frame,
+.reader-view .page-mask{background:var(--folio-reading-paper)!important;box-shadow:none!important}
+.reader-view .page-mask{background-image:none!important;border:0!important}
 /* v7: masks live outside the EPUB frame, avoiding multicolumn repaint clipping. */
 .main{overflow:clip}
 .page-mask{position:absolute;top:3px;bottom:0;z-index:1;pointer-events:none;background:var(--paper)}
@@ -932,6 +940,57 @@ async function bookStyles(path){
  if(state.styleCache.size>24)state.styleCache.delete(state.styleCache.keys().next().value);
  try{return await result}catch(e){state.styleCache.delete(path);throw e}
 }
+// Identify typographic blocks by EPUB/HTML semantics, not by guessed content.
+// Marker attributes are cacheable and do not change the source EPUB or its links.
+function annotateFolioSpecialElements(root){
+ const recognized=/^(?:quote|quotation|pull[-_]?quote|pullquote|epigraph|poem|poetry|verse|verseblock|stanza|sidebar|aside|letter|correspondence|attribution|signature|verse[-_]line|poem[-_]line)$/i;
+ const token=(value,name)=>String(value||'').toLowerCase().split(/[\s,]+/).includes(name);
+ let count=0;
+ const nodes=root.querySelectorAll('blockquote,pre,dl,aside,section,article,div,figure,p,footer,cite,[role],[class]');
+ for(const el of nodes){
+  const tag=el.localName.toLowerCase();
+  const epub=(el.getAttribute('epub:type')||el.getAttributeNS('http://www.idpf.org/2007/ops','type')||'').toLowerCase();
+  const role=(el.getAttribute('role')||'').toLowerCase();
+  const classes=[...el.classList].map(c=>c.toLowerCase());
+  const has=(...names)=>names.some(n=>token(epub,n)||token(role,n)||classes.includes(n));
+  let kind='';
+  if(has('epigraph','doc-epigraph'))kind='epigraph';
+  else if(has('pullquote','pull-quote','pull_quote','doc-pullquote'))kind='pullquote';
+  else if(tag==='blockquote'||has('quotation','quote'))kind='quote';
+  else if(has('poem','poetry','verse','verseblock','doc-poem'))kind='poetry';
+  else if(has('stanza'))kind='stanza';
+  else if(has('sidebar','doc-sidebar')&&!el.hasAttribute('data-folio-popup-note'))kind='sidebar';
+  else if(has('letter','correspondence'))kind='letter';
+  else if(has('attribution','signature'))kind='attribution';
+  else if(tag==='pre')kind='preformatted';
+  else if(tag==='dl')kind='definitions';
+  if(!kind)continue;
+  // Never decorate notes that Folio has deliberately removed from the prose flow.
+  if(el.closest('[data-folio-popup-note="true"]'))continue;
+  el.dataset.folioSpecial=kind;
+  // Keep small literary/technical passages together, but allow lengthy ones to
+  // paginate normally rather than creating an oversized unbreakable box.
+  if(['epigraph','stanza','preformatted','pullquote'].includes(kind)&&
+     (el.textContent||'').length<360&&!el.querySelector('img,svg,table'))
+    el.dataset.folioKeep='true';
+  // Existing publisher decoration takes precedence over Folio's defaults.
+  const inline=el.getAttribute('style')||'';
+  if(/(?:^|;)\s*(?:border(?:-[\w-]+)?|background(?:-[\w-]+)?|box-shadow|padding(?:-[\w-]+)?)\s*:/i.test(inline)||
+     classes.some(c=>!recognized.test(c))){el.dataset.folioAuthorAccent='true'}
+  count++;
+ }
+ // Line-level formatting is only inferred within clearly marked verse blocks.
+ for(const stanza of root.querySelectorAll('[data-folio-special="poetry"], [data-folio-special="stanza"]')){
+  for(const line of stanza.querySelectorAll('p,div,span')){
+   if(line===stanza||line.closest('[data-folio-special]')!==stanza)continue;
+   if([...line.classList].some(c=>/^(?:line|verse[-_]?line|poem[-_]?line)$/i.test(c))){
+    line.dataset.folioVerseLine='true';
+   }
+  }
+ }
+ return count;
+}
+
 async function renderContent(path,chapterToken){
  const cached=state.chapterCache.get(path);
  if(cached){state.chapterCache.delete(path);state.chapterCache.set(path,cached);return makeChapterDocument(cached)}
@@ -1002,6 +1061,7 @@ async function renderContent(path,chapterToken){
  const asides=[...(body?.querySelectorAll('aside')||[])].filter(isSemanticNote);
  const proseOutside=[...(body?.children||[])].filter(el=>!asides.some(a=>a===el||a.contains(el))&&el.textContent.trim().length>30).length;
  if(proseOutside)for(const aside of asides)aside.setAttribute('data-folio-popup-note','true');
+  annotateFolioSpecialElements(body);
  const lang=doc.documentElement.getAttribute('lang')||doc.documentElement.getAttribute('xml:lang')||'';
  const prepared={css,lang,bodyHTML:body?.innerHTML||''};
  state.chapterCache.delete(path);state.chapterCache.set(path,prepared);
@@ -1251,28 +1311,102 @@ function readerCSS(){const s=state.settings,night=s.theme==='dark',warm=s.theme=
    font-size:.76em!important;line-height:0!important;vertical-align:super!important;
    white-space:nowrap!important;letter-spacing:0!important;
  }
+ /* Footnotes are references, not badges. Use superscript placement and one
+    well-contrasted accent color, with optical spacing for adjacent scripts. */
  body a[data-folio-note-ref]{
-   --folio-note-before:.13em; --folio-note-after:.045em;
-   display:inline!important; position:relative!important; white-space:nowrap!important;
+   --folio-note-before:.095em; --folio-note-after:.035em;
+   display:inline!important;position:relative!important;white-space:nowrap!important;
    color:${link}!important;cursor:pointer;text-decoration:none!important;
-   font-weight:680!important;line-height:1!important;letter-spacing:0!important;
-   border:0!important;border-radius:.28em!important;
-   padding:.025em .105em!important;
+   font-weight:610!important;line-height:1!important;letter-spacing:0!important;
+   border:0!important;border-radius:0!important;padding:0!important;
    margin-inline-start:var(--folio-note-before)!important;
    margin-inline-end:var(--folio-note-after)!important;
-   background:color-mix(in srgb,${link} 8%,transparent)!important;
-   box-decoration-break:clone;-webkit-box-decoration-break:clone;
+   background:transparent!important;box-shadow:none!important;
+   text-decoration-thickness:.055em!important;
+   text-underline-offset:.16em!important;
  }
- body a.folio-note-cjk[data-folio-note-ref]{--folio-note-before:.205em;--folio-note-after:.075em}
- body a.folio-note-latin[data-folio-note-ref]{--folio-note-before:.12em;--folio-note-after:.04em}
+ body a.folio-note-cjk[data-folio-note-ref]{--folio-note-before:.18em;--folio-note-after:.06em}
+ body a.folio-note-latin[data-folio-note-ref]{--folio-note-before:.09em;--folio-note-after:.03em}
  /* For publishers placing a note link directly in a paragraph, raise the
     annotation without changing the baseline or height of the whole line. */
  body a[data-folio-note-ref]:not(sup a):not(sub a){font-size:.76em!important;top:-.37em!important}
  body a[data-folio-note-ref]::before{content:'\\2060';font-size:0!important}
- body a[data-folio-note-ref]:hover,body a[data-folio-note-ref]:focus-visible{
-   background:color-mix(in srgb,${link} 18%,transparent)!important;
-   text-decoration:none!important;
+ body a[data-folio-note-ref]:hover{
+   background:transparent!important;text-decoration:underline!important;
+   text-decoration-color:${link}!important;
  }
+ body a[data-folio-note-ref]:focus-visible{
+   background:transparent!important;text-decoration:underline!important;
+   outline:1px solid ${link}!important;outline-offset:3px;
+ }
+
+  /* Folio semantic typography — opt-in by markup, not arbitrary paragraphs.
+     Publisher-defined decorative styling is left intact.  All sizes are em-relative
+     so the design works with both Chinese and English font settings. */
+  body{--folio-special-rule:color-mix(in srgb,${link} 32%,transparent);
+       --folio-special-faint:color-mix(in srgb,${ink} 3.4%,transparent);
+       --folio-special-panel:color-mix(in srgb,${ink} 4.5%,transparent);}
+  body [data-folio-special]{max-width:100%!important;min-width:0;overflow-wrap:break-word;}
+  body [data-folio-keep="true"]{display:inline-block!important;width:100%;vertical-align:top;break-inside:avoid!important;}
+  body [data-folio-special="quote"]:not([data-folio-author-accent]){
+    margin-block:1.05em 1.12em!important; padding-block:.34em .22em!important;
+    padding-inline:.94em .54em!important;break-inside:auto!important;
+    border-inline-start:2px solid var(--folio-special-rule);
+    border-radius:0 .22em .22em 0;background:var(--folio-special-faint);
+    box-decoration-break:clone;-webkit-box-decoration-break:clone;
+  }
+  body [data-folio-special="pullquote"]:not([data-folio-author-accent]){
+    margin-block:1.3em!important;padding:.5em 1.05em!important;
+    text-align:center;border-block:1px solid var(--folio-special-rule);
+    font-size:1.04em;break-inside:auto!important;
+  }
+  body [data-folio-special="epigraph"]:not([data-folio-author-accent]){
+    margin-block:1.2em 1.35em!important;padding:.3em .35em .3em 1.02em!important;
+    border-inline-start:1px solid var(--folio-special-rule);
+    font-size:.94em;break-inside:auto!important;
+  }
+  body [data-folio-special="poetry"]{
+    margin-block:1.05em 1.18em!important;padding-inline:.75em .25em!important;
+    max-width:100%!important;break-inside:auto!important;
+  }
+  body [data-folio-special="stanza"]{
+    margin-block:.65em .85em!important;padding:0!important;
+    text-indent:0!important;break-inside:auto!important;
+  }
+  body [data-folio-verse-line="true"]{
+    text-indent:0!important;margin-block:0!important;white-space:pre-wrap;
+    overflow-wrap:break-word;
+  }
+  body [data-folio-special="sidebar"]:not([data-folio-author-accent]){
+    margin-block:1.05em 1.2em!important;padding:.7em .94em!important;
+    border:1px solid var(--folio-special-rule);border-radius:.42em;
+    background:var(--folio-special-panel);break-inside:auto!important;
+    box-decoration-break:clone;-webkit-box-decoration-break:clone;
+  }
+  body [data-folio-special="letter"]:not([data-folio-author-accent]){
+    margin-block:1.05em 1.2em!important;padding-inline:1em .55em!important;
+    border-inline-start:1px solid var(--folio-special-rule);
+    break-inside:auto!important;
+  }
+  body [data-folio-special="letter"] > p{margin-block:0 .44em!important;}
+  body [data-folio-special="letter"] > p:first-child{margin-block-end:.68em!important;}
+  body [data-folio-special="letter"] > p:last-child{margin-block-start:.55em!important;}
+  body [data-folio-special="attribution"]{
+    display:block;text-align:end;font-size:.91em;margin-block:.32em .55em!important;
+  }
+  body [data-folio-special="preformatted"]:not([data-folio-author-accent]){
+    margin-block:1em 1.15em!important;padding:.72em .84em!important;
+    border:1px solid var(--folio-special-rule);border-radius:.32em;
+    background:var(--folio-special-faint);font-size:.88em!important;
+    line-height:1.55!important;white-space:pre-wrap!important;
+    tab-size:4;hyphens:none;overflow-wrap:anywhere;break-inside:auto!important;
+  }
+  body [data-folio-special="definitions"]{margin-block:.75em 1em!important;}
+  body [data-folio-special="definitions"] dt{font-weight:650;margin-block:.62em .12em;}
+  body [data-folio-special="definitions"] dd{margin-inline-start:1em;}
+  body [data-folio-special] > :first-child{margin-block-start:0!important;}
+  body [data-folio-special] > :last-child{margin-block-end:0!important;}
+  
 
  @media(max-width:920px){:root{--folio-gap:0px;--folio-side:clamp(40px,7vw,64px)}body{column-count:1!important;}}
  @media(max-height:450px){:root{--folio-top:14px;--folio-bottom:14px}}

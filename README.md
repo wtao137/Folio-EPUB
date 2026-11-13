@@ -13,10 +13,11 @@ For recent improvements and release history, see the [changelog](CHANGELOG.md).
 
 - **Page-based reading:** automatic one-, two-, or three-column spreads based on available width, with keyboard, mouse wheel, and margin-click navigation. No vertical page scrolling.
 - **Typography:** independent Chinese and English font selection, including Libertinus Serif, EB Garamond, Microsoft YaHei, Sitka, and source Han / Noto CJK families. Includes bundled English web fonts and optional Chinese online font fallbacks.
+- **Semantic typography:** consistent, understated presentation for quotations, epigraphs, poetry, sidebars, letters, code, and definition lists. Applies to recognizable EPUB/HTML semantics while deferring to deliberately styled publisher elements.
 - **Text to speech:** uses the voices made available by Edge or Chrome, with separate language choices, speed controls, progress following, and remembered voice preferences.
 - **Fast chapter preparation:** Embedded resources are loaded using a bounded queue, shared assets are decompressed once, and adjacent chapters are prefetched when idle.
 - **EPUB search:** a dedicated worker searches chapter text progressively, with chapter-wide or entire-book scope, snippets, and jump-to-result. Search is initialized only when needed, bounded to the first 260 matches and approximately 8 MB of cached extracted text. No extra WASM dependency or permanent full-text index.
-- **Footnotes:** preview existing EPUB footnotes on hover, navigate on click, and return to the previous reading position. Annotation marks use script-sensitive spacing for Chinese and English.
+- **Footnotes:** preview existing EPUB footnotes on hover, navigate on click, and return to the previous reading position. Script-aware, colored superscript marks replace the old background badges.
 - **Dictionary:** English definitions with pronunciation options and Chinese meanings from browser-accessible online providers when available. Word-form fallback handles common plural and verb endings.
 - **Library and privacy:** import DRM-free EPUBs locally, resume reading, manage bookmarks, remove individual books and associated data, or clear all saved data.
 - **Installable PWA:** a versioned service worker caches the application shell for quick offline reopening and displays a reload prompt after updates. Imported books remain in browser storage.
@@ -54,6 +55,12 @@ For local development, any static HTTP server works. For example, from the proje
 | Navigate to an EPUB footnote | Click its reference, then use **Back to text** |
 | Look up an English word | Click it in the reading text |
 | Start read-aloud | **Read aloud**; it starts at the visible page |
+
+## Special-element typography
+
+Folio styles semantic HTML elements (for example, `<blockquote>`, `<pre>`, and `<dl>`), selected EPUB 3 `epub:type` values, ARIA document roles, and common class names such as `epigraph`, `poem`, and `sidebar`. Quotations use a subtle leading rule and inset; epigraphs and poetry are distinguished primarily by whitespace; sidebars and preformatted blocks use a light, theme-aware surface. Unlike blanket CSS overrides, the reader avoids adding decorations to elements with their own explicitly authored decorative styling.
+
+The page clipping masks and reading iframe now share the same exact paper color, removing mismatched edge shading. The styles are designed for fixed-height column pagination and use logical-direction properties suitable for both English and Chinese text. They do not inject quote characters, change the contents of the EPUB, or force a specific serif/sans-serif family.
 
 ## How search works
 
