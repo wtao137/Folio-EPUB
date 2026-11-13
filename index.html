@@ -474,8 +474,8 @@
 #folioWordCard .word-detail .word-pos{font-family:inherit;color:var(--word-secondary);font-size:11px;opacity:1;letter-spacing:.01em}
 #folioWordCard .word-detail .word-example{font-size:12.5px;font-style:italic;color:var(--word-secondary);opacity:1;margin:6px 0 9px;padding-left:11px;border-left:2px solid var(--line)}
 #folioWordCard .word-detail .word-zh-block :is(.word-definition,.word-overview,.word-example){font-family:var(--folio-lookup-zh-font,"Noto Serif CJK SC",serif);font-size:13px;line-height:1.7;font-style:normal}
-.app.folio-online-source-han #folioWordCard .word-detail .word-zh-block :is(.word-definition,.word-overview,.word-example){font-weight:var(--folio-online-zh-regular,445)}
-.app.folio-online-source-han #folioWordCard .word-detail .word-zh-block :is(b,strong){font-weight:var(--folio-online-zh-bold,700)}
+.app.folio-online-source-han #folioWordCard .word-detail .word-zh-block :is(.word-definition,.word-overview,.word-example){font-weight:var(--folio-online-zh-regular,535);font-variation-settings:"wght" var(--folio-online-zh-regular,535);font-synthesis-weight:none}
+.app.folio-online-source-han #folioWordCard .word-detail .word-zh-block :is(b,strong){font-weight:var(--folio-online-zh-bold,755);font-variation-settings:"wght" var(--folio-online-zh-bold,755)}
 #folioWordCard .word-detail .word-source{font-family:inherit;font-size:10px;letter-spacing:.01em;color:var(--word-secondary);opacity:1;margin-top:8px}
 #folioWordCard .word-detail .word-separator{background:var(--word-divider);opacity:1;margin:12px 0}
 #folioWordCard :is(.word-loading,.word-unavailable){color:var(--word-secondary);opacity:1;font-family:inherit;font-size:12px;line-height:1.55}
@@ -1701,7 +1701,7 @@ const FOLIO_CHINESE_WEB_FONTS={
   localNames:['Source Han Serif SC','Source Han Serif CN','Noto Serif CJK SC','Noto Serif SC','Source Han Serif SC VF'],
   webFamily:'Source Han Serif SC VF',
   href:'https://cdn.jsdelivr.net/npm/cn-fontsource-source-han-serif-sc-vf@1.0.9/font.css',
-  webWeights:{regular:480,bold:720,heading:685},
+  webWeights:{regular:570,bold:780,heading:745},
   fallback:['Songti SC','SimSun','serif']
  },
  'Noto Sans CJK SC':{
@@ -1709,7 +1709,7 @@ const FOLIO_CHINESE_WEB_FONTS={
   localNames:['Source Han Sans SC','Source Han Sans CN','Noto Sans CJK SC','Noto Sans SC','Source Han Sans SC VF'],
   webFamily:'Source Han Sans SC VF',
   href:'https://cdn.jsdelivr.net/npm/cn-fontsource-source-han-sans-sc-vf@1.0.10/font.css',
-  webWeights:{regular:445,bold:700,heading:670},
+  webWeights:{regular:535,bold:755,heading:725},
   fallback:['Microsoft YaHei','PingFang SC','sans-serif']
  },
  'LXGW WenKai':{
@@ -1747,12 +1747,34 @@ function folioOnlineChineseReaderRules(font){
  if(!w)return '';
  // The class is set only when the selected font is missing locally. Keep
  // local Source Han / Noto weights exactly as they were in v44.
- return `html.folio-online-source-han:not(.folio-english-chapter) body{font-weight:${w.regular}!important}
- html.folio-online-source-han:not(.folio-english-chapter) body :is(b,strong){font-weight:${w.bold}!important}
- html.folio-online-source-han:not(.folio-english-chapter) body :is(h1,h2,h3,h4,h5,h6){font-weight:${w.heading}!important}
- /* Latin text has its own reading font; don't darken it as a side effect. */
- html.folio-online-source-han:not(.folio-english-chapter) body span.folio-latin{font-weight:400!important}
- html.folio-online-source-han:not(.folio-english-chapter) body :is(b,strong,h1,h2,h3,h4,h5,h6) span.folio-latin{font-weight:700!important}`;
+ // Set the CSS weight *and* the OpenType variable axis. Some segmented
+ // webfont CSS lists only a default face even though the WOFF2 has `wght`.
+ // Explicit axis selection keeps the intended optical weight in Chromium.
+ // Never apply these rules if a locally installed source is available.
+ return `html.folio-online-source-han:not(.folio-english-chapter) body{
+   font-weight:${w.regular}!important;
+   font-variation-settings:"wght" ${w.regular}!important;
+   font-synthesis-weight:none;
+ }
+ html.folio-online-source-han:not(.folio-english-chapter) body :is(b,strong){
+   font-weight:${w.bold}!important;
+   font-variation-settings:"wght" ${w.bold}!important;
+ }
+ html.folio-online-source-han:not(.folio-english-chapter) body :is(h1,h2,h3,h4,h5,h6){
+   font-weight:${w.heading}!important;
+   font-variation-settings:"wght" ${w.heading}!important;
+ }
+ /* Latin spans use the selected English reading face and must not inherit
+    a Chinese webfont's axis setting or optical weight. */
+ html.folio-online-source-han:not(.folio-english-chapter) body span.folio-latin{
+   font-weight:400!important;
+   font-variation-settings:normal!important;
+   font-synthesis-weight:auto;
+ }
+ html.folio-online-source-han:not(.folio-english-chapter) body :is(b,strong,h1,h2,h3,h4,h5,h6) span.folio-latin{
+   font-weight:700!important;
+   font-variation-settings:normal!important;
+ }`;
 }
 const ZH_FONT_STACKS={
  ...Object.fromEntries(Object.entries(FOLIO_CHINESE_WEB_FONTS).map(([name,spec])=>[name,[spec.localFamily,spec.webFamily,...spec.fallback]])),
@@ -2025,12 +2047,26 @@ async function loadRemoteReaderFonts(doc,token){
   let finished=false;
   const finish=value=>{if(finished)return;finished=true;resolve(value)};
   link.onload=()=>{
-   Promise.resolve(doc.fonts?.ready).then(()=>{
-    if(token===state.renderToken&&link.isConnected&&doc===$('readerFrame').contentDocument){
+   // A stylesheet can load successfully while its WOFF2 files fail. Explicitly
+   // resolve a few Chinese characters taken from the chapter (not an unrelated
+   // test string), then use the regular 400 face to probe the CDN registration.
+   // The later CSS `wght` axis chooses the stronger web-only optical weight.
+   const sample=(doc.body?.textContent||'').match(/[㐀-鿿]/g)?.slice(0,24).join('')||'中文';
+   const verify=doc.fonts?.load?.('400 18px '+JSON.stringify(spec.webFamily),sample);
+   Promise.resolve(verify).then(faces=>{
+    if(!link.isConnected)return finish(false);
+    if(!faces?.length)throw new Error('No usable Source Han webfont face');
+    if(token===state.renderToken&&doc===$('readerFrame').contentDocument){
      invalidateFolioPageLayout(doc);schedulePagination(pageFraction(),token);
     }
     finish(true);
-   }).catch(()=>finish(false));
+   }).catch(()=>{
+    link.remove();root.classList.remove('folio-online-source-han');
+    if(token===state.renderToken&&doc===$('readerFrame').contentDocument){
+     invalidateFolioPageLayout(doc);schedulePagination(pageFraction(),token);
+    }
+    finish(false);
+   });
   };
   link.onerror=()=>{
    link.remove(); // Allow the next layout/theme refresh to retry online.
