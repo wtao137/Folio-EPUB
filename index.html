@@ -438,6 +438,56 @@
  .app.theme-dark #settingsDrawer .folio-select-wrap .select option:focus-visible,
  .app.theme-dark #settingsDrawer .folio-select-wrap .select option:checked{background:#395044;color:#e8f5eb}
 }
+
+/* v35: the dictionary belongs to the active page tone and reading typography.
+   Inherit the palette from #app rather than falling back to a white page. */
+#folioWordCard.word-card{
+  --word-secondary:color-mix(in srgb,var(--ink) 72%,var(--paper));
+  --word-divider:var(--line);
+  background:var(--paper);color:var(--ink);border-color:var(--line);
+  border-radius:15px;font-family:inherit;font-size:13px;line-height:1.5;
+  box-shadow:0 15px 42px #172c2025,0 3px 10px #172c2010;
+  color-scheme:light;
+}
+.app.theme-sepia #folioWordCard{--word-secondary:#75614a;box-shadow:0 16px 45px #49341e29,0 3px 10px #49341e13}
+.app.theme-dark #folioWordCard{--word-secondary:#b1c1b7;box-shadow:0 18px 48px #0009,0 3px 12px #0005;color-scheme:dark}
+#folioWordCard .word-head{background:var(--surface);border-bottom:1px solid var(--word-divider);padding:16px 19px 13px}
+#folioWordCard .word-overline{color:var(--accent);opacity:1;font-size:10px;font-weight:700;letter-spacing:.12em}
+#folioWordCard .word-title-row h3{font-family:var(--folio-lookup-en-font,Georgia,serif);font-size:27px;line-height:1.2;font-weight:500;letter-spacing:-.012em;color:var(--ink);margin:5px 0 6px}
+#folioWordCard .word-lemma{color:var(--word-secondary);opacity:1;line-height:1.5}
+#folioWordCard .word-close{color:var(--word-secondary);opacity:1;display:grid;place-items:center;font-family:inherit;font-size:22px;border-radius:8px;flex:none}
+#folioWordCard .word-close:hover,#folioWordCard .word-close:focus-visible{background:var(--accent-light);color:var(--accent)}
+#folioWordCard .word-phonetics{margin-top:8px;gap:7px}
+#folioWordCard .word-sound{font-family:inherit;gap:6px;border:1px solid var(--word-divider);background:var(--paper);color:var(--ink);font-size:11.5px;line-height:1.3;padding:5px 10px;min-height:29px}
+#folioWordCard .word-sound:hover{background:var(--accent-light);border-color:color-mix(in srgb,var(--accent) 42%,var(--line))}
+#folioWordCard .word-sound:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#folioWordCard .word-sound-icon{color:var(--accent);font-size:14px}
+#folioWordCard .word-sound .ipa{color:var(--word-secondary);font-family:inherit;font-size:11px;opacity:1}
+#folioWordCard .word-detail{background:var(--paper);padding:13px 19px 15px}
+#folioWordCard .word-detail h4{color:var(--accent);opacity:1;font-family:inherit;font-size:10px;font-weight:750;letter-spacing:.10em;margin:4px 0 8px;line-height:1.45}
+#folioWordCard .word-detail :is(.word-glance,.word-definition,.word-overview,.word-example){font-family:var(--folio-lookup-en-font,Georgia,serif);color:var(--ink);font-size:13.5px;line-height:1.55;letter-spacing:0}
+#folioWordCard .word-detail .word-glance{margin:0 0 6px}
+#folioWordCard .word-detail .word-definition{margin:0 0 9px}
+#folioWordCard .word-detail .word-pos{font-family:inherit;color:var(--word-secondary);font-size:11px;opacity:1;letter-spacing:.01em}
+#folioWordCard .word-detail .word-example{font-size:12.5px;font-style:italic;color:var(--word-secondary);opacity:1;margin:6px 0 9px;padding-left:11px;border-left:2px solid var(--line)}
+#folioWordCard .word-detail .word-zh-block :is(.word-definition,.word-overview,.word-example){font-family:var(--folio-lookup-zh-font,"Noto Serif CJK SC",serif);font-size:13px;line-height:1.7;font-style:normal}
+#folioWordCard .word-detail .word-source{font-family:inherit;font-size:10px;letter-spacing:.01em;color:var(--word-secondary);opacity:1;margin-top:8px}
+#folioWordCard .word-detail .word-separator{background:var(--word-divider);opacity:1;margin:12px 0}
+#folioWordCard :is(.word-loading,.word-unavailable){color:var(--word-secondary);opacity:1;font-family:inherit;font-size:12px;line-height:1.55}
+#folioWordCard .word-audio-info{color:var(--word-secondary)}
+#folioWordCard .word-links{background:var(--surface);border-top:1px solid var(--word-divider);padding:11px 19px 12px;gap:8px 16px}
+#folioWordCard .word-links a,#folioWordCard .enhanced-toggle{color:var(--accent);font-family:inherit;font-size:11px;font-weight:600;opacity:1}
+#folioWordCard .word-links a:hover,#folioWordCard .enhanced-toggle:hover{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+#folioWordCard .word-enhanced-panel{background:var(--surface);color:var(--ink);border-top:1px solid var(--word-divider)}
+#folioWordCard .enhanced-title{color:var(--ink)}
+#folioWordCard .enhanced-help{color:var(--word-secondary);opacity:1}
+#folioWordCard .enhanced-field input{background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:8px;min-height:34px}
+#folioWordCard .enhanced-field input::placeholder{color:var(--word-secondary)}
+#folioWordCard .enhanced-field button{background:var(--paper);border:1px solid var(--line);border-radius:8px;color:var(--ink);min-height:34px}
+#folioWordCard .enhanced-field button:hover{background:var(--accent-light);border-color:var(--accent)}
+#folioWordCard .enhanced-status{color:var(--word-secondary)}
+@media(max-width:500px){#folioWordCard .word-head{padding:13px 15px 11px}#folioWordCard .word-detail{padding:12px 15px}#folioWordCard .word-links{padding:9px 15px 11px}}
+
 </style>
 </head>
 <body>
@@ -551,15 +601,6 @@
    <div class="loading" id="loading" hidden><div class="spinner"></div><span id="loadingText">Opening your book…</span></div>
   </main>
  </div>
-</div>
-<input id="fileInput" type="file" accept=".epub,application/epub+zip" multiple hidden>
-<input id="folioRestoreInput" type="file" accept=".json,application/json" hidden>
-<div class="toast" id="toast" role="status" aria-live="polite"></div>
-<div id="folioUpdateNotice" class="folio-update-notice" hidden role="status">A newer version is ready. <button id="folioUpdateNow" type="button">Reload</button></div>
-<aside id="folioNotePopup" class="folio-note-popup" hidden role="dialog" aria-label="Book footnote" aria-modal="false">
- <div class="folio-note-head"><span id="folioNoteLabel">Footnote</span><button type="button" id="folioNoteClose" title="Close note" aria-label="Close footnote">&times;</button></div>
- <div id="folioNoteText" class="folio-note-text"></div>
-</aside>
   <aside id="folioWordCard" class="word-card" hidden role="dialog" aria-modal="false" aria-label="Dictionary lookup">
     <div class="word-head"><div class="word-title-row"><div><div class="word-overline">ONLINE DICTIONARY</div><h3 id="wordTitle">Word</h3><div id="wordLemma" class="word-lemma" hidden></div></div><button type="button" id="wordClose" class="word-close" aria-label="Close dictionary" title="Close">&times;</button></div>
       <div class="word-phonetics"><button type="button" id="wordUS" class="word-sound" title="Play American pronunciation"><span class="word-sound-icon">♪</span> US <span id="wordUSIPA" class="ipa"></span></button><button type="button" id="wordUK" class="word-sound" title="Play British pronunciation"><span class="word-sound-icon">♪</span> UK <span id="wordUKIPA" class="ipa"></span></button></div>
@@ -569,6 +610,15 @@
     <div class="word-links"><a id="wordVocabLink" href="https://www.vocabulary.com/dictionary/" target="_blank" rel="noopener noreferrer">Vocabulary.com ↗</a><a id="wordICibaLink" href="https://3325.cn/" target="_blank" rel="noopener noreferrer">3325 英语词典 ↗</a><button type="button" id="wordEnhancedToggle" class="enhanced-toggle" title="Use a personal UAPI key for richer explanations and US/UK recordings">Enhanced lookup</button></div>
     <div id="wordEnhancedPanel" class="word-enhanced-panel" hidden><div class="enhanced-title">Enhanced English dictionary</div><div class="enhanced-help">UAPI supplies learner-friendly definitions, examples and UK/US audio. Its documented browser interface requires your own API key. The key is stored only in this tab's session and is sent directly to uapis.cn. <a href="https://uapis.cn/en/docs/api-reference/get-dictionary-lookup" target="_blank" rel="noopener noreferrer">Documentation ↗</a></div><div class="enhanced-field"><input type="password" id="wordUapiKey" autocomplete="off" spellcheck="false" placeholder="Paste your UAPI key"><button type="button" id="wordUapiSave">Use key</button><button type="button" id="wordUapiClear">Clear</button></div><div id="wordUapiStatus" class="enhanced-status" aria-live="polite"></div></div>
   </aside>
+</div>
+<input id="fileInput" type="file" accept=".epub,application/epub+zip" multiple hidden>
+<input id="folioRestoreInput" type="file" accept=".json,application/json" hidden>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div id="folioUpdateNotice" class="folio-update-notice" hidden role="status">A newer version is ready. <button id="folioUpdateNow" type="button">Reload</button></div>
+<aside id="folioNotePopup" class="folio-note-popup" hidden role="dialog" aria-label="Book footnote" aria-modal="false">
+ <div class="folio-note-head"><span id="folioNoteLabel">Footnote</span><button type="button" id="folioNoteClose" title="Close note" aria-label="Close footnote">&times;</button></div>
+ <div id="folioNoteText" class="folio-note-text"></div>
+</aside>
 <script id="folio-jszip">/*!
 
 JSZip v3.10.1 - A JavaScript class for generating and reading zip files
@@ -660,8 +710,20 @@ function folioTrapDrawerFocus(event){
 }
 function toLibrary(){resetFolioSearch();hideNotePopup();state.noteReturn=null;$('noteBack').hidden=true;if(!$('folioWordCard').hidden)hideWordCard();if(state.book){saveProgress();stopSpeech();state.renderToken++;if(state.zip){for(const url of state.urls.values())URL.revokeObjectURL(url)}state.urls.clear();state.chapterCache.clear();state.noteDocCache.clear();state.preparePromises.clear();state.styleCache.clear();state.book=null;state.meta=null;state.zip=null;state.chapter=-1;state.readingAnchor=null;state.spine=[];state.toc=[];$('readerFrame').srcdoc='';state.paging={page:0,pages:1,columns:2,step:0,gap:0,restore:0};}closeDrawer();$('readerView').hidden=true;$('emptyView').hidden=false;$('app').classList.remove('reader-active');$('topTitle').textContent='Folio';$('topSubtitle').textContent='Your library';$('ttsDock').hidden=true;setButtonState();renderLibrary();}
 function setTheme(theme){$('app').classList.remove('theme-sepia','theme-dark');if(theme!=='light')$('app').classList.add('theme-'+theme);document.querySelectorAll('[data-theme]').forEach(el=>el.classList.toggle('selected',el.dataset.theme===theme));const col=theme==='dark'?'#1f2524':theme==='sepia'?'#eee5d5':'#f6f5f1';document.querySelector('meta[name="theme-color"]')?.setAttribute('content',col)}
-function bindSetting(id,key,convert=val=>val,render=false){const el=$(id);el.addEventListener('input',()=>{state.settings[key]=convert(el.type==='checkbox'?el.checked:el.value);safeSave(STORAGE.settings,state.settings);syncSettingsLabels();if(key==='theme')setTheme(state.settings.theme);if(render)updateReaderTheme()})}
-function initSettings(){const saved=safeParse(STORAGE.settings,{});if(saved.layoutVersion!==2){if(Number.isFinite(saved.pageWidth))saved.pageWidth=clamp(Math.round(saved.pageWidth*1.65/20)*20,700,2200);saved.layoutVersion=2;}state.settings={...DEFAULTS,...saved};safeSave(STORAGE.settings,state.settings);state.progress=safeParse(STORAGE.progress,{});state.bookmarks=safeParse(STORAGE.bookmarks,{});setTheme(state.settings.theme);
+function syncLookupFonts(){
+ const en=EN_FONT_STACKS[state.settings.enFont]||EN_FONT_STACKS.Georgia;
+ const zh=ZH_FONT_STACKS[state.settings.zhFont]||ZH_FONT_STACKS['Noto Serif CJK SC'];
+ $('app').style.setProperty('--folio-lookup-en-font',cssFontStack(en));
+ $('app').style.setProperty('--folio-lookup-zh-font',cssFontStack(zh));
+ // The reader already bundles these English font faces. Reuse them in the
+ // lookup card so Libertinus/EB Garamond render identically outside the iframe.
+ let faces=document.getElementById('folioLookupFontFaces');
+ if(!faces){faces=document.createElement('style');faces.id='folioLookupFontFaces';document.head.append(faces)}
+ const embeddedFace=BUNDLED_EN_FONT_RULES[state.settings.enFont]||'';
+ if(faces.dataset.font!==state.settings.enFont){faces.textContent=embeddedFace;faces.dataset.font=state.settings.enFont}
+}
+function bindSetting(id,key,convert=val=>val,render=false){const el=$(id);el.addEventListener('input',()=>{state.settings[key]=convert(el.type==='checkbox'?el.checked:el.value);safeSave(STORAGE.settings,state.settings);syncSettingsLabels();if(key==='theme')setTheme(state.settings.theme);if(key==='enFont'||key==='zhFont')syncLookupFonts();if(render)updateReaderTheme()})}
+function initSettings(){const saved=safeParse(STORAGE.settings,{});if(saved.layoutVersion!==2){if(Number.isFinite(saved.pageWidth))saved.pageWidth=clamp(Math.round(saved.pageWidth*1.65/20)*20,700,2200);saved.layoutVersion=2;}state.settings={...DEFAULTS,...saved};safeSave(STORAGE.settings,state.settings);state.progress=safeParse(STORAGE.progress,{});state.bookmarks=safeParse(STORAGE.bookmarks,{});setTheme(state.settings.theme);syncLookupFonts();
  for(const id of ['enFont','zhFont','forceBookFonts','fontSize','lineHeight','paragraphSpace','pageWidth','zhVoice','enVoice','quickRate','quickVoice','autoAdvance','autoScroll','speechFocus']){if(id==='quickRate')$('quickRate').value=state.settings.rate;else if(id==='quickVoice')$('quickVoice').value=state.settings.quickVoice;else {const field=state.settings[id];$(id).type==='checkbox'?$(id).checked=!!field:$(id).value=field}}
  for(const btn of document.querySelectorAll('[data-theme]'))btn.addEventListener('click',()=>{state.settings.theme=btn.dataset.theme;safeSave(STORAGE.settings,state.settings);setTheme(state.settings.theme);updateReaderTheme()});
  $('forceBookFonts').addEventListener('change',()=>{state.settings.forceBookFonts=$('forceBookFonts').checked;safeSave(STORAGE.settings,state.settings);if(state.book)renderChapter(state.chapter,pageFraction());});
@@ -2521,7 +2583,7 @@ function renderWordLookup(){
   blocks.push('<div class="word-source">'+escapeHTML(entry.enSource||'English dictionary')+'</div>');
   if(english.length>1){blocks.push('<div class="word-separator"></div><h4>Other meanings</h4>');for(const x of english.slice(1,5))blocks.push(line(x))}
  }else blocks.push('<p class="word-unavailable">English explanation unavailable from online sources. Vocabulary.com can still be opened using the link below.</p>');
- if(chinese.length){blocks.push('<div class="word-separator"></div><h4>中文释义</h4>');for(const x of chinese.slice(0,4))blocks.push(line(x,false));blocks.push('<div class="word-source">'+escapeHTML(entry.zhSource||'3325 英语词典')+'</div>')}
+ if(chinese.length){blocks.push('<div class="word-separator"></div><div class="word-zh-block"><h4>中文释义</h4>');for(const x of chinese.slice(0,4))blocks.push(line(x,false));blocks.push('<div class="word-source">'+escapeHTML(entry.zhSource||'3325 英语词典')+'</div></div>')}
  const detail=$('wordDetail'),previousScroll=detail.scrollTop;detail.innerHTML=blocks.join('');detail.scrollTop=previousScroll;
  $('wordUSIPA').textContent=entry.usIPA?`/${entry.usIPA}/`:'';
  $('wordUKIPA').textContent=entry.ukIPA?`/${entry.ukIPA}/`:'';
