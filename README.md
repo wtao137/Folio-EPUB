@@ -6,22 +6,28 @@ Folio is a lightweight, paginated reading application for Microsoft Edge and Chr
 
 ![Folio reading view](docs/reader-preview.png)
 
+
+For recent improvements and release history, see the [changelog](CHANGELOG.md).
+
 ## Features
 
 - **Page-based reading:** automatic one-, two-, or three-column spreads based on available width, with keyboard, mouse wheel, and margin-click navigation. No vertical page scrolling.
 - **Typography:** independent Chinese and English font selection, including Libertinus Serif, EB Garamond, Microsoft YaHei, Sitka, and source Han / Noto CJK families. Includes bundled English web fonts and optional Chinese online font fallbacks.
 - **Text to speech:** uses the voices made available by Edge or Chrome, with separate language choices, speed controls, progress following, and remembered voice preferences.
+- **Fast chapter preparation:** Embedded resources are loaded using a bounded queue, shared assets are decompressed once, and adjacent chapters are prefetched when idle.
 - **EPUB search:** a dedicated worker searches chapter text progressively, with chapter-wide or entire-book scope, snippets, and jump-to-result. Search is initialized only when needed, bounded to the first 260 matches and approximately 8 MB of cached extracted text. No extra WASM dependency or permanent full-text index.
 - **Footnotes:** preview existing EPUB footnotes on hover, navigate on click, and return to the previous reading position. Annotation marks use script-sensitive spacing for Chinese and English.
 - **Dictionary:** English definitions with pronunciation options and Chinese meanings from browser-accessible online providers when available. Word-form fallback handles common plural and verb endings.
 - **Library and privacy:** import DRM-free EPUBs locally, resume reading, manage bookmarks, remove individual books and associated data, or clear all saved data.
-- **Installable PWA:** a service worker caches the app shell for offline reopening; imported books remain in browser storage.
+- **Installable PWA:** a versioned service worker caches the application shell for quick offline reopening and displays a reload prompt after updates. Imported books remain in browser storage.
+- **Reading-data backup:** export or restore your positions, bookmarks, themes, fonts and voice preferences as a small JSON file. This helps when moving between browser origins. EPUB books themselves are not included.
+- **Keyboard accessibility:** dialog focus is contained within the active drawer; Escape closes it, and page shortcuts do not turn pages behind open menus.
 
 ## Quick start
 
 ### Standalone HTML
 
-Download `Folio-EPUB-Reader-v22-Standalone.html` and open it in Edge or Chrome. Import a DRM-free EPUB from the library view. The reader itself can function offline; dictionary lookups and some web fonts require an internet connection. Direct `file://` browsing cannot be installed as a PWA, and its storage is separate from an HTTPS-hosted copy.
+Download `Folio-Standalone.html` and open it in Edge or Chrome. Import a DRM-free EPUB from the library view. The reader itself can function offline; dictionary lookups and some web fonts require an internet connection. Direct `file://` browsing cannot be installed as a PWA, and its storage is separate from an HTTPS-hosted copy.
 
 ### Install as a PWA
 
@@ -41,7 +47,9 @@ For local development, any static HTTP server works. For example, from the proje
 | Browse the table of contents | **Contents** (left edge of the reading interface) |
 | Search the current EPUB | Magnifying glass or **Ctrl+F** / **Cmd+F** |
 | Change typography or appearance | **Appearance** |
-| Turn pages | On-screen arrows, Left/Right, Page Up/Page Down, scroll wheel, or outer reading margins |
+| Turn pages | On-screen arrows, Left/Right, Page Up/Page Down, scroll wheel, swipes or outer reading margins |
+| Enlarge an illustration | Click an unlinked illustration, then use **Actual size** to inspect details; Escape closes the preview |
+| Inspect a dense table | Select **View table** beneath an oversized or cramped table |
 | Preview an existing EPUB footnote | Hover over its reference |
 | Navigate to an EPUB footnote | Click its reference, then use **Back to text** |
 | Look up an English word | Click it in the reading text |
@@ -59,10 +67,16 @@ EPUB files are imported into the browser's **IndexedDB**. Preferences, reading p
 
 To remove one book, use its delete control in Library. To erase all data, use the storage controls in Appearance. Browser eviction or manual site-data clearing can remove locally saved books: retain a backup of your EPUB files.
 
+### Back up and transfer reading data
+
+Open **Appearance → Local storage** and select **Export reading data** to download `folio-reading-YYYY-MM-DD.json`. The small JSON includes reading positions, bookmarks, selected fonts, themes and voice preferences. **Import reading data** merges bookmarks and positions and restores preferences; existing books and their EPUB files remain untouched. Book IDs are based on the imported EPUB contents, so reimporting identical files lets Folio match them to saved positions.
+
+**This backup does not contain the EPUBs.** Keep the original book files separately and reimport them after moving to a new PWA origin or browser profile. Dictionary API credentials are not exported. When the browser supports it, **Protect local book storage** requests persistent storage; it reduces the risk of automatic eviction, but is not a substitute for a backup.
+
 ## Supported formats and limitations
 
 - Designed for **DRM-free, reflowable EPUB 2 / EPUB 3** documents.
-- Fixed-layout EPUBs, DRM-protected files and unusually complex publisher scripts are not supported.
+- Fixed-layout EPUBs, DRM-protected files and publisher scripts are not supported. Some unusual mathematical notation or very dense tables may still require the original EPUB layout to be readable. The expanded table view preserves basic text formatting and superscripts/subscripts, but does not duplicate images or MathML inside cells.
 - Footnote previews require actual note references in the EPUB. Folio does not fabricate missing source links.
 - Recorded dictionary audio and some Chinese web fonts depend on network access and provider availability. Browser Natural voice availability varies by Edge/Chrome version and operating system.
 - Search does not read words baked into images or scanned pages.
@@ -80,10 +94,19 @@ folio/
 │   └── folio-512.png
 ├── docs/
 │   └── reader-preview.png
-└── README.md
+├── README.md
+└── CHANGELOG.md
 ```
 
-The separately distributed `Folio-EPUB-Reader-v22-Standalone.html` contains the reader but no installable PWA resources.
+The separately distributed `Folio-Standalone.html` contains the reader but no installable PWA resources.
+
+For release history, see [CHANGELOG.md](CHANGELOG.md).
+
+## Reliability and resource usage
+
+Folio limits excessively large or suspicious EPUB archives before import, uses a one-time case-insensitive ZIP-path index to avoid repeated archive scans for publisher assets, and prepares neighboring chapters lazily. It does not build a permanent search index or upload EPUBs to a remote service.
+
+The PWA uses a versioned, cache-first shell for fast offline startup. It requires that all essential shell resources be cached successfully before activating an updated service worker. When an update takes control, the current tab shows a discreet reload option.
 
 ## Development and contributing
 

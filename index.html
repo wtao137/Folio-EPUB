@@ -281,6 +281,64 @@
 @media(max-width:370px){.empty-view .dropicon{display:none}.empty-view .dropzone .pillbtn{padding:0 9px}}
 @media(max-height:460px){.empty-view{padding-top:15px}.empty-view .welcome-head{margin-bottom:14px}.empty-view .recent-area{margin-top:19px}}
 
+
+/* v25: compact data controls and update notification. */
+.folio-data-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0 9px}
+.folio-data-actions .secondary-action{margin:0!important;min-width:0;min-height:42px;justify-content:center;padding:9px 10px;font-size:12px}
+.folio-persist-info{display:block;line-height:1.45;color:var(--muted);font-size:11px;margin:4px 0 11px}
+.folio-update-notice{position:fixed;z-index:1100;left:50%;bottom:max(20px,env(safe-area-inset-bottom));transform:translateX(-50%);display:flex;gap:15px;align-items:center;padding:11px 13px 11px 17px;background:var(--surface,#fff);border:1px solid var(--line,#ddd);box-shadow:0 9px 30px #0002;border-radius:12px;color:var(--ink);white-space:nowrap;font-size:12px}
+.folio-update-notice[hidden]{display:none!important}
+.folio-update-notice button{border-radius:8px;padding:7px 12px;background:var(--accent,#426759);color:white;font-weight:650}
+@media(max-width:400px){.folio-data-actions{grid-template-columns:1fr}.folio-update-notice{width:calc(100% - 24px);justify-content:space-between;white-space:normal}}
+@media(prefers-reduced-motion:reduce){.folio-update-notice{animation:none}}
+
+/* v26 · Reading controls: stable hit targets and restrained focus states. */
+.reader-frame{touch-action:pan-y}
+.reader-view .bottom-nav{min-height:43px}
+.reader-view .page-btn:focus-visible,.reader-view .edge-turn:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+@media(max-width:680px){.reader-view .reader-bottom{height:59px;flex-basis:59px}.reader-view .bottom-nav{min-height:40px}.reader-view .reader-bottom .reading-percent{font-variant-numeric:tabular-nums}}
+@media(prefers-reduced-motion:reduce){.toast,.reader-progress-inner,.book-cover,.book-card:hover .book-cover{transition:none!important;transform:none!important}}
+/* On narrow displays, keep the current book name readable while controls retain their hit areas. */
+@media(max-width:460px){
+ .app.reader-active .topbar{gap:4px}
+ .app.reader-active .topbar-title{max-width:none;overflow:hidden}
+ .app.reader-active .topbar-title strong{font-size:12px}
+ .app.reader-active .topbar-title small{display:none}
+ .reader-view .reader-bottom{padding-inline:9px;column-gap:5px}
+ .reader-bottom .meta,.reader-bottom .reading-percent{font-size:10px}
+ .reader-bottom .page-indicator{min-width:40px}
+}
+/* v27 · A restrained, accessible illustration preview that never changes book pagination. */
+.folio-image-viewer{position:fixed;inset:0;z-index:1400;display:grid;place-items:center;padding:clamp(12px,3.5vw,40px);background:rgba(16,25,20,.74);backdrop-filter:blur(5px)}
+.folio-image-viewer[hidden]{display:none!important}
+.folio-image-window{width:min(1100px,100%);max-height:100%;display:flex;flex-direction:column;min-height:0;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:16px;box-shadow:0 25px 90px #07120b66;overflow:hidden}
+.folio-image-header{height:54px;min-height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 13px 0 21px;border-bottom:1px solid var(--line);color:var(--muted);font-size:12px;letter-spacing:.02em;font-weight:600}
+.folio-image-stage{min-height:0;flex:1;display:flex;align-items:center;justify-content:center;padding:18px 22px;overflow:hidden;background:var(--paper)}
+.folio-image-stage img{display:block;flex:none;object-fit:contain;max-width:100%;max-height:min(76dvh,870px);height:auto;width:auto;margin:auto}
+.folio-image-stage{overscroll-behavior:contain;scrollbar-width:thin}
+.folio-image-stage.is-actual-size{overflow:auto;justify-content:flex-start;align-items:flex-start}
+.folio-image-stage.is-actual-size img{max-width:none;max-height:none;object-fit:initial;margin:auto}
+.folio-image-zoom{min-width:86px;padding:6px 11px;font-size:12px;font-weight:600;color:var(--ink);border:1px solid var(--line);border-radius:9px;background:var(--paper)}
+.folio-image-zoom:hover,.folio-image-zoom[aria-pressed="true"]{background:var(--accent-light);color:var(--accent)}
+.folio-image-tools{display:flex;align-items:center;gap:6px;margin-left:auto}
+.folio-image-caption{margin:0;padding:13px 22px 16px;line-height:1.55;font-size:12px;color:var(--muted);border-top:1px solid var(--line);max-height:18dvh;overflow-y:auto}
+@media(max-width:600px){.folio-image-zoom{min-width:72px;padding:5px 8px;font-size:11px}.folio-image-viewer{padding:8px}.folio-image-window{border-radius:12px}.folio-image-stage{padding:10px}.folio-image-header{height:46px;min-height:46px}.folio-image-caption{padding:10px 14px}}
+.folio-table-viewer{position:fixed;inset:0;z-index:1401;display:grid;place-items:center;padding:clamp(10px,3vw,38px);background:rgba(16,25,20,.74);backdrop-filter:blur(4px)}
+.folio-table-window{width:min(920px,100%);max-height:100%;display:flex;flex-direction:column;min-height:0;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 25px 90px #07120b66}
+.folio-table-contents{padding:clamp(12px,3vw,30px);overflow:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.folio-table-contents table{border-collapse:collapse;width:max-content;min-width:min(650px,100%);max-width:none;margin-inline:auto;color:var(--ink);font-size:14px;line-height:1.58}
+.folio-table-contents :is(td,th){border-bottom:1px solid var(--line);padding:10px 14px;text-align:start;vertical-align:top;min-width:110px;max-width:360px;overflow-wrap:break-word;white-space:normal}
+.folio-table-contents th{background:var(--accent-light);font-weight:650}
+.folio-table-contents tr:hover>td{background:color-mix(in srgb,var(--accent-light) 35%,transparent)}
+@media(max-width:600px){.folio-table-viewer{padding:8px}.folio-table-window{border-radius:12px}.folio-table-contents{padding:8px}.folio-table-contents :is(td,th){padding:8px 10px;font-size:13px}}
+@media(prefers-reduced-motion:reduce){.folio-image-viewer,.folio-table-viewer{backdrop-filter:none}}
+/* v29: keep scientific notation legible in the expanded table. */
+.folio-table-contents :is(sup,sub){font-size:.78em;line-height:0;position:relative;vertical-align:baseline}
+.folio-table-contents sup{top:-.48em}
+.folio-table-contents sub{bottom:-.22em}
+.folio-table-contents :is(code,kbd,samp){font-family:ui-monospace,Consolas,monospace;font-size:.9em;border-radius:3px;background:var(--accent-light);padding:.08em .24em}
+.folio-table-contents mark{background:color-mix(in srgb,var(--accent) 17%,transparent);color:inherit;border-radius:2px}
+
 </style>
 </head>
 <body>
@@ -320,6 +378,19 @@
   </div>
   <div class="rail-bottom"><button class="pillbtn" id="railOpen"><svg class="icon sm"><use href="#i-plus"/></svg> Import EPUB</button><div class="privacy"><svg class="icon sm"><use href="#i-lock"/></svg><span>Stored on this device</span></div></div>
  </aside>
+ <div class="folio-image-viewer" id="folioImageViewer" role="dialog" aria-modal="true" aria-label="Enlarged illustration" hidden>
+  <div class="folio-image-window" role="document">
+   <div class="folio-image-header"><span>Illustration</span><div class="folio-image-tools"><button type="button" class="folio-image-zoom" id="folioImageZoom" aria-pressed="false" title="Toggle original image size">Actual size</button><button type="button" class="ibtn" id="folioImageClose" aria-label="Close illustration" title="Close illustration"><svg class="icon"><use href="#i-x"/></svg></button></div></div>
+   <div class="folio-image-stage" id="folioImageStage"><img id="folioImageLarge" alt=""></div>
+   <p class="folio-image-caption" id="folioImageCaption" hidden></p>
+  </div>
+ </div>
+ <div class="folio-table-viewer" id="folioTableViewer" role="dialog" aria-modal="true" aria-label="Expanded table" hidden>
+  <div class="folio-table-window" role="document">
+   <div class="folio-image-header"><span>Table</span><button type="button" class="ibtn" id="folioTableClose" title="Close table" aria-label="Close table"><svg class="icon"><use href="#i-x"/></svg></button></div>
+   <div class="folio-table-contents" id="folioTableContents"></div>
+  </div>
+ </div>
  <div class="workspace">
   <header class="topbar">
    <div class="edge top-leading"><button type="button" class="ibtn contents-action" id="topToc" title="Contents" aria-label="Table of contents"><svg class="icon"><use href="#i-list"/></svg><span>Contents</span></button><button type="button" class="ibtn library-return" id="topHome" title="Back to library" aria-label="Back to library"><svg class="icon sm"><use href="#i-chevron-left"/></svg><span>Library</span></button><button class="ibtn" title="Toggle library" id="toggleRail"><svg class="icon"><use href="#i-menu"/></svg></button><button class="ibtn hide-mobile" title="Import an EPUB" id="topImport"><svg class="icon"><use href="#i-plus"/></svg></button></div>
@@ -343,8 +414,8 @@
     <footer class="reader-bottom"><div class="meta"><span id="chapterInfo">Chapter</span><button type="button" id="noteBack" class="note-back" hidden aria-label="Return to previous reading position">← Back to text</button></div><div class="bottom-nav"><button id="prevPage" class="page-btn" aria-label="Previous page" title="Previous page / chapter"><svg class="icon sm"><use href="#i-chevron-left"/></svg></button><span id="pageIndicator" class="page-indicator" aria-live="polite">1 / 1</span><button id="nextPage" class="page-btn" aria-label="Next page" title="Next page / chapter"><svg class="icon sm"><use href="#i-chevron-right"/></svg></button></div><div class="reading-percent" id="progressText">0% · saved locally</div></footer>
    </section>
    <div class="scrim" id="scrim"></div>
-   <aside class="drawer left" id="tocDrawer" aria-label="Contents and bookmarks"><header class="drawer-header"><h2>In this book</h2><button class="ibtn" id="closeToc"><svg class="icon"><use href="#i-x"/></svg></button></header><div class="drawer-tabs"><button class="active" id="tabChapters">Contents</button><button id="tabBookmarks">Bookmarks</button></div><div class="drawer-body"><div id="tocList" class="toc-list"></div><div id="bookmarkList" hidden></div></div></aside>
-   <aside class="drawer left search-drawer" id="searchDrawer" aria-label="Search this book">
+   <aside class="drawer left" id="tocDrawer" role="dialog" aria-label="Contents and bookmarks"><header class="drawer-header"><h2>In this book</h2><button class="ibtn" id="closeToc"><svg class="icon"><use href="#i-x"/></svg></button></header><div class="drawer-tabs"><button class="active" id="tabChapters">Contents</button><button id="tabBookmarks">Bookmarks</button></div><div class="drawer-body"><div id="tocList" class="toc-list"></div><div id="bookmarkList" hidden></div></div></aside>
+   <aside class="drawer left search-drawer" id="searchDrawer" role="dialog" aria-label="Search this book">
     <header class="drawer-header"><h2>Search</h2><button class="ibtn" id="closeSearch" title="Close search" aria-label="Close search"><svg class="icon"><use href="#i-x"/></svg></button></header>
     <div class="search-toolbar">
       <label class="search-input-wrap" for="folioSearchInput"><svg class="icon sm"><use href="#i-search"/></svg><input id="folioSearchInput" type="search" placeholder="Find a word or phrase" autocomplete="off" spellcheck="false" aria-label="Search book text"></label>
@@ -353,11 +424,11 @@
     </div>
     <div class="search-results" id="folioSearchResults" role="list" aria-label="Search results"></div>
    </aside>
-   <aside class="drawer" id="settingsDrawer" aria-label="Reader preferences and storage"><header class="drawer-header"><h2>Make it yours</h2><button class="ibtn" id="closeSettings"><svg class="icon"><use href="#i-x"/></svg></button></header>
+   <aside class="drawer" id="settingsDrawer" role="dialog" aria-label="Reader preferences and storage"><header class="drawer-header"><h2>Make it yours</h2><button class="ibtn" id="closeSettings"><svg class="icon"><use href="#i-x"/></svg></button></header>
     <div class="drawer-body">
      <div class="drawer-group"><h3>Page tone</h3><div class="theme-options"><button class="theme-choice selected" data-theme="light"><div class="theme-preview light">Aa 字</div>Paper</button><button class="theme-choice" data-theme="sepia"><div class="theme-preview sepia">Aa 字</div>Warm</button><button class="theme-choice" data-theme="dark"><div class="theme-preview dark">Aa 字</div>Night</button></div></div>
-     <div class="drawer-group"><h3>Typography</h3><label for="enFont" class="setting-label">English font <span class="muted">A–Z</span></label><select id="enFont" class="select"><option value="Georgia">Georgia</option><option value="Bookerly">Bookerly</option><option value="Palatino Linotype">Palatino</option><option value="Charter">Charter</option><option value="Baskerville">Baskerville</option><option value="Baskerville Old Face">Baskerville Old Face</option><option value="Sitka Text">Sitka Text</option><option value="Sitka Display">Sitka Display</option><option value="Garamond">Garamond</option><option value="EB Garamond">EB Garamond</option><option value="Libertinus Serif">Libertinus Serif</option><option value="Cambria">Cambria</option><option value="Constantia">Constantia</option><option value="Times New Roman">Times New Roman</option><option value="Arial">Arial</option><option value="Segoe UI">Segoe UI</option></select>
-     <label for="zhFont" class="setting-label" style="margin-top:22px">Chinese font <span class="muted">中文</span></label><select id="zhFont" class="select"><option value="Noto Serif CJK SC">思源宋体 · Source Han Serif / Noto Serif</option><option value="Noto Sans CJK SC">思源黑体 · Source Han Sans / Noto Sans</option><option value="LXGW WenKai">霞鹜文楷 · LXGW WenKai</option><option value="Microsoft YaHei">微软雅黑 · Microsoft YaHei</option><option value="Microsoft YaHei UI">微软雅黑 UI · Microsoft YaHei UI</option><option value="DengXian">等线 · DengXian</option><option value="SimHei">黑体 · SimHei</option><option value="SimSun">宋体 · SimSun</option><option value="NSimSun">新宋体 · NSimSun</option><option value="KaiTi">楷体 · KaiTi</option><option value="FangSong">仿宋 · FangSong</option><option value="Microsoft JhengHei">微軟正黑體 · Microsoft JhengHei</option><option value="PingFang SC">苹方 · PingFang SC</option><option value="Songti SC">华文宋体 · Songti SC</option><option value="STKaiti">华文楷体 · STKaiti</option></select>
+     <div class="drawer-group"><h3>Typography</h3><label for="enFont" class="setting-label">English font</label><select id="enFont" class="select"><option value="Georgia">Georgia</option><option value="Bookerly">Bookerly</option><option value="Palatino Linotype">Palatino</option><option value="Charter">Charter</option><option value="Baskerville">Baskerville</option><option value="Baskerville Old Face">Baskerville Old Face</option><option value="Sitka Text">Sitka Text</option><option value="Sitka Display">Sitka Display</option><option value="Garamond">Garamond</option><option value="EB Garamond">EB Garamond</option><option value="Libertinus Serif">Libertinus Serif</option><option value="Cambria">Cambria</option><option value="Constantia">Constantia</option><option value="Times New Roman">Times New Roman</option><option value="Arial">Arial</option><option value="Segoe UI">Segoe UI</option></select>
+     <label for="zhFont" class="setting-label" style="margin-top:22px">Chinese font</label><select id="zhFont" class="select"><option value="Noto Serif CJK SC">思源宋体 · Noto Serif SC</option><option value="Noto Sans CJK SC">思源黑体 · Noto Sans SC</option><option value="LXGW WenKai">霞鹜文楷 · LXGW WenKai</option><option value="Microsoft YaHei">微软雅黑 · Microsoft YaHei</option><option value="Microsoft YaHei UI">微软雅黑 UI · Microsoft YaHei UI</option><option value="DengXian">等线 · DengXian</option><option value="SimHei">黑体 · SimHei</option><option value="SimSun">宋体 · SimSun</option><option value="NSimSun">新宋体 · NSimSun</option><option value="KaiTi">楷体 · KaiTi</option><option value="FangSong">仿宋 · FangSong</option><option value="Microsoft JhengHei">微軟正黑體 · Microsoft JhengHei</option><option value="PingFang SC">苹方 · PingFang SC</option><option value="Songti SC">华文宋体 · Songti SC</option><option value="STKaiti">华文楷体 · STKaiti</option></select>
      <div class="switch-row"><label for="forceBookFonts">Override book fonts</label><input type="checkbox" id="forceBookFonts"></div>
       <div style="margin-top:23px"><label class="setting-label" for="fontSize">Text size <span id="fontSizeVal" class="muted">20 px</span></label><input class="range" type="range" id="fontSize" min="14" max="32" step="1"></div>
      <div style="margin-top:23px"><label class="setting-label" for="lineHeight">Line spacing <span id="lineHeightVal" class="muted">1.8</span></label><input class="range" type="range" id="lineHeight" min="1.3" max="2.4" step="0.05"></div>
@@ -370,7 +441,11 @@
      <div class="switch-row"><label for="autoAdvance">Continue into next chapter</label><input type="checkbox" id="autoAdvance" checked></div><div class="switch-row"><label for="autoScroll">Follow narration across pages</label><input type="checkbox" id="autoScroll" checked></div><button class="secondary-action" id="openDock"><svg class="icon sm"><use href="#i-headphones"/></svg> Show read-aloud controls</button>
      </div>
      <div class="setting-divider"></div>
-     <div class="drawer-group"><h3>Local storage</h3><div class="storage-row"><div><strong>Saved books</strong><small id="storageStats">Calculating…</small></div><svg class="icon sm muted"><use href="#i-lock"/></svg></div><p class="setting-sub" style="margin-bottom:14px">Books and reading history are stored on this device. Online speech voices may transmit spoken text.</p><button class="secondary-action" id="clearReading"><svg class="icon sm"><use href="#i-trash"/></svg> Clear reading history &amp; bookmarks</button><button class="secondary-action danger" style="margin-top:9px" id="clearAll"><svg class="icon sm"><use href="#i-trash"/></svg> Clear all local reader data</button><button class="secondary-action danger" style="margin-top:9px" id="removeBook"><svg class="icon sm"><use href="#i-x"/></svg> Remove current book</button></div>
+     <div class="drawer-group"><h3>Local storage</h3><div class="storage-row"><div><strong>Saved books</strong><small id="storageStats">Calculating…</small></div><svg class="icon sm muted"><use href="#i-lock"/></svg></div><p class="setting-sub" style="margin-bottom:11px">Your books stay on this device. Export reading data to move your progress and preferences to another browser.</p>
+      <div class="folio-data-actions"><button type="button" class="secondary-action" id="exportReadingData">Export reading data</button><button type="button" class="secondary-action" id="restoreReadingData">Import reading data</button></div>
+      <button type="button" class="secondary-action" id="persistLibrary" hidden>Protect local book storage</button>
+      <small id="persistInfo" class="folio-persist-info" role="status"></small>
+      <button class="secondary-action" id="clearReading"><svg class="icon sm"><use href="#i-trash"/></svg> Clear reading history &amp; bookmarks</button><button class="secondary-action danger" style="margin-top:9px" id="clearAll"><svg class="icon sm"><use href="#i-trash"/></svg> Clear all local reader data</button><button class="secondary-action danger" style="margin-top:9px" id="removeBook"><svg class="icon sm"><use href="#i-x"/></svg> Remove current book</button></div>
      <div class="hint">Folio reads books locally and works offline. Word lookups use documented online dictionaries; US/UK recorded audio is provided when available, with browser voices as fallback. DRM-protected and fixed-layout EPUBs are not supported.</div>
     </div>
    </aside>
@@ -379,7 +454,9 @@
  </div>
 </div>
 <input id="fileInput" type="file" accept=".epub,application/epub+zip" multiple hidden>
+<input id="folioRestoreInput" type="file" accept=".json,application/json" hidden>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div id="folioUpdateNotice" class="folio-update-notice" hidden role="status">A newer version is ready. <button id="folioUpdateNow" type="button">Reload</button></div>
 <aside id="folioNotePopup" class="folio-note-popup" hidden role="dialog" aria-label="Book footnote" aria-modal="false">
  <div class="folio-note-head"><span id="folioNoteLabel">Footnote</span><button type="button" id="folioNoteClose" title="Close note" aria-label="Close footnote">&times;</button></div>
  <div id="folioNoteText" class="folio-note-text"></div>
@@ -413,7 +490,7 @@ const STORAGE={settings:'folio.settings.v1',progress:'folio.progress.v1',bookmar
 const DEFAULTS={theme:'light',enFont:'Georgia',zhFont:'Noto Serif CJK SC',forceBookFonts:false,fontSize:20,lineHeight:1.8,paragraphSpace:1.0,pageWidth:1280,rate:1,zhVoice:'',enVoice:'',quickVoice:'auto',lastVoiceByLang:{},autoAdvance:true,autoScroll:true};
 const PALETTE=['#6f847d','#8b766c','#697e91','#86856d','#986c66','#736c85','#53776d','#87735e'];
 const MIME={svg:'image/svg+xml',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',webp:'image/webp',avif:'image/avif',bmp:'image/bmp',css:'text/css',woff:'font/woff',woff2:'font/woff2',ttf:'font/ttf',otf:'font/otf',mp3:'audio/mpeg',mp4:'video/mp4',m4a:'audio/mp4',ogg:'audio/ogg'};
-const state={db:null,library:[],temporary:new Map(),book:null,zip:null,meta:null,manifest:new Map(),spine:[],toc:[],chapter:-1,urls:new Map(),chapterCache:new Map(),preparePromises:new Map(),styleCache:new Map(),noteDocCache:new Map(),noteReturn:null,coverUrls:new Map(),loadToken:0,renderToken:0,settings:{...DEFAULTS},progress:{},bookmarks:{},railOpen:false,drawer:null,tocTab:'toc',voices:[],synth:window.speechSynthesis||null,tts:{mode:'stopped',token:0,segments:[],index:0,activeEl:null,selectedEl:null,utterance:null},paging:{page:0,pages:1,columns:2,step:0,gap:0,restore:0},resizeTimer:0,toastTimer:0};
+const state={db:null,library:[],temporary:new Map(),book:null,zip:null,meta:null,manifest:new Map(),spine:[],toc:[],chapter:-1,urls:new Map(),chapterCache:new Map(),preparePromises:new Map(),styleCache:new Map(),noteDocCache:new Map(),noteReturn:null,coverUrls:new Map(),loadToken:0,renderToken:0,settings:{...DEFAULTS},progress:{},bookmarks:{},railOpen:false,drawer:null,tocTab:'toc',voices:[],synth:window.speechSynthesis||null,tts:{mode:'stopped',token:0,segments:[],index:0,activeEl:null,selectedEl:null,utterance:null},paging:{page:0,pages:1,columns:2,step:0,gap:0,restore:0},resizeTimer:0,toastTimer:0,readingAnchor:null};
 const safeParse=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}};
 const safeSave=(key,v)=>{try{localStorage.setItem(key,JSON.stringify(v));return true}catch(e){console.warn('Storage error',e);return false}};
 const escapeHTML=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -432,9 +509,50 @@ function coverHTML(rec,mini=false){const color=colorFor(rec.id),url=getCoverURL(
 function renderLibrary(){const records=state.library;$('railCount').textContent=records.length;const shelf=$('shelfList');shelf.innerHTML=records.map(r=>`<button class="shelf-item ${state.book?.id===r.id?'active':''}" data-open="${r.id}">${coverHTML(r,true)}<span class="shelf-copy"><strong>${escapeHTML(r.title)}</strong><small>${bookPct(r.id)}</small></span></button>`).join('')||'<div class="empty-shelf" style="padding:12px">Your shelf is empty.</div>';
  $('recentTitle').textContent=records.length?'Continue reading':'On your shelf';$('bookCards').innerHTML=records.map(r=>`<div class="book-card"><button type="button" class="book-card-open" data-open="${escapeHTML(r.id)}" aria-label="Open ${escapeHTML(r.title)}">${coverHTML(r)}<strong>${escapeHTML(r.title)}</strong><small>${escapeHTML(r.author||bookPct(r.id))}</small></button><button type="button" class="book-remove" data-book-remove="${escapeHTML(r.id)}" title="Remove book and saved data" aria-label="Remove ${escapeHTML(r.title)} and its saved data">${ICON('trash')}</button></div>`).join('')||'<div class="empty-shelf">No books yet. Add an EPUB or explore the sample.</div>';document.querySelectorAll('[data-open]').forEach(el=>el.addEventListener('click',()=>openBook(el.dataset.open)));document.querySelectorAll('[data-book-remove]').forEach(el=>el.addEventListener('click',event=>{event.stopPropagation();removeBookById(el.dataset.bookRemove)}));}
 function setRail(show){state.railOpen=show;$('app').classList.toggle('rail-hidden',!show)}
-function closeDrawer(){state.drawer=null;$('scrim').classList.remove('visible');$('tocDrawer').classList.remove('visible');$('settingsDrawer').classList.remove('visible');$('searchDrawer').classList.remove('visible');if(typeof folioSearch!=='undefined')folioSearch.worker?.postMessage({type:'cancel'})}
-function showDrawer(which){if(state.drawer===which){closeDrawer();return}closeDrawer();state.drawer=which;$('scrim').classList.add('visible');$(which==='toc'?'tocDrawer':which==='search'?'searchDrawer':'settingsDrawer').classList.add('visible');if(which==='toc')renderTOC();if(which==='settings')updateStorageStats();if(which==='search')onOpenFolioSearch();if(window.innerWidth<=680)setRail(false)}
-function toLibrary(){resetFolioSearch();hideNotePopup();state.noteReturn=null;$('noteBack').hidden=true;if(!$('folioWordCard').hidden)hideWordCard();if(state.book){saveProgress();stopSpeech();state.renderToken++;if(state.zip){for(const url of state.urls.values())URL.revokeObjectURL(url)}state.urls.clear();state.chapterCache.clear();state.noteDocCache.clear();state.preparePromises.clear();state.styleCache.clear();state.book=null;state.meta=null;state.zip=null;state.chapter=-1;state.spine=[];state.toc=[];$('readerFrame').srcdoc='';state.paging={page:0,pages:1,columns:2,step:0,gap:0,restore:0};}closeDrawer();$('readerView').hidden=true;$('emptyView').hidden=false;$('app').classList.remove('reader-active');$('topTitle').textContent='Folio';$('topSubtitle').textContent='Your library';$('ttsDock').hidden=true;setButtonState();renderLibrary();}
+let folioDrawerReturnFocus=null;
+const folioDrawerIds={toc:'tocDrawer',settings:'settingsDrawer',search:'searchDrawer'};
+function closeDrawer(){
+ const wasOpen=!!state.drawer;
+ state.drawer=null;
+ $('scrim').classList.remove('visible');
+ for(const id of Object.values(folioDrawerIds)){$(id).classList.remove('visible');$(id).removeAttribute('aria-modal')}
+ for(const id of ['topToc','topSearch','topSettings'])$(id).setAttribute('aria-expanded','false');
+ if(typeof folioSearch!=='undefined')folioSearch.worker?.postMessage({type:'cancel'});
+ if(wasOpen&&folioDrawerReturnFocus?.isConnected)folioDrawerReturnFocus.focus({preventScroll:true});
+ folioDrawerReturnFocus=null;
+}
+function showDrawer(which){
+ if(state.drawer===which){closeDrawer();return}
+ const trigger=document.activeElement;
+ closeDrawer();
+ state.drawer=which;folioDrawerReturnFocus=trigger instanceof HTMLElement?trigger:null;
+ $('scrim').classList.add('visible');
+ const drawer=$(folioDrawerIds[which]);drawer.classList.add('visible');drawer.setAttribute('aria-modal','true');
+ const triggerId={toc:'topToc',search:'topSearch',settings:'topSettings'}[which];$(triggerId).setAttribute('aria-expanded','true');
+ if(which==='toc')renderTOC();if(which==='settings')updateStorageStats();if(which==='search')onOpenFolioSearch();
+ if(window.innerWidth<=680)setRail(false);
+ requestAnimationFrame(()=>{
+  if(state.drawer!==which)return;
+  // Long tables of contents should open near the current section, not at the
+  // beginning of a hundred-entry list. Do not animate the scroll.
+  if(which==='toc'&&state.tocTab==='toc'){
+   drawer.querySelector('.toc-item.active')?.scrollIntoView({block:'nearest'});
+  }
+  const focus=which==='search'?$('folioSearchInput'):drawer.querySelector('button:not([disabled]),input:not([disabled])');
+  focus?.focus({preventScroll:true});
+ });
+}
+function folioTrapDrawerFocus(event){
+ if(event.key!=='Tab'||!state.drawer)return;
+ const drawer=$(folioDrawerIds[state.drawer]);
+ const items=[...drawer.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex="0"]')]
+  .filter(el=>el.getClientRects().length&&!el.hidden&&getComputedStyle(el).visibility!=='hidden');
+ if(!items.length)return;
+ const first=items[0],last=items.at(-1);
+ if(event.shiftKey&&(document.activeElement===first||!drawer.contains(document.activeElement))){event.preventDefault();last.focus()}
+ else if(!event.shiftKey&&(document.activeElement===last||!drawer.contains(document.activeElement))){event.preventDefault();first.focus()}
+}
+function toLibrary(){resetFolioSearch();hideNotePopup();state.noteReturn=null;$('noteBack').hidden=true;if(!$('folioWordCard').hidden)hideWordCard();if(state.book){saveProgress();stopSpeech();state.renderToken++;if(state.zip){for(const url of state.urls.values())URL.revokeObjectURL(url)}state.urls.clear();state.chapterCache.clear();state.noteDocCache.clear();state.preparePromises.clear();state.styleCache.clear();state.book=null;state.meta=null;state.zip=null;state.chapter=-1;state.readingAnchor=null;state.spine=[];state.toc=[];$('readerFrame').srcdoc='';state.paging={page:0,pages:1,columns:2,step:0,gap:0,restore:0};}closeDrawer();$('readerView').hidden=true;$('emptyView').hidden=false;$('app').classList.remove('reader-active');$('topTitle').textContent='Folio';$('topSubtitle').textContent='Your library';$('ttsDock').hidden=true;setButtonState();renderLibrary();}
 function setTheme(theme){$('app').classList.remove('theme-sepia','theme-dark');if(theme!=='light')$('app').classList.add('theme-'+theme);document.querySelectorAll('[data-theme]').forEach(el=>el.classList.toggle('selected',el.dataset.theme===theme));const col=theme==='dark'?'#1f2524':theme==='sepia'?'#eee5d5':'#f6f5f1';document.querySelector('meta[name="theme-color"]')?.setAttribute('content',col)}
 function bindSetting(id,key,convert=val=>val,render=false){const el=$(id);el.addEventListener('input',()=>{state.settings[key]=convert(el.type==='checkbox'?el.checked:el.value);safeSave(STORAGE.settings,state.settings);syncSettingsLabels();if(key==='theme')setTheme(state.settings.theme);if(render)updateReaderTheme()})}
 function initSettings(){const saved=safeParse(STORAGE.settings,{});if(saved.layoutVersion!==2){if(Number.isFinite(saved.pageWidth))saved.pageWidth=clamp(Math.round(saved.pageWidth*1.65/20)*20,700,2200);saved.layoutVersion=2;}state.settings={...DEFAULTS,...saved};safeSave(STORAGE.settings,state.settings);state.progress=safeParse(STORAGE.progress,{});state.bookmarks=safeParse(STORAGE.bookmarks,{});setTheme(state.settings.theme);
@@ -454,9 +572,50 @@ function clamp(v,min,max){return Math.max(min,Math.min(max,v))}
 function pageFraction(){const p=state.paging;return p.pages<=1?0:p.page/(p.pages-1)}
 function saveProgress(){if(!state.book||state.chapter<0)return;const frac=pageFraction();if(state.noteReturn){updateProgressUI(frac,state.noteReturn.percent);return}const percent=overallProgress(state.chapter,frac);state.progress[state.book.id]={chapter:state.chapter,fraction:frac,percent,updatedAt:Date.now()};safeSave(STORAGE.progress,state.progress);updateProgressUI(frac,percent)}
 function overallProgress(index,fraction){if(!state.spine.length)return 0;const weights=state.spine.map(x=>x.weight||1000),total=weights.reduce((a,b)=>a+b,0);let n=0;for(let i=0;i<index;i++)n+=weights[i];n+=(weights[index]||0)*fraction;return clamp(n/total*100,0,100)}
-function updateProgressUI(frac,percent){if(state.noteReturn)percent=state.noteReturn.percent;$('progressFill').style.width=percent+'%';$('progressText').textContent=state.noteReturn?'Viewing note · position preserved':`≈ ${Math.round(percent)}% · saved locally`;$('chapterInfo').textContent=`${chapterTitle(state.chapter)} · ${Math.round(frac*100)}%`;$('pageIndicator').textContent=`${state.paging.page+1} / ${state.paging.pages}`;setButtonState()}
+function updateProgressUI(frac,percent){if(state.noteReturn)percent=state.noteReturn.percent;$('progressFill').style.width=percent+'%';$('progressText').textContent=state.noteReturn?'Viewing note':`${Math.round(percent)}%`;$('chapterInfo').textContent=chapterTitle(state.chapter);$('pageIndicator').textContent=`${state.paging.page+1} / ${state.paging.pages}`;setButtonState()}
 function getPageFraction(){return pageFraction()}
-function goToPage(target,save=true){hideNotePopup();if(!$('folioWordCard').hidden)hideWordCard();const p=state.paging,doc=$('readerFrame').contentDocument;if(!doc?.body)return;p.page=clamp(Math.round(target),0,p.pages-1);doc.body.style.transform=`translate3d(${-p.page*p.step}px,0,0)`;if(state.drawer==='toc'&&state.tocTab==='toc')syncTocHighlight();if(save)saveProgress();else updateProgressUI(pageFraction(),overallProgress(state.chapter,pageFraction()))}
+// Keep the first visible text rather than an approximate chapter fraction when
+// type size, available width, or the font metrics change. Text-node anchors are
+// cheap, don't alter the EPUB DOM, and survive CSS-only repagination.
+function visibleReadingAnchor(){
+ const frame=$('readerFrame'),doc=frame.contentDocument,body=doc?.body;
+ if(!body||!state.book||!doc.caretRangeFromPoint)return null;
+ const mask=parseFloat($('folioLeftMask').style.width)||0;
+ const top=parseFloat(doc.defaultView.getComputedStyle(body).top)||0;
+ const bottom=frame.clientHeight-18;
+ const colWidth=state.paging.columns>0?(body.getBoundingClientRect().width-(state.paging.columns-1)*state.paging.gap)/state.paging.columns:frame.clientWidth;
+ const sampleX=[mask+22,mask+48,mask+Math.min(110,colWidth*.28)];
+ for(let y=top+15;y<Math.min(bottom,top+250);y+=19){
+  for(const x of sampleX){
+   const caret=doc.caretRangeFromPoint(x,y),node=caret?.startContainer;
+   if(!node||node.nodeType!==Node.TEXT_NODE||!node.isConnected||!node.length)continue;
+   if(node.parentElement?.closest('[hidden],[data-folio-popup-note="true"],script,style'))continue;
+   const offset=Math.min(caret.startOffset,node.length-1),range=doc.createRange();
+   range.setStart(node,offset);range.setEnd(node,offset+1);
+   const r=range.getBoundingClientRect();
+   // caretRangeFromPoint can return the nearest text above an empty area.
+   if(r.width<=0||r.height<=0||r.top<top-4||r.top>bottom||Math.abs(r.top-y)>34||r.left<mask-6||r.left>mask+colWidth-4)continue;
+   return {doc,node,offset};
+  }
+ }
+ return null;
+}
+function pageForReadingAnchor(anchor,doc,body,step,pages){
+ if(!anchor||anchor.doc!==doc||!anchor.node?.isConnected||anchor.node.nodeType!==Node.TEXT_NODE||!step)return null;
+ try{
+  const range=doc.createRange(),n=anchor.node,o=Math.min(anchor.offset,n.length-1);
+  if(o<0)return null;
+  range.setStart(n,o);range.setEnd(n,o+1);
+  const rect=range.getBoundingClientRect();
+  if(!Number.isFinite(rect.left)||!rect.width)return null;
+  const bodyLeft=parseFloat(doc.defaultView.getComputedStyle(body).left)||0;
+  return clamp(Math.floor((rect.left-bodyLeft+1)/step),0,pages-1);
+ }catch{return null}
+}
+
+function goToPage(target,save=true){hideNotePopup();if(!$('folioWordCard').hidden)hideWordCard();const p=state.paging,doc=$('readerFrame').contentDocument;if(!doc?.body)return;p.page=clamp(Math.round(target),0,p.pages-1);doc.body.style.transform=`translate3d(${-p.page*p.step}px,0,0)`;if(state.drawer==='toc'&&state.tocTab==='toc')syncTocHighlight();state.readingAnchor=visibleReadingAnchor();if(save)saveProgress();else updateProgressUI(pageFraction(),overallProgress(state.chapter,pageFraction()))}
+// Per-table originals are weakly held; old chapters release their styles on navigation.
+const folioTableOriginalWidth=new WeakMap();
 function paginateChapter(fraction=pageFraction(),token=state.renderToken){
  if(token!==state.renderToken||!state.book)return;
  const frame=$('readerFrame'),doc=frame.contentDocument,body=doc?.body;
@@ -489,6 +648,49 @@ function paginateChapter(fraction=pageFraction(),token=state.renderToken){
  // clientWidth rounds to integer pixels, but multicol layout retains 1/64 px
  // precision. Rounding the spread width here drifts by several pixels over a
  // long chapter and can hide the first digit behind the margin mask.
+ // A wide publisher table must be sized to ONE column, not to the full
+ // multicolumn body. Browser CSS percentages refer to the body spread and
+ // can otherwise create a 900px table inside a 440px column.
+ const availableWidth=Math.max(100,(body.getBoundingClientRect().width-(wantedColumns-1)*candidateGap)/wantedColumns);
+ const tables=[...doc.body.querySelectorAll('table')];
+ for(const table of tables){
+  // A previous pass may have applied a *temporary* inline width. Restore the
+  // publisher's exact original CSS value and priority before measuring again.
+  // Removing style.width unconditionally destroyed authored table widths.
+  const original=folioTableOriginalWidth.get(table);
+  if(original){
+   if(original.value)table.style.setProperty('width',original.value,original.priority);
+   else table.style.removeProperty('width');
+  }
+  table.removeAttribute('data-folio-fitted-table');
+ }
+ let fitted=false;
+ for(const table of tables){
+  const actual=table.getBoundingClientRect().width;
+  const tooWide=Math.max(table.scrollWidth,actual)>availableWidth+2;
+  // Tables may be technically narrow enough but still illegible on phones.
+  // Keep the paginated rendering, and provide an optional full-size inspection.
+  const columnsInTable=Math.max(0,...Array.from(table.rows).slice(0,8).map(r=>r.cells.length));
+  const offerPreview=tooWide||(availableWidth<480&&columnsInTable>=3);
+  let preview=table.nextElementSibling;
+  if(!preview?.matches?.('[data-folio-expand-table]')){
+   preview=doc.createElement('button');
+   preview.type='button';preview.className='folio-expand-table-button';
+   preview.setAttribute('data-folio-expand-table','');
+   preview.textContent='View table ↗';
+   table.after(preview);
+  }
+  preview.hidden=!offerPreview;
+  if(tooWide){
+   if(!folioTableOriginalWidth.has(table))folioTableOriginalWidth.set(table,{
+    value:table.style.getPropertyValue('width'),priority:table.style.getPropertyPriority('width')
+   });
+   table.setAttribute('data-folio-fitted-table','');
+   table.style.setProperty('width',Math.floor(availableWidth*64)/64+'px','important');
+   fitted=true;
+  }
+ }
+ if(fitted)void doc.body.offsetWidth; // Flush once after the batch of writes.
  const bodyBounds=body.getBoundingClientRect();
  const cs=doc.defaultView.getComputedStyle(body),width=bodyBounds.width,gap=parseFloat(cs.columnGap)||0;
  const cols=Math.max(1,parseInt(cs.columnCount,10)||1);
@@ -522,7 +724,8 @@ function paginateChapter(fraction=pageFraction(),token=state.renderToken){
  const pages=Math.max(1,Math.ceil(count/cols));
  state.paging={page:0,pages,columns:cols,step:stride,gap,restore:clamp(Number(fraction)||0,0,1)};
  $('readerView').classList.toggle('two-column',cols===2);$('readerView').classList.toggle('three-column',cols===3);
- goToPage(Math.round(state.paging.restore*(pages-1)),false);
+ const anchoredPage=pageForReadingAnchor(state.readingAnchor,doc,body,stride,pages);
+ goToPage(anchoredPage??Math.round(state.paging.restore*(pages-1)),false);
 }
 // EPUB styles can indent the first line negatively or use three- and
 // four-digit ordered-list markers. Both can extend outside a CSS column and
@@ -592,6 +795,11 @@ function activeTocIndex(){
  const doc=$('readerFrame').contentDocument;
  if(!doc?.body)return indices[0];
  const current=state.paging.page;
+ // Two or more subsections can share one visible spread. Choosing the last
+ // matching page incorrectly highlights a subsection that has not started.
+ // Compare DOM order with the first visible text anchor when possible.
+ const readingNode=state.readingAnchor?.doc===doc&&state.readingAnchor.node?.isConnected
+   ?state.readingAnchor.node:null;
  let best=indices[0],lastPage=-1;
  for(const i of indices){
   const hash=state.toc[i].hash;
@@ -601,7 +809,12 @@ function activeTocIndex(){
   const target=doc.getElementById(id)||doc.getElementsByName(id)[0];
   if(!target)continue;
   const page=elementPage(target);
-  if(page<=current&&page>=lastPage){best=i;lastPage=page}
+  if(page>current)continue;
+  if(readingNode&&page===current){
+   const relation=target.compareDocumentPosition(readingNode);
+   if(target!==readingNode && !(relation & Node.DOCUMENT_POSITION_FOLLOWING))continue;
+  }
+  if(page>=lastPage){best=i;lastPage=page}
  }
  return best;
 }
@@ -620,7 +833,17 @@ function switchTocTab(tab){state.tocTab=tab;$('tabChapters').classList.toggle('a
 function mime(path){return MIME[path.split('.').pop().toLowerCase()]||'application/octet-stream'}
 function normalize(path){const out=[];for(const p of path.replace(/\\/g,'/').split('/')){if(!p||p==='.')continue;if(p==='..'){out.pop();continue}out.push(p)}return out.join('/')}
 function splitRef(base,href){let value=(href||'').trim();if(/^(?:[a-z][\w+.-]*:|\/\/)/i.test(value))return {external:true,href:value};const [withoutHash,...frag]=value.split('#');let name=withoutHash.split('?')[0];try{name=decodeURIComponent(name)}catch{}const path=name?normalize((base.includes('/')?base.slice(0,base.lastIndexOf('/')+1):'')+name):base;let hash=frag.join('#');try{hash=decodeURIComponent(hash)}catch{}return {path,hash,external:false}}
-function zipFile(zip,path){if(!zip)return null;const p=normalize(path);if(zip.file(p))return zip.file(p);if(zip.file(path))return zip.file(path);const low=p.toLowerCase();const k=Object.keys(zip.files).find(x=>x.toLowerCase()===low);return k?zip.file(k):null}
+// ZIP paths are sometimes case-inconsistent. Index once per archive rather
+// than scanning every entry for each image, stylesheet and note reference.
+const folioArchivePaths=new WeakMap();
+function zipFile(zip,path){
+ if(!zip)return null;
+ const p=normalize(path),exact=zip.file(p)||zip.file(path);
+ if(exact)return exact;
+ let index=folioArchivePaths.get(zip);
+ if(!index){index=new Map();for(const name of Object.keys(zip.files))index.set(name.toLowerCase(),name);folioArchivePaths.set(zip,index)}
+ const actual=index.get(p.toLowerCase());return actual?zip.file(actual):null;
+}
 function getElements(root,local){return Array.from(root.getElementsByTagName('*')).filter(el=>el.localName?.toLowerCase()===local.toLowerCase())}
 function firstLocal(root,name){return getElements(root,name)[0]||null}
 function parseXML(xml){const d=new DOMParser().parseFromString(xml,'application/xml');if(d.querySelector('parsererror'))throw new Error('Invalid EPUB metadata XML');return d}
@@ -639,10 +862,63 @@ async function parseBook(zip,filename){const container=zipFile(zip,'META-INF/con
  let coverBlob=null;if(cover&&zipFile(zip,cover.path)){try{coverBlob=new Blob([await zipFile(zip,cover.path).async('uint8array')],{type:cover.mediaType||mime(cover.path)})}catch{}}
  return {opfPath,title:title||filename.replace(/\.epub$/i,''),author:author||'',manifest,spine,toc,coverBlob}}
 async function hashFile(data,filename){if(globalThis.crypto?.subtle){try{const hash=await crypto.subtle.digest('SHA-256',data);return 'b-'+[...new Uint8Array(hash)].slice(0,16).map(x=>x.toString(16).padStart(2,'0')).join('')}catch{}}const u=new Uint8Array(data),step=Math.max(1,Math.floor(u.length/4096));let h=2166136261;for(let i=0;i<u.length;i+=step){h^=u[i];h=Math.imul(h,16777619)}for(const c of filename){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return 'b-'+(h>>>0).toString(16)+'-'+u.length}
-async function importFiles(files){const valid=[...files].filter(f=>/\.epub$/i.test(f.name)||f.type==='application/epub+zip');if(!valid.length){notify('Please choose a .epub book');return}loading(true,'Importing EPUB books…');let first=null,done=0;try{for(const file of valid){try{const buffer=await file.arrayBuffer();const zip=await JSZip.loadAsync(buffer);const parsed=await parseBook(zip,file.name);const id=await hashFile(buffer,file.name),prior=getBookRecord(id);const record={id,title:parsed.title,author:parsed.author,filename:file.name,size:file.size,createdAt:prior?.createdAt||Date.now(),lastOpened:Date.now(),cover:parsed.coverBlob,epub:new Blob([buffer],{type:'application/epub+zip'})};if(state.db){await database('readwrite',s=>s.put(record))}else state.temporary.set(id,record);done++;if(!first)first=id}catch(e){console.error(e);notify(`${file.name}: ${e.message}`)}}await refreshLibrary();if(first)await openBook(first);if(done>1)notify(`Imported ${done} books`)}finally{loading(false)}}
+async function importFiles(files){const valid=[...files].filter(f=>/\.epub$/i.test(f.name)||f.type==='application/epub+zip');if(!valid.length){notify('Please choose a .epub book');return}loading(true,'Importing EPUB books…');let first=null,done=0;try{for(const file of valid){try{if(file.size>700*1024*1024)throw new Error('EPUB is too large to open safely (700 MB limit)');
+ const buffer=await file.arrayBuffer();
+ const zip=await JSZip.loadAsync(buffer);
+ const entries=Object.values(zip.files);if(entries.length>30000)throw new Error('EPUB contains too many files');
+ const inflated=entries.reduce((sum,e)=>sum+(e._data?.uncompressedSize||0),0);
+ if(inflated>1.5*1024*1024*1024)throw new Error('EPUB expands beyond the safety limit');
+ const parsed=await parseBook(zip,file.name);const id=await hashFile(buffer,file.name),prior=getBookRecord(id);const record={id,title:parsed.title,author:parsed.author,filename:file.name,size:file.size,createdAt:prior?.createdAt||Date.now(),lastOpened:Date.now(),cover:parsed.coverBlob,epub:new Blob([buffer],{type:'application/epub+zip'})};if(state.db){await database('readwrite',s=>s.put(record))}else state.temporary.set(id,record);
+ const oldCover=state.coverUrls.get(id);if(oldCover){URL.revokeObjectURL(oldCover);state.coverUrls.delete(id)}
+ done++;if(!first)first=id}catch(e){console.error(e);notify(`${file.name}: ${e.message}`)}}await refreshLibrary();if(first)await openBook(first);if(done>1)notify(`Imported ${done} books`)}finally{loading(false)}}
 async function openBook(id){resetFolioSearch();state.noteReturn=null;$('noteBack').hidden=true;const record=getBookRecord(id);if(!record){notify('Could not find that book');return}stopSpeech();closeDrawer();const token=++state.loadToken;loading(true,'Preparing your reading space…');try{const zip=await JSZip.loadAsync(record.epub);const parsed=await parseBook(zip,record.filename||record.title);if(token!==state.loadToken)return;for(const u of state.urls.values())URL.revokeObjectURL(u);state.urls.clear();state.chapterCache.clear();state.noteDocCache.clear();state.preparePromises.clear();state.styleCache.clear();state.zip=zip;state.book=record;state.meta=parsed;state.manifest=parsed.manifest;state.spine=parsed.spine;state.toc=parsed.toc;record.lastOpened=Date.now();if(state.db){try{await database('readwrite',s=>s.put(record))}catch(e){console.warn(e)}}else state.temporary.set(id,record);
  $('emptyView').hidden=true;$('readerView').hidden=false;$('app').classList.add('reader-active');setRail(false);$('topTitle').textContent=record.title;$('topSubtitle').textContent=record.author||'Enjoy your reading';setButtonState();const pos=state.progress[id];await renderChapter(Math.max(0,Math.min(state.spine.length-1,pos?.chapter??0)),pos?.fraction||0);renderLibrary();if(window.innerWidth<=950)setRail(false)}catch(e){console.error(e);notify(`Could not open book: ${e.message}`);toLibrary()}finally{if(token===state.loadToken)loading(false)}}
-async function assetURL(path){const key=normalize(path);if(state.urls.has(key))return state.urls.get(key);const entry=zipFile(state.zip,key);if(!entry)return null;const bytes=await entry.async('uint8array');const url=URL.createObjectURL(new Blob([bytes],{type:mime(key)}));state.urls.set(key,url);return url}
+// Keep EPUB decompression bounded, even when the chapter has hundreds of images.
+// A per-archive in-flight map also prevents duplicate inflation of shared assets.
+const folioAssetRequests=new WeakMap();
+const folioAssetQueues=new WeakMap();
+function folioWithZipSlot(zip,work){
+ let pool=folioAssetQueues.get(zip);
+ if(!pool){pool={active:0,waiting:[]};folioAssetQueues.set(zip,pool)}
+ return new Promise((resolve,reject)=>{
+  const run=()=>{
+   pool.active++;
+   Promise.resolve().then(work).then(resolve,reject).finally(()=>{
+    pool.active--;
+    if(pool.waiting.length)pool.waiting.shift()();
+   });
+  };
+  if(pool.active<6)run();else pool.waiting.push(run);
+ });
+}
+async function assetURL(path,zip=state.zip){
+ const key=normalize(path);
+ if(!zip||zip!==state.zip)return null;
+ if(state.urls.has(key))return state.urls.get(key);
+ let requests=folioAssetRequests.get(zip);
+ if(!requests){requests=new Map();folioAssetRequests.set(zip,requests)}
+ if(requests.has(key))return requests.get(key);
+ const entry=zipFile(zip,key);
+ if(!entry)return null;
+ const task=folioWithZipSlot(zip,async()=>{
+  const bytes=await entry.async('uint8array');
+  if(zip!==state.zip)return null; // A different book opened during decompression.
+  const url=URL.createObjectURL(new Blob([bytes],{type:mime(key)}));
+  state.urls.set(key,url);
+  return url;
+ });
+ requests.set(key,task);
+ try{return await task}finally{requests.delete(key)}
+}
+// Resolve HTML resources in small groups. One enormous Promise.all() can
+// saturate memory and delay user input on illustration-heavy EPUBs.
+async function folioRunResourceJobs(jobs){
+ let next=0;
+ const count=Math.min(10,jobs.length);
+ await Promise.all(Array.from({length:count},async()=>{
+  while(next<jobs.length){const job=jobs[next++];await job()}
+ }));
+}
 async function asyncReplace(source,regex,fn){const items=[...source.matchAll(regex)],values=await Promise.all(items.map(m=>fn(m)));let i=0;return source.replace(regex,()=>values[i++])}
 async function rewriteCSS(css,base,depth=0){if(depth>5)return css;css=await asyncReplace(css,/\@import\s+(?:url\(\s*)?["']?([^\s"')]+)["']?\s*\)?\s*;/gi,async m=>{const ref=splitRef(base,m[1]);if(ref.external)return '';const file=zipFile(state.zip,ref.path);if(!file)return '';try{return await rewriteCSS(await file.async('string'),ref.path,depth+1)}catch{return ''}});
  return asyncReplace(css,/url\(\s*(['"]?)([^)'"\s]+)\1\s*\)/gi,async m=>{const v=m[2];if(v.startsWith('data:')||v.startsWith('blob:')||/^https?:/i.test(v))return /^https?:/i.test(v)?'url("")':m[0];const ref=splitRef(base,v);const url=ref.external?null:await assetURL(ref.path);return url?`url("${url}")`:'url("")'})}
@@ -665,10 +941,60 @@ async function renderContent(path,chapterToken){
  const sourceZip=state.zip;
  const file=zipFile(sourceZip,path);if(!file)throw new Error(`Missing chapter: ${path}`);const xhtml=await file.async('string');let doc=new DOMParser().parseFromString(xhtml,'application/xhtml+xml');if(doc.querySelector('parsererror')||!firstLocal(doc,'body'))doc=new DOMParser().parseFromString(xhtml,'text/html');sanitize(doc);
  let css='';const styles=getElements(doc,'style');for(const style of styles){css+='\n'+await rewriteCSS(style.textContent,path)}const links=getElements(doc,'link').filter(x=>(x.getAttribute('rel')||'').toLowerCase().includes('stylesheet'));for(const link of links){const ref=splitRef(path,link.getAttribute('href')||'');if(!ref.external){const z=zipFile(state.zip,ref.path);if(z)css+='\n'+await bookStyles(ref.path)}}
- for(const el of [...doc.querySelectorAll('*')]){for(const attr of ['src','poster','data']){const raw=el.getAttribute(attr);if(!raw||raw.startsWith('data:')||raw.startsWith('blob:'))continue;const r=splitRef(path,raw);if(r.external){el.removeAttribute(attr);continue}const url=await assetURL(r.path);if(url)el.setAttribute(attr,url);else el.removeAttribute(attr)}
- for(const attr of ['href','xlink:href']){if(!el.hasAttribute(attr))continue;const value=el.getAttribute(attr);if(el.localName?.toLowerCase()==='a'&&attr==='href'){el.setAttribute('data-book-href',value);el.setAttribute('href','#');continue}if(!value||value[0]==='#')continue;const r=splitRef(path,value);if(r.external){el.removeAttribute(attr);continue}const url=await assetURL(r.path);if(url)el.setAttribute(attr,url);else el.removeAttribute(attr)}
- if(el.hasAttribute('srcset')){const newSet=[];for(const item of el.getAttribute('srcset').split(',')){const [src,...rest]=item.trim().split(/\s+/);const r=splitRef(path,src);const u=!r.external?await assetURL(r.path):null;if(u)newSet.push([u,...rest].join(' '))}el.setAttribute('srcset',newSet.join(', '))}
- if(el.hasAttribute('style'))el.setAttribute('style',await rewriteCSS(el.getAttribute('style'),path))}
+ // Discover resource references once, then resolve them concurrently with a
+ // strict limit. This substantially reduces cold-chapter latency for image-heavy
+ // EPUBs without allowing hundreds of inflations at the same time.
+ const resourceJobs=[];
+ for(const el of doc.querySelectorAll('*')){
+  for(const attr of ['src','poster','data']){
+   const raw=el.getAttribute(attr);
+   if(!raw||raw.startsWith('data:')||raw.startsWith('blob:'))continue;
+   const ref=splitRef(path,raw);
+   if(ref.external){el.removeAttribute(attr);continue}
+   resourceJobs.push(async()=>{
+    const url=await assetURL(ref.path,sourceZip);
+    if(sourceZip!==state.zip)return;
+    if(url)el.setAttribute(attr,url);else el.removeAttribute(attr);
+   });
+  }
+  for(const attr of ['href','xlink:href']){
+   if(!el.hasAttribute(attr))continue;
+   const raw=el.getAttribute(attr);
+   if(el.localName?.toLowerCase()==='a'&&attr==='href'){
+    el.setAttribute('data-book-href',raw);el.setAttribute('href','#');continue;
+   }
+   if(!raw||raw[0]==='#')continue;
+   const ref=splitRef(path,raw);
+   if(ref.external){el.removeAttribute(attr);continue}
+   resourceJobs.push(async()=>{
+    const url=await assetURL(ref.path,sourceZip);
+    if(sourceZip!==state.zip)return;
+    if(url)el.setAttribute(attr,url);else el.removeAttribute(attr);
+   });
+  }
+  if(el.hasAttribute('srcset')){
+   const srcset=el.getAttribute('srcset');
+   resourceJobs.push(async()=>{
+    const newSet=[];
+    for(const item of srcset.split(',')){
+     const [src,...rest]=item.trim().split(/\s+/);
+     if(!src)continue;
+     if(src.startsWith('data:')||src.startsWith('blob:')){newSet.push(item.trim());continue}
+     const ref=splitRef(path,src),url=!ref.external?await assetURL(ref.path,sourceZip):null;
+     if(url)newSet.push([url,...rest].join(' '));
+    }
+    if(sourceZip===state.zip)el.setAttribute('srcset',newSet.join(', '));
+   });
+  }
+  if(el.hasAttribute('style')&&/url\s*\(|@import/i.test(el.getAttribute('style'))){
+   const original=el.getAttribute('style');
+   resourceJobs.push(async()=>{
+    const value=await rewriteCSS(original,path);
+    if(sourceZip===state.zip)el.setAttribute('style',value);
+   });
+  }
+ }
+ await folioRunResourceJobs(resourceJobs);
  if(sourceZip!==state.zip||(chapterToken!==null&&chapterToken!==state.renderToken))return null;
  const body=firstLocal(doc,'body');
  // Inline EPUB 3 aside notes are accessed through their references, not flowed
@@ -684,8 +1010,9 @@ async function renderContent(path,chapterToken){
 }
 function makeChapterDocument(prepared){
  const parts=readerStyleParts();
- parts.layout += "\n::highlight(folio-search-hit){background:rgba(213,167,62,.38);color:inherit}\n";
- return `<!doctype html><html lang="${escapeHTML(prepared.lang)}"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src blob: data:; style-src blob: 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src blob: data: https://fonts.gstatic.com https://cdn.jsdelivr.net; media-src blob: data:; connect-src 'none'; script-src 'none'; frame-src 'none'; form-action 'none'"><style>${prepared.css.replace(/<\/style/gi,'<\\/style')}</style><style id="folioFontStyle">${compactReaderFontRules(parts.fonts)}</style><style id="folioReaderStyle">${parts.layout}</style></head><body>${prepared.bodyHTML}</body></html>`;
+
+ const searchHighlightCSS="::highlight(folio-search-hit){background:rgba(213,167,62,.38);color:inherit}";
+ return `<!doctype html><html lang="${escapeHTML(prepared.lang)}"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src blob: data:; style-src blob: 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src blob: data: https://fonts.gstatic.com https://cdn.jsdelivr.net; media-src blob: data:; connect-src 'none'; script-src 'none'; frame-src 'none'; form-action 'none'"><style>${prepared.css.replace(/<\/style/gi,'<\\/style')}</style><style id="folioFontStyle">${compactReaderFontRules(parts.fonts)}</style><style id="folioReaderStyle">${parts.layout}\n${searchHighlightCSS}</style></head><body>${prepared.bodyHTML}</body></html>`;
 }
 
 function fontStack(name,kind){const base=kind==='en'?'Georgia, "Times New Roman", serif':'"Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", "SimSun", "Microsoft YaHei", serif';const clean=String(name||'').replace(/["\\;]/g,'');return `"${clean}", ${base}`}
@@ -860,13 +1187,13 @@ function readerCSS(){const s=state.settings,night=s.theme==='dark',warm=s.theme=
  ${localWenkaiAlias}
  :root{--folio-side:clamp(76px,5.5vw,112px);--folio-top:clamp(26px,4vh,48px);--folio-bottom:var(--folio-top);--folio-gap:clamp(32px,5vw,82px);--folio-max:${s.pageWidth}px;}
  html.folio-read-mode{--folio-bottom:clamp(14px,2vh,24px)}
- html{height:100%!important;width:100%!important;overflow:hidden!important;overscroll-behavior:none;scroll-behavior:auto!important;background:${bg}!important;color-scheme:${night?'dark':'light'};}
+ html{height:100%!important;width:100%!important;touch-action:pan-y!important;overflow:hidden!important;overscroll-behavior:none;scroll-behavior:auto!important;background:${bg}!important;color-scheme:${night?'dark':'light'};}
  html::before,html::after{display:none!important;content:none!important;}
  *,*::before,*::after{box-sizing:border-box}
  body{position:absolute!important;top:var(--folio-top)!important;left:max(var(--folio-side),calc((100% - var(--folio-max))/2))!important;
   width:min(calc(100% - var(--folio-side)*2),var(--folio-max))!important;max-width:none!important;
   height:calc(100% - var(--folio-top) - var(--folio-bottom))!important;
-  margin:0!important;padding:0!important;overflow:visible!important;transform:translate3d(0,0,0);
+  margin:0!important;padding:0!important;touch-action:pan-y!important;overflow:visible!important;transform:translate3d(0,0,0);
   column-count:var(--folio-columns,2)!important;column-gap:var(--folio-gap)!important;column-fill:auto!important;
   background:${bg}!important;color:${ink}!important;font-family:${zhStack}!important;font-size:${s.fontSize}px!important;
   line-height:${s.lineHeight}!important;font-weight:400!important;overflow-wrap:anywhere;word-break:normal;hyphens:auto;
@@ -892,9 +1219,26 @@ function readerCSS(){const s=state.settings,night=s.theme==='dark',warm=s.theme=
 
  body :is(h1,h2,h3,h4,h5,h6){text-indent:0!important;padding-inline:0!important;line-height:1.32!important;margin-block:1.25em .7em!important;font-weight:650!important;break-after:avoid;break-inside:avoid;}
  body h1{font-size:1.65em!important}body h2{font-size:1.35em!important}body h3{font-size:1.18em!important}
+ body img:not(a img){cursor:zoom-in}
  body :is(img,svg,video){max-width:100%!important;max-height:calc(100vh - var(--folio-top) - var(--folio-bottom) - 55px)!important;object-fit:contain;height:auto;break-inside:avoid;}
  body :is(table,pre){max-width:100%!important;overflow-wrap:anywhere;white-space:pre-wrap;}
- body :is(table,figure,blockquote,pre){break-inside:auto!important;}
+
+ /* Keep image and caption together when possible. A too-tall illustration
+    is scaled to leave room for its caption within the same page. */
+ body figure:has(img,svg){break-inside:avoid!important;max-width:100%!important;min-width:0;margin-inline:0!important;}
+ body figure:has(img,svg) :is(img,svg){max-height:calc(100vh - var(--folio-top) - var(--folio-bottom) - 8.5em)!important;}
+ body figcaption{overflow-wrap:anywhere;line-height:1.45!important;margin-block:.55em .2em!important;}
+ body :is(div,section,figure,pre,table){max-width:100%;}
+ body table{width:auto;max-width:100%;}
+ /* Wide comparison tables can otherwise overflow into the neighbouring column.
+    Only oversized tables receive fixed layout (from the JS measurement pass). */
+ body table[data-folio-fitted-table]{table-layout:fixed!important;width:100%!important;max-width:100%!important;min-width:0!important;white-space:normal!important}
+ body table[data-folio-fitted-table] :is(th,td){min-width:0!important;overflow-wrap:anywhere!important;word-break:break-word!important;white-space:normal!important}
+ body .folio-expand-table-button{display:block;clear:both;margin:.35em 0 1em auto!important;padding:.3em .65em!important;border:1px solid ${link}66!important;border-radius:.4em!important;background:transparent!important;color:${link}!important;font:600 .69em/1.3 ui-sans-serif,system-ui,sans-serif!important;cursor:zoom-in!important;break-inside:avoid;max-width:max-content}
+ body .folio-expand-table-button:hover{background:color-mix(in srgb,${link} 9%,transparent)!important}
+ body :is(math[display="block"],.math-display,.equation,.displaymath){max-width:100%!important;overflow-wrap:anywhere}
+ body :is(td,th){overflow-wrap:anywhere;word-break:break-word;}
+ body :is(table,blockquote,pre){break-inside:auto!important;}
  body table{border-collapse:collapse}body :is(pre,code,kbd,samp){font-family:ui-monospace,Consolas,monospace!important;font-size:.88em;white-space:pre-wrap;overflow-wrap:anywhere}
  body a{color:${link}!important;text-decoration-color:${link};}
  body :is(small,aside,figcaption){color:${secondary}}body *::selection{background:${mark}!important}
@@ -1139,7 +1483,7 @@ function scheduleNeighborPreparation(index){
   else void begin();
  },280);
 }
-async function renderChapter(index,fraction=0,opts={}){hideNotePopup();if(!state.book||index<0||index>=state.spine.length)return;const token=++state.renderToken;if(!opts.keepSpeech)stopSpeech();else selectSpeechOrigin(null);state.chapter=index;state.paging={page:0,pages:1,columns:2,step:0,gap:0,restore:fraction};$('chapterInfo').textContent=`Chapter ${index+1} / ${state.spine.length}`;const entry=state.spine[index];try{const html=await renderContent(entry.path,token);if(token!==state.renderToken||!html)return;const frame=$('readerFrame');await new Promise(resolve=>{let done=false;const ready=()=>{if(done)return;done=true;resolve()};frame.onload=ready;frame.srcdoc=html;setTimeout(ready,1800)});if(token!==state.renderToken)return;
+async function renderChapter(index,fraction=0,opts={}){hideNotePopup();if(!state.book||index<0||index>=state.spine.length)return;const token=++state.renderToken;state.readingAnchor=null;if(!opts.keepSpeech)stopSpeech();else selectSpeechOrigin(null);state.chapter=index;state.paging={page:0,pages:1,columns:2,step:0,gap:0,restore:fraction};$('chapterInfo').textContent=`Chapter ${index+1} / ${state.spine.length}`;const entry=state.spine[index];try{const html=await renderContent(entry.path,token);if(token!==state.renderToken||!html)return;const frame=$('readerFrame');await new Promise(resolve=>{let done=false;const ready=()=>{if(done)return;done=true;resolve()};frame.onload=ready;frame.srcdoc=html;setTimeout(ready,1800)});if(token!==state.renderToken)return;
  const doc=frame.contentDocument;if(!doc||!doc.body)throw new Error('Browser blocked book rendering');
  applyScriptFonts(doc);
  protectColumnEdges(doc);
@@ -1151,8 +1495,20 @@ async function renderChapter(index,fraction=0,opts={}){hideNotePopup();if(!state
  doc.addEventListener('pointerout',handleNotePointerOut);
  doc.addEventListener('click',event=>{const a=event.target.closest?.('a[data-book-href]');if(!a||a.hasAttribute('data-folio-note-ref'))return;event.preventDefault();const ref=splitRef(entry.path,a.getAttribute('data-book-href'));if(ref.external){if(/^https?:/i.test(ref.href)&&confirm('Open an external link outside this book?'))window.open(ref.href,'_blank','noopener,noreferrer');return}navigateToPath(ref.path,ref.hash)});
  doc.addEventListener('click',handleWordClick);
+ doc.addEventListener('click',handleIllustrationClick);
+ doc.addEventListener('click',handleTablePreviewClick);
  doc.addEventListener('wheel',handleReaderWheel,{passive:false});
- doc.addEventListener('keydown',event=>{if(event.key==='Escape')hideNotePopup();if(event.altKey||event.ctrlKey||event.metaKey)return;if(event.key==='ArrowRight'||event.key==='PageDown'||event.key===' '){event.preventDefault();changePage(1)}else if(event.key==='ArrowLeft'||event.key==='PageUp'){event.preventDefault();changePage(-1)}else if(event.key==='Escape')closeDrawer()});
+ initFolioSwipe(doc);
+ doc.addEventListener('keydown',event=>{
+  if(event.key==='Escape'){
+   if(state.drawer)closeDrawer();else if(!$('folioWordCard').hidden)hideWordCard();else hideNotePopup();
+   return;
+  }
+  if(state.drawer||event.altKey||event.ctrlKey||event.metaKey||!state.book)return;
+  if(event.target?.closest?.('a,button,input,textarea,select,[contenteditable="true"]'))return;
+  if(event.key==='ArrowRight'||event.key==='PageDown'||event.key===' '){event.preventDefault();changePage(1)}
+  else if(event.key==='ArrowLeft'||event.key==='PageUp'){event.preventDefault();changePage(-1)}
+ });
  const repaginate=()=>schedulePagination(pageFraction(),token);
  for(const img of doc.images)if(!img.complete)img.addEventListener('load',repaginate,{once:true});
  if(doc.fonts)doc.fonts.ready.then(repaginate).catch(()=>{});
@@ -1239,6 +1595,139 @@ function handleReaderWheel(event){
  changePage(sign);
 }
 
+// Horizontal swipe navigation is opt-in by gesture, not by text taps.
+// Ignore interactive links/footnotes and active selections; suppress the
+// synthetic click after a swipe so it cannot open a dictionary card.
+function initFolioSwipe(doc){
+ let start=null,suppressClickUntil=0;
+ doc.addEventListener('pointerdown',event=>{
+  if(event.pointerType!=='touch'||!event.isPrimary||state.drawer){start=null;return}
+  if(event.target?.closest?.('a,button,input,select,textarea,[contenteditable="true"]')){start=null;return}
+  start={id:event.pointerId,x:event.clientX,y:event.clientY,time:performance.now()};
+ },{passive:true});
+ doc.addEventListener('pointercancel',()=>{start=null},{passive:true});
+ doc.addEventListener('pointerup',event=>{
+  if(!start||event.pointerId!==start.id)return;
+  const swipe=start;start=null;
+  const dx=event.clientX-swipe.x,dy=event.clientY-swipe.y;
+  if(performance.now()-swipe.time>750||Math.abs(dx)<68||Math.abs(dx)<Math.abs(dy)*1.45)return;
+  if(doc.getSelection()?.toString().trim())return;
+  suppressClickUntil=performance.now()+420;
+  if(!state.drawer)changePage(dx>0?-1:1);
+ },{passive:true});
+ doc.addEventListener('click',event=>{
+  if(performance.now()<suppressClickUntil){event.preventDefault();event.stopImmediatePropagation()}
+ },{capture:true});
+}
+
+// A separate table dialog keeps publisher content in the original EPUB frame.
+// Rebuild a small whitelist of semantic inline formatting (not EPUB HTML or
+// event handlers) so superscripts, subscripts and emphasis remain readable.
+function folioCopyTableInline(source,target,depth=0){
+ if(depth>14)return;
+ const allowed=new Set(['em','i','strong','b','sup','sub','small','mark','code','kbd','samp','br','span']);
+ for(const node of source.childNodes){
+  if(node.nodeType===Node.TEXT_NODE){target.append(document.createTextNode(node.nodeValue));continue}
+  if(node.nodeType!==Node.ELEMENT_NODE)continue;
+  if(['script','style','svg','iframe','object','embed','form'].includes(node.localName))continue;
+  const tag=node.localName.toLowerCase();
+  if(!allowed.has(tag)){folioCopyTableInline(node,target,depth+1);continue}
+  const el=document.createElement(tag==='span'?'span':tag);
+  // No copied class, style, link, URL, event attributes, or EPUB namespaces.
+  if(node.hasAttribute('lang'))el.lang=node.getAttribute('lang').slice(0,40);
+  folioCopyTableInline(node,el,depth+1);
+  target.append(el);
+ }
+}
+let folioTableReturnFocus=null;
+function closeTablePreview(){
+ const dialog=$('folioTableViewer');if(dialog.hidden)return;
+ dialog.hidden=true;$('folioTableContents').replaceChildren();
+ if(folioTableReturnFocus?.isConnected)folioTableReturnFocus.focus({preventScroll:true});
+ folioTableReturnFocus=null;
+}
+function handleTablePreviewClick(event){
+ const button=event.target?.closest?.('[data-folio-expand-table]');
+ if(!button)return;
+ event.preventDefault();event.stopPropagation();
+ const source=button.previousElementSibling;
+ if(!source||source.tagName.toLowerCase()!=='table')return;
+ const table=document.createElement('table');
+ for(const row of Array.from(source.rows).slice(0,600)){
+  const targetRow=document.createElement('tr');
+  for(const cell of Array.from(row.cells).slice(0,50)){
+   const targetCell=document.createElement(cell.tagName.toLowerCase()==='th'?'th':'td');
+   folioCopyTableInline(cell,targetCell);
+   targetCell.colSpan=Math.max(1,Math.min(30,cell.colSpan||1));
+   targetCell.rowSpan=Math.max(1,Math.min(200,cell.rowSpan||1));
+   targetRow.append(targetCell);
+  }
+  table.append(targetRow);
+ }
+ $('folioTableContents').replaceChildren(table);
+ folioTableReturnFocus=button;
+ $('folioTableViewer').hidden=false;
+ $('folioTableClose').focus({preventScroll:true});
+}
+$('folioTableClose').addEventListener('click',closeTablePreview);
+$('folioTableViewer').addEventListener('pointerdown',e=>{if(e.target===$('folioTableViewer'))closeTablePreview()});
+document.addEventListener('keydown',e=>{
+ if($('folioTableViewer').hidden)return;
+ if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();closeTablePreview()}
+ else if(e.key==='Tab'){e.preventDefault();$('folioTableClose').focus()}
+},{capture:true});
+// Illustration preview only activates for unlinked book images. Never intercept
+// hyperlinks, footnotes, dictionary word clicks, or text selection.
+let folioImageReturnFocus=null;
+function setIllustrationZoom(actual){
+ const stage=$('folioImageStage'),button=$('folioImageZoom');
+ stage.classList.toggle('is-actual-size',!!actual);
+ button.setAttribute('aria-pressed',String(!!actual));
+ button.textContent=actual?'Fit to screen':'Actual size';
+ if(!actual){stage.scrollTop=0;stage.scrollLeft=0;}
+}
+$('folioImageZoom').addEventListener('click',()=>{
+ setIllustrationZoom(!$('folioImageStage').classList.contains('is-actual-size'));
+});
+function closeIllustration(){
+ const modal=$('folioImageViewer');if(modal.hidden)return;
+ modal.hidden=true;
+ setIllustrationZoom(false);
+ $('folioImageLarge').removeAttribute('src');
+ if(folioImageReturnFocus?.isConnected)folioImageReturnFocus.focus({preventScroll:true});
+ folioImageReturnFocus=null;
+}
+function handleIllustrationClick(event){
+ if(state.drawer||!state.book||!$('folioImageViewer').hidden)return;
+ const el=event.target?.closest?.('img');
+ if(!el||el.closest('a,button,[role="button"]')||event.defaultPrevented)return;
+ if(event.view?.getSelection?.()?.toString().trim())return;
+ const rect=el.getBoundingClientRect();
+ if(rect.width<70||rect.height<45||!el.currentSrc&&!el.src)return;
+ event.preventDefault();event.stopPropagation();
+ const modal=$('folioImageViewer'),large=$('folioImageLarge');
+ setIllustrationZoom(false);
+ large.src=el.currentSrc||el.src;
+ large.alt=el.getAttribute('alt')||'Book illustration';
+ const figure=el.closest('figure');
+ const caption=figure?.querySelector('figcaption')?.textContent?.trim()||el.getAttribute('alt')?.trim()||'';
+ $('folioImageCaption').textContent=caption;
+ $('folioImageCaption').hidden=!caption;
+ folioImageReturnFocus=document.activeElement instanceof HTMLElement?document.activeElement:null;
+ modal.hidden=false;
+ $('folioImageClose').focus({preventScroll:true});
+}
+$('folioImageClose').addEventListener('click',closeIllustration);
+$('folioImageViewer').addEventListener('pointerdown',event=>{if(event.target===$('folioImageViewer'))closeIllustration()});
+document.addEventListener('keydown',event=>{
+ if($('folioImageViewer').hidden)return;
+ if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();closeIllustration();return}
+ if(event.key==='Tab'){
+  event.preventDefault();
+  const other=document.activeElement===$('folioImageClose')?$('folioImageZoom'):$('folioImageClose');
+  other.focus({preventScroll:true});
+ }
+},{capture:true});
 function changePage(step){if(!state.book)return;const p=state.paging;if(state.noteReturn&&((step<0&&p.page<=0)||(step>0&&p.page>=p.pages-1))){returnFromNote();return}
  if(step>0&&p.page>=p.pages-1){if(state.chapter<state.spine.length-1)renderChapter(state.chapter+1,0);else notify('You have reached the end of the book');return}
  if(step<0&&p.page<=0){if(state.chapter>0)renderChapter(state.chapter-1,1);return}
@@ -1404,7 +1893,110 @@ async function removeBookById(id){
  finally{pendingBookRemovals.delete(id)}
 }
 async function removeCurrentBook(){if(state.book)await removeBookById(state.book.id)}
-async function clearAllData(){if(!confirm('Delete ALL saved books, reading positions, bookmarks and settings from this browser? This cannot be undone.'))return;stopSpeech();state.loadToken++;toLibrary();try{if(state.db)await database('readwrite',s=>s.clear())}catch(e){console.warn(e);notify('Could not clear book storage completely')}state.temporary.clear();for(const id of Object.values(STORAGE))try{localStorage.removeItem(id)}catch{}for(const url of state.coverUrls.values())URL.revokeObjectURL(url);state.coverUrls.clear();location.reload()}
+
+// Small, portable JSON data backup. EPUB files stay separate, so this is fast
+// even when a library contains many large books. No network requests.
+const FOLIO_READING_BACKUP='folio-reading-data';
+function saveDownload(blob,name){
+ const url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download=name;a.style.display='none';document.body.append(a);a.click();a.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),15_000);
+}
+function exportFolioReadingData(){
+ if(state.book)saveProgress();
+ const data={format:FOLIO_READING_BACKUP,version:1,exportedAt:new Date().toISOString(),settings:state.settings,progress:state.progress,bookmarks:state.bookmarks};
+ const json=JSON.stringify(data,null,2);
+ saveDownload(new Blob([json],{type:'application/json'}),'folio-reading-'+new Date().toISOString().slice(0,10)+'.json');
+ notify('Reading data exported');
+}
+function folioObject(v){return v&&typeof v==='object'&&!Array.isArray(v)?v:null}
+function validatedReadingBackup(source){
+ if(source?.format!==FOLIO_READING_BACKUP||source.version!==1)throw new Error('This is not a Folio reading data backup');
+ const settings={};
+ const input=folioObject(source.settings)||{};
+ for(const [key,defaultValue] of Object.entries(DEFAULTS)){
+  const value=input[key];
+  if(typeof value===typeof defaultValue&&key!=='lastVoiceByLang'&&
+   (typeof value!=='number'||Number.isFinite(value))&&
+   (typeof value!=='string'||value.length<300))settings[key]=value;
+ }
+ if(folioObject(input.lastVoiceByLang)){
+  settings.lastVoiceByLang={};
+  for(const lang of ['en','zh'])if(typeof input.lastVoiceByLang[lang]==='string'&&input.lastVoiceByLang[lang].length<300)
+   settings.lastVoiceByLang[lang]=input.lastVoiceByLang[lang];
+ }
+ // Preserve v24's page-width schema and constrain numeric preferences.
+ const clampSetting=(key,min,max)=>{if(settings[key]!==undefined)settings[key]=Math.max(min,Math.min(max,settings[key]))};
+ clampSetting('fontSize',14,32);clampSetting('lineHeight',1.3,2.4);
+ clampSetting('paragraphSpace',.3,2.0);clampSetting('pageWidth',700,2400);clampSetting('rate',.7,1.5);
+ if(!['light','sepia','dark'].includes(settings.theme))delete settings.theme;
+ for(const key of ['enFont','zhFont']){
+  if(settings[key]!==undefined&&![...$(key).options].some(option=>option.value===settings[key]))delete settings[key];
+ }
+ const progress={};
+ for(const [id,p] of Object.entries(folioObject(source.progress)||{}).slice(0,20000)){
+  if(id.length>128||id==='__proto__'||id==='constructor'||!folioObject(p))continue;
+  if(!Number.isInteger(p.chapter)||p.chapter<0||p.chapter>100000||!Number.isFinite(p.fraction))continue;
+  progress[id]={chapter:p.chapter,fraction:Math.max(0,Math.min(1,p.fraction)),
+   percent:Number.isFinite(p.percent)?Math.max(0,Math.min(100,p.percent)):0,
+   updatedAt:Number.isFinite(p.updatedAt)?p.updatedAt:Date.now()};
+ }
+ const bookmarks={};
+ for(const [id,items] of Object.entries(folioObject(source.bookmarks)||{}).slice(0,20000)){
+  if(id.length>128||id==='__proto__'||id==='constructor'||!Array.isArray(items))continue;
+  const good=items.slice(0,1000).filter(item=>folioObject(item)&&Number.isInteger(item.chapter)&&item.chapter>=0&&item.chapter<100000&&Number.isFinite(item.fraction));
+  bookmarks[id]=good.map(item=>({id:String(item.id||'').slice(0,128),label:String(item.label||'Bookmark').slice(0,300),
+   chapter:item.chapter,fraction:Math.max(0,Math.min(1,item.fraction)),date:Number.isFinite(item.date)?item.date:Date.now()}));
+ }
+ return {settings,progress,bookmarks};
+}
+async function importFolioReadingData(file){
+ if(!file)return;
+ if(file.size>3*1024*1024)throw new Error('Reading backup is too large (3 MB maximum)');
+ const parsed=validatedReadingBackup(JSON.parse(await file.text()));
+ if(!confirm('Merge saved positions and bookmarks, and restore the exported appearance and voice settings? EPUB files will not be changed.'))return;
+ if(state.book)saveProgress();
+ const nextProgress={...state.progress,...parsed.progress};
+ const nextBookmarks={...state.bookmarks};
+ for(const [id,items] of Object.entries(parsed.bookmarks)){
+  const merged=[...(nextBookmarks[id]||[])],used=new Set(merged.map(b=>b.id));
+  for(const item of items)if(!used.has(item.id)){merged.push(item);used.add(item.id)}
+  nextBookmarks[id]=merged;
+ }
+ const nextSettings={...DEFAULTS,...state.settings,...parsed.settings,layoutVersion:2};
+ // Persist all three sets before changing the visible state.
+ const previousValues=Object.values(STORAGE).map(key=>{try{return [key,localStorage.getItem(key)]}catch{return [key,null]}});
+ if(!safeSave(STORAGE.settings,nextSettings)||!safeSave(STORAGE.progress,nextProgress)||!safeSave(STORAGE.bookmarks,nextBookmarks)){
+  for(const [key,value] of previousValues){try{if(value===null)localStorage.removeItem(key);else localStorage.setItem(key,value)}catch{}}
+  throw new Error('Browser storage is full; the reading data could not be restored');
+ }
+ state.settings=nextSettings;state.progress=nextProgress;state.bookmarks=nextBookmarks;
+ for(const id of ['enFont','zhFont','forceBookFonts','fontSize','lineHeight','paragraphSpace','pageWidth','zhVoice','enVoice','autoAdvance','autoScroll']){
+  const el=$(id);if(el.type==='checkbox')el.checked=!!state.settings[id];else el.value=state.settings[id];
+ }
+ $('quickRate').value=state.settings.rate;setTheme(state.settings.theme);syncSettingsLabels();
+ if(state.voices?.length)voicesAvailable();
+ renderLibrary();renderBookmarks();
+ if(state.book){
+  const restored=state.progress[state.book.id];
+  const chapter=restored?Math.max(0,Math.min(state.spine.length-1,restored.chapter)):state.chapter;
+  await renderChapter(chapter,restored?.fraction??pageFraction());
+ }
+ notify('Reading settings and positions restored');
+}
+async function checkFolioPersistence(){
+ const button=$('persistLibrary'),info=$('persistInfo');
+ if(!navigator.storage?.persist||!navigator.storage?.persisted){button.hidden=true;info.textContent='Keep a backup of your EPUB files.';return}
+ const persisted=await navigator.storage.persisted();
+ button.hidden=persisted;
+ info.textContent=persisted?'Browser storage is protected where supported.':'Your browser may remove local books when storage is low.';
+}
+async function requestFolioPersistence(){
+ try{const granted=await navigator.storage.persist();await checkFolioPersistence();
+  notify(granted?'Local storage protection enabled':'Your browser did not grant protected storage')}
+ catch(e){notify('Storage protection is not available in this browser')}
+}
+async function clearAllData(){if(!confirm('Delete ALL saved books, reading positions, bookmarks and settings from this browser? This cannot be undone.'))return;stopSpeech();state.loadToken++;toLibrary();try{if(state.db)await database('readwrite',s=>s.clear())}catch(e){console.warn(e);notify('Could not clear book storage; no other data was erased');return}state.temporary.clear();for(const id of Object.values(STORAGE))try{localStorage.removeItem(id)}catch{}for(const url of state.coverUrls.values())URL.revokeObjectURL(url);state.coverUrls.clear();location.reload()}
 function clearReadingData(){if(!confirm('Clear reading positions and bookmarks for every book? Your EPUB files and visual preferences will stay.'))return;state.progress={};state.bookmarks={};try{localStorage.removeItem(STORAGE.progress);localStorage.removeItem(STORAGE.bookmarks)}catch{}renderBookmarks();renderLibrary();setButtonState();notify('Reading history and bookmarks cleared')}
 async function createDemo(){const zip=new JSZip();zip.file('mimetype','application/epub+zip',{compression:'STORE'});zip.file('META-INF/container.xml','<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>');zip.file('OEBPS/content.opf',`<?xml version="1.0" encoding="utf-8"?><package xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid" version="3.0"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>The Art of Paying Attention</dc:title><dc:creator>Folio Reader</dc:creator><dc:language>en</dc:language><dc:identifier id="bookid">urn:folio:demo</dc:identifier></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="c1" href="one.xhtml" media-type="application/xhtml+xml"/><item id="c2" href="two.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="c1"/><itemref idref="c2"/></spine></package>`);
  zip.file('OEBPS/nav.xhtml','<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><head><title>Contents</title></head><body><nav epub:type="toc"><ol><li><a href="one.xhtml">The space between words</a></li><li><a href="two.xhtml">留一点时间给自己</a></li></ol></nav></body></html>');
@@ -1417,12 +2009,31 @@ function bindEvents(){const upload=()=>{$('fileInput').value='';$('fileInput').c
  for(const id of ['closeToc','closeSettings','scrim'])$(id).addEventListener('click',closeDrawer);$('tabChapters').addEventListener('click',()=>switchTocTab('toc'));$('tabBookmarks').addEventListener('click',()=>switchTocTab('bookmarks'));
  $('prevPage').addEventListener('click',()=>changePage(-1));$('nextPage').addEventListener('click',()=>changePage(1));$('edgePrev').addEventListener('click',()=>changePage(-1));$('edgeNext').addEventListener('click',()=>changePage(1));$('readingShell').addEventListener('wheel',handleReaderWheel,{passive:false});$('topTTS').addEventListener('click',()=>{if($('ttsDock').hidden)startSpeech();else closeDock()});$('openDock').addEventListener('click',()=>{closeDrawer();showDock()});$('ttsPlay').addEventListener('click',toggleSpeech);$('ttsStop').addEventListener('click',stopSpeech);$('ttsClose').addEventListener('click',closeDock);
  $('removeBook').addEventListener('click',removeCurrentBook);$('clearAll').addEventListener('click',clearAllData);$('clearReading').addEventListener('click',clearReadingData);
+ $('exportReadingData').addEventListener('click',exportFolioReadingData);
+ $('restoreReadingData').addEventListener('click',()=>{$('folioRestoreInput').value='';$('folioRestoreInput').click()});
+ $('folioRestoreInput').addEventListener('change',event=>importFolioReadingData(event.target.files?.[0]).catch(e=>notify(e.message||'Could not import backup')));
+ $('persistLibrary').addEventListener('click',requestFolioPersistence);
  let dragCounter=0;for(const id of ['dropzone','main']){const el=$(id);el.addEventListener('dragenter',event=>{if(!event.dataTransfer?.types?.includes('Files'))return;event.preventDefault();dragCounter++;$('dropzone').classList.add('dragging')});el.addEventListener('dragover',event=>{if(event.dataTransfer?.types?.includes('Files'))event.preventDefault()});el.addEventListener('dragleave',event=>{event.preventDefault();dragCounter=Math.max(0,dragCounter-1);if(!dragCounter)$('dropzone').classList.remove('dragging')});el.addEventListener('drop',event=>{event.preventDefault();event.stopPropagation();dragCounter=0;$('dropzone').classList.remove('dragging');if(event.dataTransfer?.files?.length)importFiles(event.dataTransfer.files)})}
- document.addEventListener('keydown',event=>{const name=event.target?.tagName?.toLowerCase();if(['input','select','textarea'].includes(name)||event.ctrlKey||event.altKey||event.metaKey)return;if(event.key==='Escape'){closeDrawer();if(state.railOpen)setRail(false)}if(event.key==='ArrowRight'||event.key==='PageDown'||event.key===' '){event.preventDefault();changePage(1)}if(event.key==='ArrowLeft'||event.key==='PageUp'){event.preventDefault();changePage(-1)}if(event.key==='b'&&state.book)toggleBookmark()});
+ document.addEventListener('keydown',event=>{
+ if(event.key==='Escape'){
+  if(state.drawer){event.preventDefault();closeDrawer();return}
+  if(!$('folioWordCard').hidden){event.preventDefault();hideWordCard();return}
+  if(!$('folioNotePopup').hidden){event.preventDefault();hideNotePopup();return}
+  if(state.railOpen){event.preventDefault();setRail(false)}
+  return;
+ }
+ if(state.drawer){folioTrapDrawerFocus(event);return}
+ if(!state.book||event.defaultPrevented||event.ctrlKey||event.altKey||event.metaKey)return;
+ const el=event.target;
+ if(el?.closest?.('input,select,textarea,button,[contenteditable="true"],[role="dialog"]'))return;
+ if(event.key==='ArrowRight'||event.key==='PageDown'||event.key===' '){event.preventDefault();changePage(1)}
+ else if(event.key==='ArrowLeft'||event.key==='PageUp'){event.preventDefault();changePage(-1)}
+ else if(event.key.toLowerCase()==='b')toggleBookmark();
+});
  const observer=new ResizeObserver(()=>{if(state.book)schedulePagination(pageFraction(),state.renderToken)});observer.observe($('readerFrame'));document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')saveProgress()});window.addEventListener('beforeunload',()=>{saveProgress();if(state.synth)state.synth.cancel()});
  if(state.synth){state.synth.addEventListener?.('voiceschanged',voicesAvailable);voicesAvailable();setTimeout(voicesAvailable,500);setTimeout(voicesAvailable,1600)}else $('ttsSubstatus').textContent='Speech is not supported in this browser';
  }
-async function start(){initSettings();bindEvents();setButtonState();try{state.db=await openDB()}catch(e){console.warn('Book storage unavailable',e);notify('Browser storage is limited: imported books may not persist')}await refreshLibrary();const last=Object.entries(state.progress).sort((a,b)=>(b[1].updatedAt||0)-(a[1].updatedAt||0))[0];if(last&&getBookRecord(last[0])){ // Keep a restful library landing instead of auto-loading the last book.
+async function start(){initSettings();bindEvents();setButtonState();try{state.db=await openDB()}catch(e){console.warn('Book storage unavailable',e);notify('Browser storage is limited: imported books may not persist')}await refreshLibrary();checkFolioPersistence().catch(()=>{});const last=Object.entries(state.progress).sort((a,b)=>(b[1].updatedAt||0)-(a[1].updatedAt||0))[0];if(last&&getBookRecord(last[0])){ // Keep a restful library landing instead of auto-loading the last book.
  $('topSubtitle').textContent='Your library';}}
 
 // v10: Inflection-aware word lookup, while keeping the original clicked word.
@@ -1855,7 +2466,14 @@ $('installFolio').addEventListener('click',async()=>{
 });
 window.addEventListener('appinstalled',()=>{$('installFolio').hidden=true;folioInstallPrompt=null});
 if('serviceWorker' in navigator&&(/^https:$/.test(location.protocol)||/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname))&&/\/(?:index\.html)?$/.test(location.pathname)){
- window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(e=>console.debug('Offline app shell not registered:',e)));
+ window.addEventListener('load',async()=>{
+  const hadController=!!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(hadController)$('folioUpdateNotice').hidden=false});
+  $('folioUpdateNow').addEventListener('click',()=>location.reload());
+  try{const registration=await navigator.serviceWorker.register('./sw.js',{scope:'./'});
+   if(hadController)registration.update().catch(()=>{});
+  }catch(e){console.debug('Offline app shell not registered:',e)}
+ });
 }
 start().catch(e=>{console.error(e);notify('Could not initialize the reader')});
 })();
