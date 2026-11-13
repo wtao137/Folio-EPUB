@@ -42,6 +42,9 @@
 @media(max-width:680px){.app:not(.rail-hidden) .workspace{margin-left:0}.rail{box-shadow:15px 0 45px #0003}.topbar{height:62px;flex-basis:62px;padding:0 12px;gap:3px}.topbar-title strong{font-size:12px}.topbar .edge{min-width:0}.topbar .edge.right{flex-shrink:0}.top-actions{gap:0}.topbar .hide-mobile{display:none}.empty-view{padding:26px 20px 65px;align-items:flex-start}.welcome h1{font-size:43px}.welcome-sub{font-size:13px}.dropzone{padding:19px;display:block}.drop-copy{margin-bottom:18px}.dropzone .pillbtn{width:100%}.book-cards{grid-template-columns:repeat(2,1fr);gap:17px}.book-cover{height:175px}.reader-bottom{height:57px;flex-basis:57px;padding:0 15px}.reader-bottom .meta{min-width:auto;max-width:37vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.reading-percent{min-width:auto}.tts-dock{bottom:68px;gap:7px;padding:8px 9px}.tts-dock .tts-label{max-width:135px}.tts-dock .divider-v,.tts-dock .voice-quick,.tts-dock .ratebox{display:none}.tts-actions{gap:1px}.tts-dock .play{width:39px;height:39px}.drawer-header{height:65px;flex-basis:65px}.drawer-body{padding:20px}.welcome-head{margin-top:40px}}
 
 /* Fixed-height paginated reading spreads */
+/* v41: The old page remains painted while the next chapter is laid out offscreen. */
+.reader-frame.folio-staging-frame{position:absolute;inset:0;width:100%;height:100%;opacity:0;pointer-events:none;z-index:0}
+.reader-frame.folio-staging-frame:focus{outline:none}
 .reader-frame{overflow:hidden} .page-indicator{font-variant-numeric:tabular-nums;min-width:58px;text-align:center;color:var(--muted);font-size:12px;font-weight:600;letter-spacing:.025em}
 .reader-view.two-column .reading-shell::after{content:"";pointer-events:none;position:absolute;z-index:1;top:13%;bottom:13%;left:50%;width:1px;background:linear-gradient(transparent,var(--line) 22%,var(--line) 78%,transparent);opacity:.62}
 .reader-bottom .meta{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:33%;flex:1}.reader-bottom .bottom-nav{flex:none}.reader-bottom .reading-percent{flex:1}
@@ -928,7 +931,7 @@ function folioTrapDrawerFocus(event){
  if(event.shiftKey&&(document.activeElement===first||!drawer.contains(document.activeElement))){event.preventDefault();last.focus()}
  else if(!event.shiftKey&&(document.activeElement===last||!drawer.contains(document.activeElement))){event.preventDefault();first.focus()}
 }
-function toLibrary(){resetFolioSearch();hideNotePopup();state.noteReturn=null;$('noteBack').hidden=true;if(!$('folioWordCard').hidden)hideWordCard();if(state.book){saveProgress();stopSpeech();state.renderToken++;if(state.zip){for(const url of state.urls.values())URL.revokeObjectURL(url)}state.urls.clear();state.chapterCache.clear();state.noteDocCache.clear();state.preparePromises.clear();state.styleCache.clear();state.book=null;state.meta=null;state.zip=null;state.chapter=-1;state.readingAnchor=null;state.spine=[];state.toc=[];$('readerFrame').srcdoc='';state.paging={page:0,pages:1,columns:2,step:0,gap:0,restore:0};}closeDrawer();$('readerView').hidden=true;$('emptyView').hidden=false;$('app').classList.remove('reader-active');$('topTitle').textContent='Folio';$('topSubtitle').textContent='Your library';$('ttsDock').hidden=true;setButtonState();renderLibrary();}
+function toLibrary(){cancelPendingChapterStage();resetFolioSearch();hideNotePopup();state.noteReturn=null;$('noteBack').hidden=true;if(!$('folioWordCard').hidden)hideWordCard();if(state.book){saveProgress();stopSpeech();state.renderToken++;if(state.zip){for(const url of state.urls.values())URL.revokeObjectURL(url)}state.urls.clear();state.chapterCache.clear();state.noteDocCache.clear();state.preparePromises.clear();state.styleCache.clear();state.book=null;state.meta=null;state.zip=null;state.chapter=-1;state.readingAnchor=null;state.spine=[];state.toc=[];$('readerFrame').srcdoc='';state.paging={page:0,pages:1,columns:2,step:0,gap:0,restore:0};}closeDrawer();$('readerView').hidden=true;$('emptyView').hidden=false;$('app').classList.remove('reader-active');$('topTitle').textContent='Folio';$('topSubtitle').textContent='Your library';$('ttsDock').hidden=true;setButtonState();renderLibrary();}
 function setTheme(theme){$('app').classList.remove('theme-sepia','theme-dark');if(theme!=='light')$('app').classList.add('theme-'+theme);document.querySelectorAll('[data-theme]').forEach(el=>el.classList.toggle('selected',el.dataset.theme===theme));const col=theme==='dark'?'#1f2524':theme==='sepia'?'#eee5d5':'#f6f5f1';document.querySelector('meta[name="theme-color"]')?.setAttribute('content',col)}
 function syncLookupFonts(){
  const en=EN_FONT_STACKS[state.settings.enFont]||EN_FONT_STACKS.Georgia;
@@ -2089,11 +2092,97 @@ function scheduleNeighborPreparation(index){
   else void begin();
  },280);
 }
-async function renderChapter(index,fraction=0,opts={}){hideNotePopup();if(!state.book||index<0||index>=state.spine.length)return;const token=++state.renderToken;state.readingAnchor=null;if(!opts.keepSpeech)stopSpeech();else selectSpeechOrigin(null);state.chapter=index;state.paging={page:0,pages:1,columns:2,step:0,gap:0,restore:fraction};$('chapterInfo').textContent=`Chapter ${index+1} / ${state.spine.length}`;const entry=state.spine[index];try{const html=await renderContent(entry.path,token);if(token!==state.renderToken||!html)return;const frame=$('readerFrame');await new Promise(resolve=>{let done=false;const ready=()=>{if(done)return;done=true;resolve()};frame.onload=ready;frame.srcdoc=html;setTimeout(ready,1800)});if(token!==state.renderToken)return;
- const doc=frame.contentDocument;if(!doc||!doc.body)throw new Error('Browser blocked book rendering');
- applyScriptFonts(doc);
- protectColumnEdges(doc);
- const faces=doc.getElementById('folioFontStyle');if(faces)faces.textContent += '\n/* folio-ready */';
+// Chapter transitions are double-buffered: loading srcdoc on the visible iframe
+// briefly exposes a blank/default-layout document before pagination finishes.
+// Keep the current page on screen while a second, invisible iframe loads.
+let pendingChapterStage=null;
+function cancelPendingChapterStage(){
+ const pending=pendingChapterStage;
+ if(pending){pendingChapterStage=null;pending.cancel()}
+}
+function prepareChapterStage(html){
+ cancelPendingChapterStage();
+ const frame=document.createElement('iframe');
+ frame.className='reader-frame folio-staging-frame';
+ frame.setAttribute('sandbox','allow-same-origin');
+ frame.setAttribute('aria-hidden','true');
+ frame.title='Preparing EPUB chapter';
+ $('readerFrame').after(frame);
+ return new Promise((resolve,reject)=>{
+  let settled=false,timer=0;
+  const finish=error=>{
+   if(settled)return;
+   settled=true;clearTimeout(timer);frame.onload=null;frame.onerror=null;
+   if(error)reject(error);else resolve(frame);
+  };
+  pendingChapterStage={frame,cancel:()=>{frame.remove();finish(new Error('Chapter preparation cancelled'))}};
+  frame.onload=()=>finish();
+  frame.onerror=()=>finish(new Error('Unable to prepare the next chapter'));
+  // A very slow stylesheet should not leave navigation pending forever.
+  // Never reveal an iframe while its document is still being parsed.
+  timer=setTimeout(()=>{
+   const doc=frame.contentDocument;
+   if(doc?.body&&doc.readyState!=='loading')finish();
+   else finish(new Error('The next chapter did not finish loading'));
+  },3500);
+  frame.srcdoc=html;
+ });
+}
+function commitChapterStage(frame){
+ if(pendingChapterStage?.frame!==frame)return false;
+ const prior=$('readerFrame');
+ prior.removeAttribute('id');
+ frame.id='readerFrame';
+ frame.title='EPUB chapter';
+ frame.removeAttribute('aria-hidden');
+ frame.classList.remove('folio-staging-frame');
+ pendingChapterStage=null;
+ prior.remove();
+ return true;
+}
+async function renderChapter(index,fraction=0,opts={}){
+ hideNotePopup();
+ if(!state.book||index<0||index>=state.spine.length)return;
+ const token=++state.renderToken;
+ cancelPendingChapterStage();
+ if(!opts.keepSpeech)stopSpeech();else selectSpeechOrigin(null);
+ const entry=state.spine[index];
+ try{
+  const html=await renderContent(entry.path,token);
+  if(token!==state.renderToken||!html)return;
+  const frame=await prepareChapterStage(html);
+  if(token!==state.renderToken||pendingChapterStage?.frame!==frame)return;
+  const stagedDoc=frame.contentDocument;
+  if(!stagedDoc?.body)throw new Error('Browser blocked book rendering');
+  // Do potentially expensive font wrapping and publisher-style corrections
+  // before the new page becomes visible.
+  applyScriptFonts(stagedDoc);
+  protectColumnEdges(stagedDoc);
+  const faces=stagedDoc.getElementById('folioFontStyle');
+  if(faces)faces.textContent += '\n/* folio-ready */';
+  // Font metrics can alter column boundaries. Give a newly loading font a
+  // short chance to settle while preserving the old painted chapter.
+  if(stagedDoc.fonts?.status==='loading'){
+   await Promise.race([stagedDoc.fonts.ready.catch(()=>{}),new Promise(resolve=>setTimeout(resolve,160))]);
+  }
+  if(token!==state.renderToken||pendingChapterStage?.frame!==frame)return;
+  // Synchronize appearance if the user switched tone/typography during load.
+  const styles=readerStyleParts();
+  const fontStyle=stagedDoc.getElementById('folioFontStyle');
+  const readerStyle=stagedDoc.getElementById('folioReaderStyle');
+  if(fontStyle)fontStyle.textContent=compactReaderFontRules(styles.fonts);
+  if(readerStyle&&!readerStyle.textContent.startsWith(styles.layout)){
+   readerStyle.textContent=styles.layout+'\n::highlight(folio-search-hit){background:rgba(213,167,62,.38);color:inherit}';
+  }
+  if(!commitChapterStage(frame))return;
+  // State, CSS column layout, progress and navigation are committed together,
+  // synchronously within one browser task; no intermediate frame can paint.
+  state.readingAnchor=null;
+  state.chapter=index;
+  state.paging={page:0,pages:1,columns:2,step:0,gap:0,restore:fraction};
+  $('chapterInfo').textContent=`Chapter ${index+1} / ${state.spine.length}`;
+  const doc=frame.contentDocument;
+
  setReadMode(!$('ttsDock').hidden);
  initNoteReferences(doc,entry.path);
  doc.addEventListener('click',handleNoteClick,{capture:true});
@@ -2129,7 +2218,7 @@ async function renderChapter(index,fraction=0,opts={}){hideNotePopup();if(!state
  if(opts.searchMatch)requestAnimationFrame(()=>{if(token===state.renderToken){focusFolioSearchMatch(opts.searchMatch);setTimeout(()=>{if(token===state.renderToken)focusFolioSearchMatch(opts.searchMatch)},180)}});
  if(opts.hash){const target=doc.getElementById(opts.hash)||doc.getElementsByName(opts.hash)[0];if(target)goToElement(target)}
  renderTOC();setButtonState();saveProgress();if(!state.noteReturn)scheduleNeighborPreparation(index);
- }catch(e){if(token===state.renderToken){console.error(e);notify(`Chapter could not be displayed: ${e.message}`)}}}
+ }catch(e){if(token===state.renderToken){cancelPendingChapterStage();console.error(e);notify(`Chapter could not be displayed: ${e.message}`)}}}
 function returnFromNote(){
  const prior=state.noteReturn;if(!prior)return;
  state.noteReturn=null;
@@ -2732,7 +2821,7 @@ function bindEvents(){$('libraryFilter').addEventListener('input',filterLibraryB
  else if(event.key==='ArrowLeft'||event.key==='PageUp'){event.preventDefault();changePage(-1)}
  else if(event.key.toLowerCase()==='b')toggleBookmark();
 });
- const observer=new ResizeObserver(()=>{if(state.book)schedulePagination(pageFraction(),state.renderToken)});observer.observe($('readerFrame'));document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')saveProgress()});window.addEventListener('beforeunload',()=>{saveProgress();if(state.synth)state.synth.cancel()});
+ const observer=new ResizeObserver(()=>{if(state.book)schedulePagination(pageFraction(),state.renderToken)});observer.observe($('readingShell'));document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')saveProgress()});window.addEventListener('beforeunload',()=>{saveProgress();if(state.synth)state.synth.cancel()});
  if(state.synth){state.synth.addEventListener?.('voiceschanged',voicesAvailable);voicesAvailable();setTimeout(voicesAvailable,500);setTimeout(voicesAvailable,1600)}else $('ttsSubstatus').textContent='Speech is not supported in this browser';
  }
 async function start(){initSettings();bindEvents();setButtonState();try{state.db=await openDB()}catch(e){console.warn('Book storage unavailable',e);notify('Browser storage is limited: imported books may not persist')}await refreshLibrary();checkFolioPersistence().catch(()=>{});const last=Object.entries(state.progress).sort((a,b)=>(b[1].updatedAt||0)-(a[1].updatedAt||0))[0];if(last&&getBookRecord(last[0])){ // Keep a restful library landing instead of auto-loading the last book.
