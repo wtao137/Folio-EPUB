@@ -1,3 +1,16 @@
+## v33 (2026-11-13)
+
+- Move in-book Search drawer to the right, matching Appearance & data.
+- Preserve left-hand Contents/bookmarks drawer, search functionality, and responsive animations.
+- Bump offline PWA shell version without modifying local reading data.
+
+## v32 (2026-11-13)
+
+- More vertical space between Reading focus and Show read-aloud controls.
+- Removed redundant local-storage explanation.
+- Improved Night mode text, icon, select, button, and hover contrast.
+- Bumped offline PWA shell cache; kept local data and settings compatible.
+
 # Changelog
 
 ## v31 — Library controls and reading focus (2026-11-13)

@@ -378,6 +378,37 @@
 .book-card[hidden]{display:none!important}
 @media(max-width:700px){.app:not(.reader-active) .topbar .top-leading{min-width:0}.app:not(.reader-active) #topImport{height:34px;padding:0 9px;font-size:11px}.app:not(.reader-active) #topSettings{padding:0 6px}.app:not(.reader-active) .top-settings-label{display:none}.library-filter{max-width:none}}
 @media(max-width:390px){.app:not(.reader-active) #topImport{gap:3px;padding:0 7px;font-size:10px}.app:not(.reader-active) #topImport .icon{width:14px}.library-filter{margin-top:12px}}
+
+/* v32: comfortable TTS spacing and contrast-safe night controls. */
+#openDock{margin-top:18px;min-height:43px}
+.app.theme-dark{color-scheme:dark;--muted:#a8b7ae}
+.app.theme-dark :is(.drawer,.rail,.topbar,.reader-bottom,.empty-view){color:var(--ink)}
+.app.theme-dark :is(.rail-nav>button,.toc-item,.drawer-tabs button,.rail-label,.privacy,.shelf-copy small){color:#b3c2b8}
+.app.theme-dark .rail-nav>button:hover{background:#34463c;color:#e2eee5}
+.app.theme-dark .toc-item:hover{background:var(--accent-light);color:#c9e4d2}
+.app.theme-dark .drawer-tabs button.active{color:#bddfc9}
+.app.theme-dark :is(.ibtn,.page-btn,.secondary-action,.theme-choice,.ghostbtn,.setting-label,.switch-row label,.book-card-open,.folio-data-actions button){color:var(--ink)}
+.app.theme-dark :is(.ibtn,.page-btn,.secondary-action,.theme-choice,.ghostbtn) .icon{color:inherit;stroke:currentColor}
+.app.theme-dark :is(.secondary-action,.ghostbtn,.theme-choice){background:var(--surface);border-color:#516258}
+.app.theme-dark :is(.secondary-action:hover,.ghostbtn:hover,.theme-choice:hover){background:#374b40;color:#edf6f0}
+.app.theme-dark .theme-choice.selected{background:#34483d;color:#d2efdb;border-color:#a5c8b4}
+.app.theme-dark :is(.select,.tts-dock select,.folio-image-zoom,.library-filter input){color:var(--ink);background-color:var(--paper)}
+.app.theme-dark select option{background:#27332d;color:#e0eae3}
+.app.theme-dark .library-filter input{background:transparent}
+.app.theme-dark :is(.select,.tts-dock select):focus-visible{outline-color:#a6d3ba}
+.app.theme-dark .pillbtn,.app.theme-dark .tts-dock .play{background:#a5c8b4;color:#1d3026}
+.app.theme-dark .pillbtn:hover,.app.theme-dark .tts-dock .play:hover{background:#c3dfce;color:#16251c}
+.app.theme-dark .danger{color:#efa9a2}
+.app.theme-dark .secondary-action.danger:hover{background:#49342f;color:#ffd1c8}
+.app.theme-dark .book-remove{background:#324039;color:#f0b5ad;border-color:#6a776d}
+.app.theme-dark .book-remove:hover{background:#4c3833;color:#ffd0c6}
+.app.theme-dark .drop-copy small,.app.theme-dark .storage-row small{color:#b0c0b5}
+.app.theme-dark .theme-preview.dark{color:#e4f0e8}
+
+/* v33: Search opens from the same (right) edge as Appearance & data. */
+.search-drawer{position:fixed;inset-block:0;left:auto;right:0;height:100dvh;z-index:19;transform:translateX(105%);box-shadow:none}
+.search-drawer.visible{transform:translateX(0);box-shadow:-20px 0 60px #192b1d1c}
+@media(max-width:680px){.search-drawer{width:min(415px,calc(100vw - 18px))}}
 </style>
 </head>
 <body>
@@ -454,7 +485,7 @@
    </section>
    <div class="scrim" id="scrim"></div>
    <aside class="drawer left" id="tocDrawer" role="dialog" aria-label="Contents and bookmarks"><header class="drawer-header"><h2>In this book</h2><button class="ibtn" id="closeToc"><svg class="icon"><use href="#i-x"/></svg></button></header><div class="drawer-tabs"><button class="active" id="tabChapters">Contents</button><button id="tabBookmarks">Bookmarks</button></div><div class="drawer-body"><div id="tocList" class="toc-list"></div><div id="bookmarkList" hidden></div></div></aside>
-   <aside class="drawer left search-drawer" id="searchDrawer" role="dialog" aria-label="Search this book">
+   <aside class="drawer search-drawer" id="searchDrawer" role="dialog" aria-label="Search this book">
     <header class="drawer-header"><h2>Search</h2><button class="ibtn" id="closeSearch" title="Close search" aria-label="Close search"><svg class="icon"><use href="#i-x"/></svg></button></header>
     <div class="search-toolbar">
       <label class="search-input-wrap" for="folioSearchInput"><svg class="icon sm"><use href="#i-search"/></svg><input id="folioSearchInput" type="search" placeholder="Find a word or phrase" autocomplete="off" spellcheck="false" aria-label="Search book text"></label>
@@ -480,7 +511,7 @@
      <div class="switch-row"><label for="autoAdvance">Continue into next chapter</label><input type="checkbox" id="autoAdvance" checked></div><div class="switch-row"><label for="autoScroll">Follow narration across pages</label><input type="checkbox" id="autoScroll" checked></div><label class="setting-label" style="margin-top:17px" for="speechFocus">Reading focus</label><select class="select" id="speechFocus"><option value="word-line">Word and line</option><option value="word">Word only</option><option value="line">Line only</option><option value="off">Off</option></select><button class="secondary-action" id="openDock"><svg class="icon sm"><use href="#i-headphones"/></svg> Show read-aloud controls</button>
      </div>
      <div class="setting-divider"></div>
-     <div class="drawer-group"><h3>Local storage</h3><div class="storage-row"><div><strong>Saved books</strong><small id="storageStats">Calculating…</small></div><svg class="icon sm muted"><use href="#i-lock"/></svg></div><p class="setting-sub" style="margin-bottom:11px">Your books stay on this device. Export reading data to move your progress and preferences to another browser.</p>
+     <div class="drawer-group"><h3>Local storage</h3><div class="storage-row"><div><strong>Saved books</strong><small id="storageStats">Calculating…</small></div><svg class="icon sm muted"><use href="#i-lock"/></svg></div>
       <div class="folio-data-actions"><button type="button" class="secondary-action" id="exportReadingData">Export reading data</button><button type="button" class="secondary-action" id="restoreReadingData">Import reading data</button></div>
       <button type="button" class="secondary-action" id="persistLibrary" hidden>Protect local book storage</button>
       <small id="persistInfo" class="folio-persist-info" role="status"></small>

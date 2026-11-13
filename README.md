@@ -136,3 +136,7 @@ Folio uses your selected Chinese and English fonts for ordinary prose while reta
 ### Font overrides
 
 Appearance → Typography → **Override book fonts** lets readers choose whether to keep EPUB-defined fonts or use the Chinese and English typefaces selected in Folio throughout the book. This setting is disabled by default, preserving publisher formatting. It is stored locally and does not modify the EPUB file. Switching modes repaginates the current chapter.
+
+
+### v33 adjustments
+Reading-focus spacing, a simpler storage panel and Night-mode control contrast have been refined.
