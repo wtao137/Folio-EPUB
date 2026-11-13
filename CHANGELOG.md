@@ -1,5 +1,29 @@
 # Changelog
 
+## v31 — Library controls and reading focus (2026-11-13)
+
+- Replace the library homepage hamburger menu with a single in-page Import book button; retain Contents and Library navigation while reading.
+- Rename the general settings panel **Appearance & data**, and give the Page tone “Aa / 字” preview more balanced spacing.
+- Add an instant, case-insensitive library filter for EPUB titles and authors, with a clear no-results state. Search is performed only against existing metadata, without a new index or background task.
+- Add optional Read aloud focus modes: **Word and line** (default), **Word only**, **Line only**, and **Off**. Use the CSS Custom Highlight API and DOM text ranges instead of inserting word spans into the EPUB. Chinese words are segmented with `Intl.Segmenter` when available.
+- Preserve the v30.2 stable dictionary popup and existing providers without adding caching.
+- Highlight exact word boundaries only when the selected browser voice supplies speech boundary events. Use initial line focus as a graceful fallback; actual Edge Natural voice boundary support varies.
+- Refresh the PWA cache version without modifying stored books, bookmarks, or preferences.
+
+## v30.2 — Stable dictionary popup (2026-11-13)
+
+- Keep the dictionary popup at a consistent height while online dictionary results load, preventing it from flipping from below the clicked word to above it.
+- Determine popup position once per word click, using the final reserved size and viewport bounds, and scroll long definitions within the popup.
+- Preserve the visible scroll offset when supplementary definitions arrive; keep optional enhanced settings inside the same fixed panel.
+- No new caching, dictionary providers, or other reader UI changes.
+- Refresh the PWA shell cache version for installed readers.
+
+## v30.1 — Off-canvas shadow correction (2026-11-13)
+
+- Remove off-screen box shadows from the hidden Contents, Search, and Settings drawers. Their shadows were visible along the edges of the reading canvas even when the drawers were closed.
+- Remove the hidden library rail's mobile shadow; preserve the existing shadows when a drawer or rail is visible.
+- Update the PWA cache key so previously installed readers receive the fix.
+
 ## v30 — Semantic typography (2026-11-13)
 
 - Introduced a consistent, restrained typographic treatment for quotations, pull quotes, epigraphs, poetry, stanzas, sidebars, letters, code blocks, and definition lists.
