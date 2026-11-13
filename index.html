@@ -347,6 +347,11 @@
 .folio-table-contents :is(code,kbd,samp){font-family:ui-monospace,Consolas,monospace;font-size:.9em;border-radius:3px;background:var(--accent-light);padding:.08em .24em}
 .folio-table-contents mark{background:color-mix(in srgb,var(--accent) 17%,transparent);color:inherit;border-radius:2px}
 
+
+/* v30.1: An off-canvas drawer must not cast a shadow into the reading viewport.
+   v30's two closed left drawers caused the asymmetric edge haze; the right
+   settings drawer produced a fainter haze. Keep shadows when drawers open. */
+.drawer:not(.visible),.app.rail-hidden .rail{box-shadow:none!important}
 </style>
 </head>
 <body>
