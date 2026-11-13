@@ -474,6 +474,8 @@
 #folioWordCard .word-detail .word-pos{font-family:inherit;color:var(--word-secondary);font-size:11px;opacity:1;letter-spacing:.01em}
 #folioWordCard .word-detail .word-example{font-size:12.5px;font-style:italic;color:var(--word-secondary);opacity:1;margin:6px 0 9px;padding-left:11px;border-left:2px solid var(--line)}
 #folioWordCard .word-detail .word-zh-block :is(.word-definition,.word-overview,.word-example){font-family:var(--folio-lookup-zh-font,"Noto Serif CJK SC",serif);font-size:13px;line-height:1.7;font-style:normal}
+.app.folio-online-source-han #folioWordCard .word-detail .word-zh-block :is(.word-definition,.word-overview,.word-example){font-weight:var(--folio-online-zh-regular,445)}
+.app.folio-online-source-han #folioWordCard .word-detail .word-zh-block :is(b,strong){font-weight:var(--folio-online-zh-bold,700)}
 #folioWordCard .word-detail .word-source{font-family:inherit;font-size:10px;letter-spacing:.01em;color:var(--word-secondary);opacity:1;margin-top:8px}
 #folioWordCard .word-detail .word-separator{background:var(--word-divider);opacity:1;margin:12px 0}
 #folioWordCard :is(.word-loading,.word-unavailable){color:var(--word-secondary);opacity:1;font-family:inherit;font-size:12px;line-height:1.55}
@@ -933,6 +935,7 @@ function folioTrapDrawerFocus(event){
 }
 function toLibrary(){cancelPendingChapterStage();resetFolioSearch();hideNotePopup();state.noteReturn=null;$('noteBack').hidden=true;if(!$('folioWordCard').hidden)hideWordCard();if(state.book){saveProgress();stopSpeech();state.renderToken++;if(state.zip){for(const url of state.urls.values())URL.revokeObjectURL(url)}state.urls.clear();state.chapterCache.clear();state.noteDocCache.clear();state.preparePromises.clear();state.styleCache.clear();state.book=null;state.meta=null;state.zip=null;state.chapter=-1;state.readingAnchor=null;state.spine=[];state.toc=[];$('readerFrame').srcdoc='';state.paging={page:0,pages:1,columns:2,step:0,gap:0,restore:0};}closeDrawer();$('readerView').hidden=true;$('emptyView').hidden=false;$('app').classList.remove('reader-active');$('topTitle').textContent='Folio';$('topSubtitle').textContent='Your library';$('ttsDock').hidden=true;setButtonState();renderLibrary();}
 function setTheme(theme){$('app').classList.remove('theme-sepia','theme-dark');if(theme!=='light')$('app').classList.add('theme-'+theme);document.querySelectorAll('[data-theme]').forEach(el=>el.classList.toggle('selected',el.dataset.theme===theme));const col=theme==='dark'?'#1f2524':theme==='sepia'?'#eee5d5':'#f6f5f1';document.querySelector('meta[name="theme-color"]')?.setAttribute('content',col)}
+let folioLookupFontGeneration=0;
 function syncLookupFonts(){
  const en=EN_FONT_STACKS[state.settings.enFont]||EN_FONT_STACKS.Georgia;
  const zh=ZH_FONT_STACKS[state.settings.zhFont]||ZH_FONT_STACKS['Noto Serif CJK SC'];
@@ -945,16 +948,29 @@ function syncLookupFonts(){
  const embeddedFace=BUNDLED_EN_FONT_RULES[state.settings.enFont]||'';
  const faceKey=state.settings.enFont+'|'+state.settings.zhFont;
  if(faces.dataset.font!==faceKey){faces.textContent=embeddedFace+'\n'+folioChineseLocalFace(state.settings.zhFont);faces.dataset.font=faceKey}
- // Lookup definitions live in the top-level document rather than the EPUB iframe.
- // A CSS font-family alone cannot download LXGW WenKai (or Noto CJK).
- const href=FOLIO_REMOTE_ZH_CSS[state.settings.zhFont]||'';
+ // Lookup definitions live outside the reader iframe, but use the identical
+ // local-first test and web-only optical weight adjustments.
+ const chosen=state.settings.zhFont;
+ const spec=FOLIO_CHINESE_WEB_FONTS[chosen];
+ const weights=spec?.webWeights;
+ $('app').style.setProperty('--folio-online-zh-regular',String(weights?.regular||400));
+ $('app').style.setProperty('--folio-online-zh-bold',String(weights?.bold||700));
+ const generation=++folioLookupFontGeneration;
+ $('app').classList.remove('folio-online-source-han');
  let remote=document.getElementById('folioLookupRemoteFont');
- if(remote && remote.getAttribute('href')!==href){remote.remove();remote=null}
- if(href&&!remote){
-  remote=document.createElement('link');remote.id='folioLookupRemoteFont';remote.rel='stylesheet';remote.href=href;
-  document.head.append(remote);
- }
- if(!href&&remote)remote.remove();
+ if(remote&&remote.getAttribute('href')!==(spec?.href||'')){remote.remove();remote=null}
+ void folioHasInstalledChineseFont(chosen).then(local=>{
+  if(generation!==folioLookupFontGeneration||chosen!==state.settings.zhFont)return;
+  const web=Boolean(spec&&!local);
+  $('app').classList.toggle('folio-online-source-han',Boolean(web&&weights));
+  remote=document.getElementById('folioLookupRemoteFont');
+  if(!web){if(remote)remote.remove();return}
+  if(!remote){
+   remote=document.createElement('link');remote.id='folioLookupRemoteFont';remote.rel='stylesheet';remote.href=spec.href;
+   remote.onerror=()=>{remote.remove();if(generation===folioLookupFontGeneration)$('app').classList.remove('folio-online-source-han')};
+   document.head.append(remote);
+  }
+ });
 }
 function bindSetting(id,key,convert=val=>val,render=false){const el=$(id);el.addEventListener('input',()=>{state.settings[key]=convert(el.type==='checkbox'?el.checked:el.value);safeSave(STORAGE.settings,state.settings);syncSettingsLabels();if(key==='theme')setTheme(state.settings.theme);if(key==='enFont'||key==='zhFont')syncLookupFonts();if(render)updateReaderTheme()})}
 function initSettings(){const saved=safeParse(STORAGE.settings,{});if(saved.layoutVersion!==2){if(Number.isFinite(saved.pageWidth))saved.pageWidth=clamp(Math.round(saved.pageWidth*1.65/20)*20,700,2200);saved.layoutVersion=2;}state.settings={...DEFAULTS,...saved};safeSave(STORAGE.settings,state.settings);state.progress=safeParse(STORAGE.progress,{});state.bookmarks=safeParse(STORAGE.bookmarks,{});setTheme(state.settings.theme);syncLookupFonts();
@@ -1685,6 +1701,7 @@ const FOLIO_CHINESE_WEB_FONTS={
   localNames:['Source Han Serif SC','Source Han Serif CN','Noto Serif CJK SC','Noto Serif SC','Source Han Serif SC VF'],
   webFamily:'Source Han Serif SC VF',
   href:'https://cdn.jsdelivr.net/npm/cn-fontsource-source-han-serif-sc-vf@1.0.9/font.css',
+  webWeights:{regular:480,bold:720,heading:685},
   fallback:['Songti SC','SimSun','serif']
  },
  'Noto Sans CJK SC':{
@@ -1692,6 +1709,7 @@ const FOLIO_CHINESE_WEB_FONTS={
   localNames:['Source Han Sans SC','Source Han Sans CN','Noto Sans CJK SC','Noto Sans SC','Source Han Sans SC VF'],
   webFamily:'Source Han Sans SC VF',
   href:'https://cdn.jsdelivr.net/npm/cn-fontsource-source-han-sans-sc-vf@1.0.10/font.css',
+  webWeights:{regular:445,bold:700,heading:670},
   fallback:['Microsoft YaHei','PingFang SC','sans-serif']
  },
  'LXGW WenKai':{
@@ -1706,6 +1724,35 @@ function folioChineseLocalFace(font){
  const spec=FOLIO_CHINESE_WEB_FONTS[font];if(!spec)return '';
  const sources=spec.localNames.map(name=>'local('+JSON.stringify(name)+')').join(',');
  return '@font-face{font-family:'+JSON.stringify(spec.localFamily)+';src:'+sources+';font-weight:100 900;font-style:normal;font-display:swap}';
+}
+// Probe local availability without loading a CDN font. Unlike document.fonts.check(),
+// FontFace.load() with local() rejects when the requested face is absent.
+const FOLIO_LOCAL_CHINESE_PROBES=new Map();
+function folioHasInstalledChineseFont(font){
+ const spec=FOLIO_CHINESE_WEB_FONTS[font];
+ if(!spec)return Promise.resolve(false);
+ if(!FOLIO_LOCAL_CHINESE_PROBES.has(font)){
+  const test=Promise.resolve().then(async()=>{
+   if(typeof FontFace!=='function')return false;
+   const src=spec.localNames.map(name=>'local('+JSON.stringify(name)+')').join(',');
+   try{await new FontFace('Folio Installed Font Probe',src,{weight:'400',style:'normal'}).load();return true}
+   catch{return false}
+  });
+  FOLIO_LOCAL_CHINESE_PROBES.set(font,test);
+ }
+ return FOLIO_LOCAL_CHINESE_PROBES.get(font);
+}
+function folioOnlineChineseReaderRules(font){
+ const w=FOLIO_CHINESE_WEB_FONTS[font]?.webWeights;
+ if(!w)return '';
+ // The class is set only when the selected font is missing locally. Keep
+ // local Source Han / Noto weights exactly as they were in v44.
+ return `html.folio-online-source-han:not(.folio-english-chapter) body{font-weight:${w.regular}!important}
+ html.folio-online-source-han:not(.folio-english-chapter) body :is(b,strong){font-weight:${w.bold}!important}
+ html.folio-online-source-han:not(.folio-english-chapter) body :is(h1,h2,h3,h4,h5,h6){font-weight:${w.heading}!important}
+ /* Latin text has its own reading font; don't darken it as a side effect. */
+ html.folio-online-source-han:not(.folio-english-chapter) body span.folio-latin{font-weight:400!important}
+ html.folio-online-source-han:not(.folio-english-chapter) body :is(b,strong,h1,h2,h3,h4,h5,h6) span.folio-latin{font-weight:700!important}`;
 }
 const ZH_FONT_STACKS={
  ...Object.fromEntries(Object.entries(FOLIO_CHINESE_WEB_FONTS).map(([name,spec])=>[name,[spec.localFamily,spec.webFamily,...spec.fallback]])),
@@ -1769,6 +1816,7 @@ function readerCSS(){const s=state.settings,night=s.theme==='dark',warm=s.theme=
  /* The selected Chinese font is the reading default, not an override of EPUB font semantics. */
  body :is(p,div,span,li,blockquote,h1,h2,h3,h4,h5,h6,a,em,strong,small,dt,dd,figcaption){line-height:inherit!important;color:inherit;}
  body span.folio-latin{font-family:${enStack}!important;letter-spacing:normal;}
+ ${folioOnlineChineseReaderRules(s.zhFont)}
  html.folio-english-chapter body{font-family:${enStack}!important;}
  html.folio-force-fonts body font{font-family:inherit!important;}
  body .folio-speaking{outline:none!important;outline-offset:0!important}
@@ -1949,29 +1997,51 @@ function compactReaderFontRules(css){
  compactFontRules.set(key,compact);
  return compact;
 }
-function loadRemoteReaderFonts(doc,token){
- const href=FOLIO_REMOTE_ZH_CSS[state.settings.zhFont];
+async function loadRemoteReaderFonts(doc,token){
+ const font=state.settings.zhFont;
+ const spec=FOLIO_CHINESE_WEB_FONTS[font];
+ const href=spec?.href||'';
+ const localAvailable=spec?await folioHasInstalledChineseFont(font):false;
+ // A pending chapter load can be cancelled by another chapter or a font change.
+ if(token!==state.renderToken||font!==state.settings.zhFont||!doc?.documentElement)return false;
+ const isVisible=doc===$('readerFrame').contentDocument;
+ const fraction=isVisible?pageFraction():0;
+ const hasChinese=/[㐀-鿿]/.test(doc.body?.textContent||'');
+ const useWeb=Boolean(spec&&!localAvailable&&hasChinese);
+ const useWebWeight=Boolean(useWeb&&spec.webWeights);
+ const root=doc.documentElement;
+ if(root.classList.contains('folio-online-source-han')!==useWebWeight){
+  root.classList.toggle('folio-online-source-han',useWebWeight);
+  if(isVisible){invalidateFolioPageLayout(doc);schedulePagination(fraction,token)}
+ }
  const old=doc.getElementById('folioRemoteFonts');
- if(old && href && old.getAttribute('href')===href)return Promise.resolve(true);
+ if(!useWeb||!href){if(old)old.remove();return Boolean(localAvailable)}
+ if(old&&old.getAttribute('href')===href)return true;
  if(old)old.remove();
- if(!href||!/[㐀-鿿]/.test(doc.body?.textContent||''))return Promise.resolve(false);
  const link=doc.createElement('link');link.id='folioRemoteFonts';link.rel='stylesheet';link.href=href;
- // Do not let a remote stylesheet block the reader indefinitely. On a slow
- // connection the already laid-out chapter appears, then pagination is updated
- // after the real font arrives. Never repaginate a staging or detached frame.
+ // Only await font files briefly during chapter staging; a slow/offline CDN
+ // must never block navigating between chapters.
  return new Promise(resolve=>{
   let finished=false;
   const finish=value=>{if(finished)return;finished=true;resolve(value)};
   link.onload=()=>{
    Promise.resolve(doc.fonts?.ready).then(()=>{
     if(token===state.renderToken&&link.isConnected&&doc===$('readerFrame').contentDocument){
-     invalidateFolioPageLayout(doc);
-     schedulePagination(pageFraction(),token);
+     invalidateFolioPageLayout(doc);schedulePagination(pageFraction(),token);
     }
     finish(true);
    }).catch(()=>finish(false));
   };
-  link.onerror=()=>finish(false);
+  link.onerror=()=>{
+   link.remove(); // Allow the next layout/theme refresh to retry online.
+   // Failed remote font: restore the normal fallback weight rather than
+   // artificially darkening an unrelated system fallback typeface.
+   root.classList.remove('folio-online-source-han');
+   if(token===state.renderToken&&doc===$('readerFrame').contentDocument){
+    invalidateFolioPageLayout(doc);schedulePagination(pageFraction(),token);
+   }
+   finish(false);
+  };
   doc.head.append(link);
  });
 }
