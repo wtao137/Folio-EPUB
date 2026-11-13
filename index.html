@@ -944,6 +944,16 @@ function syncLookupFonts(){
  if(!faces){faces=document.createElement('style');faces.id='folioLookupFontFaces';document.head.append(faces)}
  const embeddedFace=BUNDLED_EN_FONT_RULES[state.settings.enFont]||'';
  if(faces.dataset.font!==state.settings.enFont){faces.textContent=embeddedFace;faces.dataset.font=state.settings.enFont}
+ // Lookup definitions live in the top-level document rather than the EPUB iframe.
+ // A CSS font-family alone cannot download LXGW WenKai (or Noto CJK).
+ const href=FOLIO_REMOTE_ZH_CSS[state.settings.zhFont]||'';
+ let remote=document.getElementById('folioLookupRemoteFont');
+ if(remote && remote.getAttribute('href')!==href){remote.remove();remote=null}
+ if(href&&!remote){
+  remote=document.createElement('link');remote.id='folioLookupRemoteFont';remote.rel='stylesheet';remote.href=href;
+  document.head.append(remote);
+ }
+ if(!href&&remote)remote.remove();
 }
 function bindSetting(id,key,convert=val=>val,render=false){const el=$(id);el.addEventListener('input',()=>{state.settings[key]=convert(el.type==='checkbox'?el.checked:el.value);safeSave(STORAGE.settings,state.settings);syncSettingsLabels();if(key==='theme')setTheme(state.settings.theme);if(key==='enFont'||key==='zhFont')syncLookupFonts();if(render)updateReaderTheme()})}
 function initSettings(){const saved=safeParse(STORAGE.settings,{});if(saved.layoutVersion!==2){if(Number.isFinite(saved.pageWidth))saved.pageWidth=clamp(Math.round(saved.pageWidth*1.65/20)*20,700,2200);saved.layoutVersion=2;}state.settings={...DEFAULTS,...saved};safeSave(STORAGE.settings,state.settings);state.progress=safeParse(STORAGE.progress,{});state.bookmarks=safeParse(STORAGE.bookmarks,{});setTheme(state.settings.theme);syncLookupFonts();
@@ -1682,6 +1692,13 @@ const ZH_FONT_STACKS={
  'Songti SC':['Songti SC','STSong','SimSun','Noto Serif CJK SC','serif'],
  'STKaiti':['STKaiti','Kaiti SC','KaiTi','serif']
 };
+// Single source of truth for optional Chinese web fonts. These CSS files
+// declare unicode-range @font-face rules; the browser fetches only needed subsets.
+const FOLIO_REMOTE_ZH_CSS={
+ 'Noto Serif CJK SC':'https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&display=swap',
+ 'Noto Sans CJK SC':'https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;600;700&display=swap',
+ 'LXGW WenKai':'https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-regular.css'
+};
 function cssFontStack(list){return list.map(f=>['serif','sans-serif','monospace'].includes(f)?f:'"'+String(f).replace(/["\\;]/g,'')+'"').join(', ')}
 function readerCSS(){const s=state.settings,night=s.theme==='dark',warm=s.theme==='sepia';const bg=night?'#242b29':warm?'#f1e7d4':'#fbfaf7',ink=night?'#dbe4de':warm?'#4a3827':'#303832',secondary=night?'#a8b5aa':warm?'#766148':'#627168',link=night?'#a6cbb8':warm?'#906f47':'#547969',mark=night?'#425b4d':warm?'#e1d4ab':'#e3f0e5';
  const enStack=cssFontStack(EN_FONT_STACKS[s.enFont]||EN_FONT_STACKS.Georgia);
@@ -1914,18 +1931,32 @@ function compactReaderFontRules(css){
  return compact;
 }
 function loadRemoteReaderFonts(doc,token){
- const href={
-  'Noto Serif CJK SC':'https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&display=swap',
-  'Noto Sans CJK SC':'https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;600;700&display=swap',
-  'LXGW WenKai':'https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-regular.css'
- }[state.settings.zhFont];
- doc.getElementById('folioRemoteFonts')?.remove();
- if(!href||!/[㐀-鿿]/.test(doc.body.textContent))return;
+ const href=FOLIO_REMOTE_ZH_CSS[state.settings.zhFont];
+ const old=doc.getElementById('folioRemoteFonts');
+ if(old && href && old.getAttribute('href')===href)return Promise.resolve(true);
+ if(old)old.remove();
+ if(!href||!/[㐀-鿿]/.test(doc.body?.textContent||''))return Promise.resolve(false);
  const link=doc.createElement('link');link.id='folioRemoteFonts';link.rel='stylesheet';link.href=href;
- link.onload=()=>doc.fonts?.ready.then(()=>{if(token===state.renderToken){invalidateFolioPageLayout(doc);schedulePagination(pageFraction(),token)}}).catch(()=>{});
- doc.head.append(link);
+ // Do not let a remote stylesheet block the reader indefinitely. On a slow
+ // connection the already laid-out chapter appears, then pagination is updated
+ // after the real font arrives. Never repaginate a staging or detached frame.
+ return new Promise(resolve=>{
+  let finished=false;
+  const finish=value=>{if(finished)return;finished=true;resolve(value)};
+  link.onload=()=>{
+   Promise.resolve(doc.fonts?.ready).then(()=>{
+    if(token===state.renderToken&&link.isConnected&&doc===$('readerFrame').contentDocument){
+     invalidateFolioPageLayout(doc);
+     schedulePagination(pageFraction(),token);
+    }
+    finish(true);
+   }).catch(()=>finish(false));
+  };
+  link.onerror=()=>finish(false);
+  doc.head.append(link);
+ });
 }
-function updateReaderTheme(){if(!state.book)return;const doc=$('readerFrame').contentDocument;if(!doc)return;invalidateFolioPageLayout(doc);const oldFrac=pageFraction(),token=state.renderToken;const styles=readerStyleParts(),fontStyle=doc.getElementById('folioFontStyle'),style=doc.getElementById('folioReaderStyle');if(fontStyle)fontStyle.textContent=compactReaderFontRules(styles.fonts);if(style)style.textContent=styles.layout;schedulePagination(oldFrac,token);if(doc.fonts?.status==='loading')doc.fonts.ready.then(()=>{if(token===state.renderToken){invalidateFolioPageLayout(doc);schedulePagination(pageFraction(),token)}}).catch(()=>{})}
+function updateReaderTheme(){if(!state.book)return;const doc=$('readerFrame').contentDocument;if(!doc)return;invalidateFolioPageLayout(doc);const oldFrac=pageFraction(),token=state.renderToken;const styles=readerStyleParts(),fontStyle=doc.getElementById('folioFontStyle'),style=doc.getElementById('folioReaderStyle');if(fontStyle)fontStyle.textContent=compactReaderFontRules(styles.fonts);if(style)style.textContent=styles.layout;void loadRemoteReaderFonts(doc,token);schedulePagination(oldFrac,token);if(doc.fonts?.status==='loading')doc.fonts.ready.then(()=>{if(token===state.renderToken){invalidateFolioPageLayout(doc);schedulePagination(pageFraction(),token)}}).catch(()=>{})}
 // EPUB 2/3 notes: standard noteref, ARIA doc-noteref and common superscript links.
 const notePreview={request:0,timer:0,closeTimer:0,link:null};
 function isSemanticNote(el){return /(?:^|\s)(?:footnote|endnote)(?:\s|$)/i.test(el?.getAttribute?.('epub:type')||'')||/^(?:doc-footnote|doc-endnote)$/i.test(el?.getAttribute?.('role')||'')}
@@ -2156,9 +2187,15 @@ async function renderChapter(index,fraction=0,opts={}){
   if(!stagedDoc?.body)throw new Error('Browser blocked book rendering');
   // Do potentially expensive font wrapping and publisher-style corrections
   // before the new page becomes visible.
-  applyScriptFonts(stagedDoc);
-  protectColumnEdges(stagedDoc);
-  const faces=stagedDoc.getElementById('folioFontStyle');
+   applyScriptFonts(stagedDoc);
+   protectColumnEdges(stagedDoc);
+   // v41's staging refactor accidentally stopped attaching remote CJK fonts.
+   // Start the stylesheet while the old chapter is still painted; bound the
+   // wait to avoid delaying transitions if the CDN is slow or offline.
+   const remoteFontReady=loadRemoteReaderFonts(stagedDoc,token);
+   await Promise.race([remoteFontReady,new Promise(resolve=>setTimeout(resolve,220))]);
+   if(token!==state.renderToken||pendingChapterStage?.frame!==frame)return;
+   const faces=stagedDoc.getElementById('folioFontStyle');
   if(faces)faces.textContent += '\n/* folio-ready */';
   // Font metrics can alter column boundaries. Give a newly loading font a
   // short chance to settle while preserving the old painted chapter.
