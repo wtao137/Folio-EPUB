@@ -488,6 +488,34 @@
 #folioWordCard .enhanced-status{color:var(--word-secondary)}
 @media(max-width:500px){#folioWordCard .word-head{padding:13px 15px 11px}#folioWordCard .word-detail{padding:12px 15px}#folioWordCard .word-links{padding:9px 15px 11px}}
 
+
+/* v36 — Warm-toned scrollbars, including settings, library, search, and lookup.
+   Kept narrow and subdued; the thumb still has useful contrast against the track.
+   The native color-scheme also prevents OS dark scrollbars in a warm UI. */
+.app.theme-sepia{
+  --folio-scroll-thumb:#947657;
+  --folio-scroll-hover:#735638;
+  --folio-scroll-track:#f0e4d2;
+  color-scheme:light;
+  scrollbar-color:var(--folio-scroll-thumb) var(--folio-scroll-track);
+}
+/* Firefox: inherited scrollbar-color; scrollbar-width is intentionally limited
+   to scrolling surfaces rather than reducing the width of every UI control. */
+.app.theme-sepia :is(.drawer-body,.empty-view,.rail-library,.shelf-list,.toc-list,.search-results,.search-body,.word-detail,.folio-image-stage,.folio-table-contents),
+.app.theme-sepia #folioWordCard .word-detail,
+.app.theme-sepia #settingsDrawer .folio-select-wrap .select::picker(select){
+  scrollbar-color:var(--folio-scroll-thumb) var(--folio-scroll-track);
+  scrollbar-width:thin;
+}
+/* WebKit fallback for versions that do not implement scrollbar-color. */
+@supports selector(::-webkit-scrollbar){
+  .app.theme-sepia ::-webkit-scrollbar{width:8px;height:8px}
+  .app.theme-sepia ::-webkit-scrollbar-track{background:var(--folio-scroll-track);border-radius:999px}
+  .app.theme-sepia ::-webkit-scrollbar-thumb{background:var(--folio-scroll-thumb);border:2px solid var(--folio-scroll-track);border-radius:999px}
+  .app.theme-sepia ::-webkit-scrollbar-thumb:hover{background:var(--folio-scroll-hover)}
+  .app.theme-sepia ::-webkit-scrollbar-corner{background:var(--folio-scroll-track)}
+}
+
 </style>
 </head>
 <body>
@@ -1408,6 +1436,16 @@ function readerCSS(){const s=state.settings,night=s.theme==='dark',warm=s.theme=
  :root{--folio-side:clamp(76px,5.5vw,112px);--folio-top:clamp(26px,4vh,48px);--folio-bottom:var(--folio-top);--folio-gap:clamp(32px,5vw,82px);--folio-max:${s.pageWidth}px;}
  html.folio-read-mode{--folio-bottom:clamp(14px,2vh,24px)}
  html{height:100%!important;width:100%!important;touch-action:pan-y!important;overflow:hidden!important;overscroll-behavior:none;scroll-behavior:auto!important;background:${bg}!important;color-scheme:${night?'dark':'light'};}
+ ${warm ? `
+ html{scrollbar-color:#947657 #f0e4d2}
+ @supports selector(::-webkit-scrollbar){
+  html ::-webkit-scrollbar{width:8px;height:8px}
+  html ::-webkit-scrollbar-track{background:#f0e4d2;border-radius:999px}
+  html ::-webkit-scrollbar-thumb{background:#947657;border:2px solid #f0e4d2;border-radius:999px}
+  html ::-webkit-scrollbar-thumb:hover{background:#735638}
+  html ::-webkit-scrollbar-corner{background:#f0e4d2}
+ }
+ ` : ''}
  html::before,html::after{display:none!important;content:none!important;}
  *,*::before,*::after{box-sizing:border-box}
  body{position:absolute!important;top:var(--folio-top)!important;left:max(var(--folio-side),calc((100% - var(--folio-max))/2))!important;
