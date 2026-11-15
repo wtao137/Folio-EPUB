@@ -1,3 +1,48 @@
+## v90.6 — Local-first Chinese font selection
+
+- Prefer installed Noto CJK/Source Han Regular and Bold faces before requesting the official Google Fonts CSS2 stylesheet.
+- Keep explicitly imported Source Han files ahead of automatic font choices.
+- Load the Google stylesheet and required glyph subsets only when local probing fails, with a bounded timeout and reliable fallback.
+- Apply the same local-first rule to dictionary UI and show whether the active font is installed, imported, or from Google Fonts.
+- No third-party Google Fonts mirror or backend.
+
+# v90.5 (2026-11-15)
+
+- Added **Noto Serif SC** and **Noto Sans SC** as explicit Google Fonts webfont choices for Simplified Chinese, using CSS2 Regular and Bold faces. New installations default to Noto Serif SC; stored font selections remain unchanged.
+- Request the official Google Fonts CSS stylesheet, then allow Chromium to fetch only the WOFF2 character subsets required by the EPUB text. This avoids trying to fetch a complete huge CJK font from an unreliable third-party CDN.
+- Verify that the correct Regular face loaded in the EPUB iframe, and report its actual provider in Appearance. Corrected status refresh when a prepared chapter replaces the prior iframe.
+- Preserve Source Han Serif/Sans options and user-imported local Source Han fonts. Keep system fallbacks if Google Fonts is unreachable.
+- Added a standalone Google Noto SC diagnostic and a regression test that intercepts the CSS and font requests and checks actual custom glyph sources. The test uses separate in-memory CJK fixtures and does not bundle their binaries.
+- Updated PWA shell cache to `folio-shell-v90-5`. No backend or native executable; no library data migration.
+- **Limit:** External Google Fonts connectivity was not verified in this sandbox because outbound DNS is blocked. The browser font loading path was tested with intercepted font responses.
+
+# v90.4 (2026-11-15)
+
+- Added direct import of user-owned Source Han Serif/Sans Regular and optional Bold OTF/WOFF2/TTF files in Appearance.
+- Stored imported fonts in browser IndexedDB when available, with an in-session fallback; no uploaded file is sent to a remote service.
+- Source Han loading now tries imported files first, then HTTPS fonts, then real installed local faces. Font status reports the source.
+- Added timeout and short retry cooldown for unreachable external hosts.
+- Enhanced standalone font diagnostic with local Regular file pickers, not dependent on localhost.
+- No font binaries included.
+
+## v90.3 — Source Han rendering verification (2026-11-15)
+
+- Tested the actual standalone reader rendering in Chromium using separate, independent Serif/Sans WOFF2 fixtures. DevTools confirmed the actual glyph source, and each displayed Regular Chinese text passage matched the locally installed corresponding Regular face pixel-for-pixel. **These controlled fixtures are Noto CJK SC fonts, not the genuine hosted Source Han files.**
+- Verify the first four bytes of every downloaded webfont are `wOF2` before loading it. Incorrect HTTP content now triggers fallback instead of reaching FontFace.
+- Show Source Han web-font load/failed/fallback state below the Chinese font selector in the Appearance panel; do not confuse computed CSS family names with proof of a loaded face.
+- Add `SOURCE_HAN_FONT_CHECK.html`, a standalone, no-server diagnostic that requests the same actual Source Han Serif/Sans Regular/Bold URLs and provides side-by-side rendering with local fonts. It reports fetch and WOFF2/FontFace failures.
+- Add `tests/source_han_rendered_faces_v903.py` to independently test Serif/Sans rendered glyphs (not just network request names).
+- The sandbox blocks remote font downloads and local/file navigation. The real CDN font bytes and end-user Windows rendering **could not** be independently validated here; run the diagnostic on a normal network-connected Edge/Chrome installation.
+- PWA cache version: `folio-shell-v90-3`. No changes to IndexedDB, EPUB data, bookmarks or reading positions. No backend or native launcher.
+
+## v90.2 — Real web fonts and GitHub README (2026-11-15)
+
+- Explicitly load static Source Han Serif CN and Source Han Sans CN **WOFF2 Regular/Bold** from publicly hosted webfont sources. This replaces the large Adobe OTF CDN path.
+- Make the selected web font the primary CSS family, even when a local Source Han font exists; keep installed fonts as offline fallbacks.
+- Use `document.fonts.load()` to initiate an actual browser request and verify that a web face loaded before applying the reader's webfont-specific layout rules.
+- Keep the font request asynchronous and extend its timeout for slower first loads; do not bundle font binaries or store them in the PWA application cache.
+- Replace the long version-by-version README with a concise GitHub project overview. Historical changes remain documented below.
+
 ## Folio v90.1 — Adobe static Source Han fonts (2026-11-15)
 
 This corrective PWA update supersedes v90's experimental Source Han weight handling.
