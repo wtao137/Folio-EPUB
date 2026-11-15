@@ -1,3 +1,41 @@
+## Folio v90.1 — Adobe static Source Han fonts (2026-11-15)
+
+This corrective PWA update supersedes v90's experimental Source Han weight handling.
+
+- The previous `cn-fontsource-...-sc-vf` webfont CSS used **variable** Source Han fonts. Selecting the `Regular` weight did not guarantee that a real region-specific Regular font file was rendering; unavailable webfonts could also leave the browser showing a thinner-looking fallback.
+- Folio now uses the **official Adobe region-specific static CN fonts**: `SourceHanSerifCN-Regular.otf` and `SourceHanSansCN-Regular.otf`, with distinct official `*-Bold.otf` faces for actual emphasis. It makes a `@font-face` declaration for each named style instead of applying manually tuned variable-font weights.
+- Prefer a matching installed local font; otherwise load the official static font file from Adobe's public repository through a versioned GitHub/jsDelivr CDN URL. The reader and dictionary use the same mechanism. When offline or blocked, platform CJK fallbacks still work.
+- The fonts are only requested when Chinese text is rendered / a Chinese dictionary definition needs to be shown, not simply from opening the Library. Remote OTFs are larger than segmented variable webfonts and may be slower on the first load. They are not included in the ZIP.
+- Kept v90's across-theme dropdown, scrollbar, Contents spacing and UI palette fixes intact. No changes to books, IndexedDB, bookmarks, shelves or narration logic.
+
+The linked Adobe reference page lists Regular as a distinct design and shows regional glyph differences; its raw page CSS could not be retrieved directly in this runtime, so this update follows Adobe's official published static CN binaries and standard CSS `@font-face` practices rather than claiming a byte-for-byte copy of its web stylesheet. Browser typography can still differ from Adobe's page by text size, OS rasterization and display scale.
+
+Verification: `python tests/source_han_static_faces_v901.py` injects a local test font at the official CDN URLs so that the browser's real font-loading logic can be exercised without network access. No test font is included in the release. Standard theme and EPUB regression suites also pass. Offline PWA restart on a deployed HTTPS origin remains to be verified.
+
+## Folio v90 — Uniform UI palettes and spacing (2026-11-15)
+
+A PWA-only design consistency release based on v89. No server, installer, desktop app or storage migration.
+
+- **Themed library dropdowns:** all four Library dropdowns (status, sorting, shelf and cover/list display) now share the custom, browser-accessible picker style used in Appearance and narration controls. They inherit Paper, Warm, Night and live System colors for the closed control, open options, selected row, hover state and chevron. Native-select fallback remains available on browsers lacking `appearance: base-select` support.
+- **Uniform scrollbars:** removed the legacy Warm-only thin/8px rules. Standardized the same scrollbar-width policy and 10px WebKit fallback across library, drawers, search, shortcuts, dictionary details, image/table viewers and supported select pickers. Each page tone retains its own palette.
+- **Contents spacing:** the chapter-title filter sits 14px below the Contents/Bookmarks tab border, with a 15px gap to the first chapter-list area, rather than touching the tab line and leaving excessive whitespace below. Filter and chapter titles share a text alignment column; a narrow-phone variant keeps safe side margins.
+- **Other palette fixes:** TTS dock background/borders, buttons and disabled/hover behavior, active TOC rows, drawer tabs, card action buttons, loading and toast surfaces, and focus outlines now derive from theme tokens rather than hard-coded Paper-green/white colors. Preserved the distinct gold favorite state and danger actions.
+- **Validation:** browser-computed color and scrollbar-style checks at 390px and 1360px in Paper/Warm/Night, actual open select popover screenshots, Content drawer geometry assertions; retained library, reader, TTS, and service-worker tests. No changes to book layout, narration timing, dictionary sources, data formats, or EPUB content.
+
+The PWA service-worker cache is `folio-shell-v90`. An actual offline restart on a deployed HTTPS origin remains unverified in this environment; the offline cache simulator passes.
+
+## Folio v90 — Uniform UI palettes and spacing (2026-11-15)
+
+A PWA-only design consistency release based on v89. No server, installer, desktop app or storage migration.
+
+- **Themed library dropdowns:** all four Library dropdowns (status, sorting, shelf and cover/list display) now share the custom, browser-accessible picker style used in Appearance and narration controls. They inherit Paper, Warm, Night and live System colors for the closed control, open options, selected row, hover state and chevron. Native-select fallback remains available on browsers lacking `appearance: base-select` support.
+- **Uniform scrollbars:** removed the legacy Warm-only thin/8px rules. Standardized the same scrollbar-width policy and 10px WebKit fallback across library, drawers, search, shortcuts, dictionary details, image/table viewers and supported select pickers. Each page tone retains its own palette.
+- **Contents spacing:** the chapter-title filter sits 14px below the Contents/Bookmarks tab border, with a 15px gap to the first chapter-list area, rather than touching the tab line and leaving excessive whitespace below. Filter and chapter titles share a text alignment column; a narrow-phone variant keeps safe side margins.
+- **Other palette fixes:** TTS dock background/borders, buttons and disabled/hover behavior, active TOC rows, drawer tabs, card action buttons, loading and toast surfaces, and focus outlines now derive from theme tokens rather than hard-coded Paper-green/white colors. Preserved the distinct gold favorite state and danger actions.
+- **Validation:** browser-computed color and scrollbar-style checks at 390px and 1360px in Paper/Warm/Night, actual open select popover screenshots, Content drawer geometry assertions; retained library, reader, TTS, and service-worker tests. No changes to book layout, narration timing, dictionary sources, data formats, or EPUB content.
+
+The PWA service-worker cache is `folio-shell-v90`. An actual offline restart on a deployed HTTPS origin remains unverified in this environment; the offline cache simulator passes.
+
 ## Folio v89 — Accurate suspend saves and more robust word lookup (2026-11-15)
 
 Folio remains an installable, **pure static PWA**. There is no native executable, local server, launcher, proxy route or change to browser storage origins.

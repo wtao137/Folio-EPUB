@@ -1,3 +1,33 @@
+## Folio v90.1 — Adobe static Source Han fonts (2026-11-15)
+
+This corrective PWA update supersedes v90's experimental Source Han weight handling.
+
+- The previous `cn-fontsource-...-sc-vf` webfont CSS used **variable** Source Han fonts. Selecting the `Regular` weight did not guarantee that a real region-specific Regular font file was rendering; unavailable webfonts could also leave the browser showing a thinner-looking fallback.
+- Folio now uses the **official Adobe region-specific static CN fonts**: `SourceHanSerifCN-Regular.otf` and `SourceHanSansCN-Regular.otf`, with distinct official `*-Bold.otf` faces for actual emphasis. It makes a `@font-face` declaration for each named style instead of applying manually tuned variable-font weights.
+- Prefer a matching installed local font; otherwise load the official static font file from Adobe's public repository through a versioned GitHub/jsDelivr CDN URL. The reader and dictionary use the same mechanism. When offline or blocked, platform CJK fallbacks still work.
+- The fonts are only requested when Chinese text is rendered / a Chinese dictionary definition needs to be shown, not simply from opening the Library. Remote OTFs are larger than segmented variable webfonts and may be slower on the first load. They are not included in the ZIP.
+- Kept v90's across-theme dropdown, scrollbar, Contents spacing and UI palette fixes intact. No changes to books, IndexedDB, bookmarks, shelves or narration logic.
+
+The linked Adobe reference page lists Regular as a distinct design and shows regional glyph differences; its raw page CSS could not be retrieved directly in this runtime, so this update follows Adobe's official published static CN binaries and standard CSS `@font-face` practices rather than claiming a byte-for-byte copy of its web stylesheet. Browser typography can still differ from Adobe's page by text size, OS rasterization and display scale.
+
+Verification: `python tests/source_han_static_faces_v901.py` injects a local test font at the official CDN URLs so that the browser's real font-loading logic can be exercised without network access. No test font is included in the release. Standard theme and EPUB regression suites also pass. Offline PWA restart on a deployed HTTPS origin remains to be verified.
+
+## Folio v90 — A consistent interface across every page tone (2026-11-15)
+
+The four library dropdowns now use the same theme-aware custom picker as Appearance and read-aloud settings; their expanded menus follow Paper, Warm, Night and live System tone. Scrollbar thickness is unified across the app, and the Contents filter has more balanced vertical spacing. Remaining hard-coded light/green button states and TTS/TOC surfaces were normalized to the active palette. The core EPUB reader, TTS engine, library IndexedDB and all backup formats remain unchanged.
+
+Modern Chromium/Edge supports fully styled, accessible `appearance: base-select` popovers. On older browsers, the native popup may still be drawn by the operating system; the closed control and option foreground/background colors are set to the active theme as a best-effort fallback. Folio is a static PWA; it has no local executable, Go server or backend.
+
+UI tests: `python tests/theme_consistency_v90.py`; PWA shell cache simulation: `node tests/service_worker_v88.cjs`. Earlier reading and library regression suites remain included.
+
+## Folio v90 — A consistent interface across every page tone (2026-11-15)
+
+The four library dropdowns now use the same theme-aware custom picker as Appearance and read-aloud settings; their expanded menus follow Paper, Warm, Night and live System tone. Scrollbar thickness is unified across the app, and the Contents filter has more balanced vertical spacing. Remaining hard-coded light/green button states and TTS/TOC surfaces were normalized to the active palette. The core EPUB reader, TTS engine, library IndexedDB and all backup formats remain unchanged.
+
+Modern Chromium/Edge supports fully styled, accessible `appearance: base-select` popovers. On older browsers, the native popup may still be drawn by the operating system; the closed control and option foreground/background colors are set to the active theme as a best-effort fallback. Folio is a static PWA; it has no local executable, Go server or backend.
+
+UI tests: `python tests/theme_consistency_v90.py`; PWA shell cache simulation: `node tests/service_worker_v88.cjs`. Earlier reading and library regression suites remain included.
+
 ## Folio v89 — Stable reading progress and mobile dictionary behavior (2026-11-15)
 
 This release keeps Folio **strictly PWA-only** and compatible with v88 storage. The static reader works in Edge/Chrome without a Go server or native launcher.

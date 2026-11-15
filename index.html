@@ -530,8 +530,10 @@
 #folioWordCard .word-detail .word-pos{font-family:inherit;color:var(--word-secondary);font-size:11px;opacity:1;letter-spacing:.01em}
 #folioWordCard .word-detail .word-example{font-size:12.5px;font-style:italic;color:var(--word-secondary);opacity:1;margin:6px 0 9px;padding-left:11px;border-left:2px solid var(--line)}
 #folioWordCard .word-detail .word-zh-block :is(.word-definition,.word-overview,.word-example){font-family:var(--folio-lookup-zh-font,"Noto Serif CJK SC",serif);font-size:13px;line-height:1.7;font-style:normal}
-.app.folio-online-source-han #folioWordCard .word-detail .word-zh-block :is(.word-definition,.word-overview,.word-example){font-weight:var(--folio-online-zh-regular,535)}
-.app.folio-online-source-han #folioWordCard .word-detail .word-zh-block :is(b,strong){font-weight:var(--folio-online-zh-bold,755)}
+/* Adobe Source Han Regular is selected by its named face. Never darken it using
+   an arbitrary variable-font axis. Real bold remains a separate font style. */
+.app.folio-online-source-han #folioWordCard .word-detail .word-zh-block :is(.word-definition,.word-overview,.word-example){font-weight:normal;font-variation-settings:normal}
+.app.folio-online-source-han #folioWordCard .word-detail .word-zh-block :is(b,strong){font-weight:bold;font-variation-settings:normal}
 #folioWordCard .word-detail .word-source{font-family:inherit;font-size:10px;letter-spacing:.01em;color:var(--word-secondary);opacity:1;margin-top:8px}
 #folioWordCard .word-detail .word-separator{background:var(--word-divider);opacity:1;margin:12px 0}
 #folioWordCard :is(.word-loading,.word-unavailable){color:var(--word-secondary);opacity:1;font-family:inherit;font-size:12px;line-height:1.55}
@@ -550,33 +552,7 @@
 @media(max-width:500px){#folioWordCard .word-head{padding:13px 15px 11px}#folioWordCard .word-detail{padding:12px 15px}#folioWordCard .word-links{padding:9px 15px 11px}}
 
 
-/* v36 — Warm-toned scrollbars, including settings, library, search, and lookup.
-   Kept narrow and subdued; the thumb still has useful contrast against the track.
-   The native color-scheme also prevents OS dark scrollbars in a warm UI. */
-.app.theme-sepia{
-  --folio-scroll-thumb:#947657;
-  --folio-scroll-hover:#735638;
-  --folio-scroll-track:#f0e4d2;
-  color-scheme:light;
-  scrollbar-color:var(--folio-scroll-thumb) var(--folio-scroll-track);
-}
-/* Firefox: inherited scrollbar-color; scrollbar-width is intentionally limited
-   to scrolling surfaces rather than reducing the width of every UI control. */
-.app.theme-sepia :is(.drawer-body,.empty-view,.rail-library,.shelf-list,.toc-list,.search-results,.search-body,.word-detail,.folio-image-stage,.folio-table-contents),
-.app.theme-sepia #folioWordCard .word-detail,
-.app.theme-sepia #settingsDrawer .folio-select-wrap .select::picker(select){
-  scrollbar-color:var(--folio-scroll-thumb) var(--folio-scroll-track);
-  scrollbar-width:thin;
-}
-/* WebKit fallback for versions that do not implement scrollbar-color. */
-@supports selector(::-webkit-scrollbar){
-  .app.theme-sepia ::-webkit-scrollbar{width:8px;height:8px}
-  .app.theme-sepia ::-webkit-scrollbar-track{background:var(--folio-scroll-track);border-radius:999px}
-  .app.theme-sepia ::-webkit-scrollbar-thumb{background:var(--folio-scroll-thumb);border:2px solid var(--folio-scroll-track);border-radius:999px}
-  .app.theme-sepia ::-webkit-scrollbar-thumb:hover{background:var(--folio-scroll-hover)}
-  .app.theme-sepia ::-webkit-scrollbar-corner{background:var(--folio-scroll-track)}
-}
-
+/* Scrollbars for every page tone are centralized in the v90 UI rules below. */
 
 /* v37: the compact read-aloud voice picker and every checkbox now follow Folio's
    active palette instead of relying on a system-colored native control. */
@@ -958,6 +934,126 @@
 .folio-toc-find span{font-size:10px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
 @media(max-width:680px){.reader-bottom{gap:5px;padding-inline:12px}.reader-bottom .meta{min-width:0;flex:1;overflow:hidden}.reader-bottom #chapterInfo{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.reader-bottom .reading-percent{min-width:50px}.folio-history-controls{margin-inline:0}.folio-history-btn{width:24px}}
 @media(prefers-reduced-motion:reduce){.folio-history-btn{transition:none}}
+
+/* v90 — Unified application controls across Paper, Warm, Night and System.
+   Only the reader shell is styled: publisher EPUB markup retains its own CSS. */
+.app{
+ --folio-scroll-thumb:color-mix(in srgb,var(--accent) 62%,var(--muted));
+ --folio-scroll-track:var(--paper);
+ --folio-scroll-hover:var(--accent);
+ --folio-control-hover:var(--accent-light);
+ --folio-ui-shadow:0 8px 28px color-mix(in srgb,var(--ink) 15%,transparent);
+}
+.app.theme-sepia{
+ --folio-scroll-thumb:#947657;
+ --folio-scroll-hover:#76583b;
+ --folio-scroll-track:#f5eddc;
+}
+.app.theme-dark{
+ --folio-scroll-thumb:#829e8d;
+ --folio-scroll-hover:#b6d6c0;
+ --folio-scroll-track:#252c29;
+}
+/* Identical scroll thickness in every mode. No Warm-specific `thin` rule.
+   Browsers using standard scrollbar-color retain native widths consistently. */
+.app :is(.drawer-body,.empty-view,.rail-library,.shelf-list,.toc-list,.search-results,
+ .search-body,.word-detail,.folio-image-stage,.folio-table-contents,.folio-shortcuts-sheet,
+ .folio-shelf-dialog,.folio-table-viewer,.folio-progress-navigator),
+.app #folioWordCard .word-detail{
+ scrollbar-width:auto;
+ scrollbar-color:var(--folio-scroll-thumb) var(--folio-scroll-track);
+}
+@supports selector(::-webkit-scrollbar){
+ .app ::-webkit-scrollbar,.app.theme-sepia ::-webkit-scrollbar{width:10px;height:10px}
+ .app ::-webkit-scrollbar-track,.app.theme-sepia ::-webkit-scrollbar-track{background:var(--folio-scroll-track);border-radius:999px}
+ .app ::-webkit-scrollbar-thumb,.app.theme-sepia ::-webkit-scrollbar-thumb{
+  background:var(--folio-scroll-thumb);border:2px solid var(--folio-scroll-track);border-radius:999px;
+ }
+ .app ::-webkit-scrollbar-thumb:hover,.app.theme-sepia ::-webkit-scrollbar-thumb:hover{background:var(--folio-scroll-hover)}
+ .app ::-webkit-scrollbar-corner,.app.theme-sepia ::-webkit-scrollbar-corner{background:var(--folio-scroll-track)}
+}
+.app :is(button,input,select,[tabindex]):focus-visible{outline-color:var(--accent)}
+.app .pillbtn:hover{background:color-mix(in srgb,var(--accent) 81%,var(--ink))}
+.app.theme-dark .pillbtn:hover{background:#c3dfce;color:#16251c}
+.app .secondary-action:hover:not(.danger),.app .ghostbtn:hover{background:var(--folio-control-hover)}
+.app .tts-dock{background:var(--surface);border-color:var(--line);box-shadow:var(--folio-ui-shadow)}
+.app .tts-dock select{background:var(--paper)}
+.app .toc-item{color:var(--muted)}
+.app .toc-item.active{background:var(--accent-light);color:var(--accent)}
+.app .drawer-tabs button{color:var(--muted)}
+.app .drawer-tabs button.active{color:var(--accent)}
+.app .book-card .book-export,.app .book-card .book-favorite{background:var(--surface);color:var(--accent);border-color:var(--line)}
+.app .book-card .book-favorite.is-favorite{color:#9b742a;background:color-mix(in srgb,#f5ca76 20%,var(--surface))}
+.app.theme-dark .book-card .book-favorite.is-favorite{color:#efc77f;background:#55472c}
+.app .book-card .book-export:hover,.app .book-card .book-favorite:hover{background:var(--accent-light);color:var(--accent)}
+.app .book-card .book-remove:not(.book-favorite):not(.book-export){background:var(--surface);border-color:var(--line);color:var(--muted)}
+.app .book-card .book-remove:not(.book-favorite):not(.book-export):hover{background:color-mix(in srgb,#ae554b 13%,var(--surface));color:#ae554b}
+.app.theme-dark .book-card .book-remove:not(.book-favorite):not(.book-export):hover{color:#f3a79e}
+.app .toast{background:var(--ink);color:var(--surface);border:1px solid var(--line)}
+.app.theme-dark .toast{background:var(--ink);color:var(--surface)}
+.app .loading{background:color-mix(in srgb,var(--paper) 87%,transparent)}
+.app .select option,.app .folio-library-select option,.app #quickVoice option{background:var(--surface);color:var(--ink)}
+.app .select:focus-visible,.app .folio-library-select:focus-visible,.app #quickVoice:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* The library controls previously bypassed the custom picker, leaving white or
+   OS-colored native dropdown popovers inside a Warm/Night library. */
+.folio-library-tools .folio-library-picker{
+ display:block;flex:0 1 156px;width:156px;min-width:125px;max-width:190px;
+ height:40px;color:var(--muted)
+}
+.folio-library-tools .folio-library-picker::after{right:15px}
+.folio-library-tools .folio-library-picker .folio-library-select{
+ display:block;width:100%;max-width:none;min-width:0;height:40px;
+ padding:0 34px 0 12px;border:1px solid var(--line);border-radius:10px;
+ background:var(--surface);color:var(--ink);color-scheme:inherit;
+ appearance:none;-webkit-appearance:none;cursor:pointer;font:500 12px/1.35 Inter,ui-sans-serif,'Segoe UI',sans-serif;
+ box-shadow:0 1px 2px color-mix(in srgb,var(--ink) 5%,transparent);
+}
+.folio-library-tools .folio-library-picker .folio-library-select:hover{
+ border-color:color-mix(in srgb,var(--accent) 55%,var(--line));background:var(--paper)
+}
+.folio-library-tools .folio-library-picker:focus-within::after{color:var(--accent)}
+@supports (appearance:base-select){
+ .folio-library-tools .folio-library-picker .folio-library-select,
+ .folio-library-tools .folio-library-picker .folio-library-select::picker(select){appearance:base-select}
+ .folio-library-tools .folio-library-picker .folio-library-select::picker-icon{display:none}
+ .folio-library-tools .folio-library-picker .folio-library-select::picker(select){
+  box-sizing:border-box;margin:4px 0;padding:5px;max-height:min(330px,55dvh);
+  overflow-y:auto;overscroll-behavior:contain;scrollbar-width:auto;
+  scrollbar-color:var(--folio-scroll-thumb) var(--folio-scroll-track);
+  border:1px solid var(--line);border-radius:12px;
+  background:var(--surface);color:var(--ink);box-shadow:var(--folio-ui-shadow);
+ }
+ .folio-library-tools .folio-library-picker .folio-library-select option{
+  display:flex;align-items:center;min-height:34px;box-sizing:border-box;
+  padding:8px 12px;border-radius:8px;white-space:normal;overflow-wrap:anywhere;
+  background:transparent;color:var(--ink);font:500 12px/1.4 Inter,ui-sans-serif,'Segoe UI',sans-serif;cursor:pointer;
+ }
+ .folio-library-tools .folio-library-picker .folio-library-select option::checkmark{display:none}
+ .folio-library-tools .folio-library-picker .folio-library-select option:is(:hover,:focus-visible,:checked){
+  background:var(--accent-light);color:var(--ink);outline:none;
+ }
+ .folio-library-tools .folio-library-picker .folio-library-select option:checked{font-weight:700}
+ /* Preferences and speech popup scrollbars now use the same width as the rest of the UI. */
+ #settingsDrawer .folio-select-wrap .select::picker(select),
+ #ttsDock .folio-quick-select-wrap .voice-quick::picker(select){
+  scrollbar-width:auto;scrollbar-color:var(--folio-scroll-thumb) var(--folio-scroll-track)
+ }
+}
+/* Contents: breathing room under the tabs, without the oversized gap before
+   chapter one. Align filter text with the chapter-title text column. */
+#tocDrawer .folio-toc-find{margin:14px 26px 9px}
+#tocDrawer .folio-toc-find input{padding-inline:12px;background:var(--paper);border-color:var(--line)}
+#tocDrawer .folio-toc-find:not([hidden]) + .drawer-body{padding-top:6px}
+@media(max-width:740px){
+ .folio-library-tools .folio-library-picker{flex:1 1 138px;width:auto;min-width:128px;max-width:none}
+}
+@media(max-width:390px){
+ #tocDrawer .folio-toc-find{margin-inline:20px}
+}
+@media(prefers-reduced-motion:reduce){
+ .folio-library-tools .folio-library-picker .folio-library-select{transition:none}
+}
+
 </style>
 </head>
 <body>
@@ -1024,10 +1120,10 @@
     <div class="dropzone" id="dropzone"><div class="drop-copy"><div class="dropicon"><svg class="icon lg"><use href="#i-upload"/></svg></div><div><strong>Add an EPUB</strong><small>Drop a book here, or choose a file</small></div></div><button class="pillbtn" id="browse"><svg class="icon sm"><use href="#i-plus"/></svg> Import book</button></div>
     <div class="recent-area"><div class="hrow"><h2 id="recentTitle">Your library</h2><div class="folio-actions"><button class="ghostbtn" id="installFolio" hidden type="button">Install app</button><button id="demoBtn" class="ghostbtn"><svg class="icon sm"><use href="#i-spark"/></svg> Explore a sample</button></div></div><div class="folio-library-tools" id="libraryFilterWrap" hidden>
   <div class="library-filter"><svg class="icon sm" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="libraryFilter" placeholder="Find a book or author" autocomplete="off" aria-label="Filter library by title or author"><span class="library-filter-count" id="libraryFilterCount"></span></div>
-  <label class="sr-only" for="libraryStatus">Reading status</label><select id="libraryStatus" class="folio-library-select" aria-label="Filter books by reading status"><option value="all">All books</option><option value="unread">Not started</option><option value="reading">In progress</option><option value="finished">Finished</option><option value="favorites">Favorites</option></select>
-  <label class="sr-only" for="librarySort">Sort books</label><select id="librarySort" class="folio-library-select" aria-label="Sort library"><option value="recent">Recently opened</option><option value="added">Recently added</option><option value="title">Title · A to Z</option><option value="author">Author · A to Z</option><option value="progress">Reading progress</option></select>
-  <label class="sr-only" for="libraryCollection">Shelf</label><select id="libraryCollection" class="folio-library-select" aria-label="Filter library by custom shelf"><option value="all">Every shelf</option></select>
-  <label class="sr-only" for="libraryView">Library display</label><select id="libraryView" class="folio-library-select" aria-label="Library display style"><option value="grid">Cover grid</option><option value="list">Compact list</option></select>
+  <label class="sr-only" for="libraryStatus">Reading status</label><span class="folio-select-wrap folio-library-picker"><select id="libraryStatus" class="folio-library-select" aria-label="Filter books by reading status"><option value="all">All books</option><option value="unread">Not started</option><option value="reading">In progress</option><option value="finished">Finished</option><option value="favorites">Favorites</option></select></span>
+  <label class="sr-only" for="librarySort">Sort books</label><span class="folio-select-wrap folio-library-picker"><select id="librarySort" class="folio-library-select" aria-label="Sort library"><option value="recent">Recently opened</option><option value="added">Recently added</option><option value="title">Title · A to Z</option><option value="author">Author · A to Z</option><option value="progress">Reading progress</option></select></span>
+  <label class="sr-only" for="libraryCollection">Shelf</label><span class="folio-select-wrap folio-library-picker"><select id="libraryCollection" class="folio-library-select" aria-label="Filter library by custom shelf"><option value="all">Every shelf</option></select></span>
+  <label class="sr-only" for="libraryView">Library display</label><span class="folio-select-wrap folio-library-picker"><select id="libraryView" class="folio-library-select" aria-label="Library display style"><option value="grid">Cover grid</option><option value="list">Compact list</option></select></span>
   <button id="libraryManageCollections" type="button" class="ghostbtn folio-shelf-manage" title="Create and manage your shelves">Manage shelves</button>
  </div><div class="book-cards" id="bookCards"></div>
  <nav id="folioLibraryPager" class="folio-library-pager" aria-label="Library pages" hidden><button id="folioLibraryPrev" type="button" class="ghostbtn">Previous</button><span id="folioLibraryPageLabel" role="status" aria-live="polite"></span><button id="folioLibraryNext" type="button" class="ghostbtn">Next</button></nav><div class="library-filter-empty" id="libraryFilterEmpty" hidden><p>No books match the current filters.</p><button type="button" class="ghostbtn" id="libraryResetFilters">Clear filters</button></div></div>
@@ -1065,7 +1161,6 @@
      <div class="drawer-group"><h3>Page tone</h3><div class="theme-options"><button class="theme-choice selected" data-theme="light"><div class="theme-preview light"><span class="preview-en">Aa</span><span class="preview-zh">字</span></div>Paper</button><button class="theme-choice" data-theme="sepia"><div class="theme-preview sepia"><span class="preview-en">Aa</span><span class="preview-zh">字</span></div>Warm</button><button class="theme-choice" data-theme="dark"><div class="theme-preview dark"><span class="preview-en">Aa</span><span class="preview-zh">字</span></div>Night</button><button class="theme-choice" data-theme="system"><div class="theme-preview system"><span class="preview-en">Aa</span><span class="preview-zh">字</span></div>System</button></div></div>
      <div class="drawer-group"><h3>Typography</h3><label for="enFont" class="setting-label">English font</label><span class="folio-select-wrap"><select id="enFont" class="select"><option value="Georgia">Georgia</option><option value="Bookerly">Bookerly</option><option value="Palatino Linotype">Palatino</option><option value="Charter">Charter</option><option value="Baskerville">Baskerville</option><option value="Baskerville Old Face">Baskerville Old Face</option><option value="Sitka Text">Sitka Text</option><option value="Sitka Display">Sitka Display</option><option value="Garamond">Garamond</option><option value="EB Garamond">EB Garamond</option><option value="Libertinus Serif">Libertinus Serif</option><option value="Cambria">Cambria</option><option value="Constantia">Constantia</option><option value="Times New Roman">Times New Roman</option><option value="Arial">Arial</option><option value="Segoe UI">Segoe UI</option></select></span>
      <label for="zhFont" class="setting-label" style="margin-top:22px">Chinese font</label><span class="folio-select-wrap"><select id="zhFont" class="select"><option value="Noto Serif CJK SC">思源宋体 · Source Han Serif</option><option value="Noto Sans CJK SC">思源黑体 · Source Han Sans</option><option value="LXGW WenKai">霞鹜文楷 · LXGW WenKai</option><option value="Microsoft YaHei">微软雅黑 · Microsoft YaHei</option><option value="Microsoft YaHei UI">微软雅黑 UI · Microsoft YaHei UI</option><option value="DengXian">等线 · DengXian</option><option value="SimHei">黑体 · SimHei</option><option value="SimSun">宋体 · SimSun</option><option value="NSimSun">新宋体 · NSimSun</option><option value="KaiTi">楷体 · KaiTi</option><option value="FangSong">仿宋 · FangSong</option><option value="Microsoft JhengHei">微軟正黑體 · Microsoft JhengHei</option><option value="PingFang SC">苹方 · PingFang SC</option><option value="Songti SC">华文宋体 · Songti SC</option><option value="STKaiti">华文楷体 · STKaiti</option></select></span>
-     <div id="onlineFontInkRow" class="folio-online-ink" hidden><label class="setting-label" for="zhOnlineInk">Online font weight <span id="zhOnlineInkVal" class="muted">Standard</span></label><input class="range" type="range" id="zhOnlineInk" min="-50" max="120" step="10" value="0"><p class="setting-sub">Web Source Han only · Installed fonts are unchanged.</p></div>
      <div class="switch-row"><label for="forceBookFonts">Override book fonts</label><input type="checkbox" id="forceBookFonts"></div>
       <div style="margin-top:23px"><label class="setting-label" for="fontSize">Text size <span id="fontSizeVal" class="muted">20 px</span></label><input class="range" type="range" id="fontSize" min="14" max="32" step="1"></div>
      <div style="margin-top:23px"><label class="setting-label" for="lineHeight">Line spacing <span id="lineHeightVal" class="muted">1.8</span></label><input class="range" type="range" id="lineHeight" min="1.3" max="2.4" step="0.05"></div>
@@ -1156,7 +1251,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 const $=id=>document.getElementById(id);
 const ICON=(name,cls='')=>`<svg class="icon ${cls}"><use href="#i-${name}"/></svg>`;
 const STORAGE={settings:'folio.settings.v1',progress:'folio.progress.v1',bookmarks:'folio.bookmarks.v1'};
-const DEFAULTS={theme:'light',enFont:'Georgia',zhFont:'Noto Serif CJK SC',zhOnlineInk:0,forceBookFonts:false,fontSize:20,lineHeight:1.8,paragraphSpace:1.0,pageWidth:1280,rate:1,zhVoice:'',enVoice:'',quickVoice:'auto',librarySort:'recent',libraryStatus:'all',libraryView:'grid',libraryFavorites:[],libraryCollections:[],lastVoiceByLang:{},autoAdvance:true,autoScroll:true,speechFocus:'word-line'};
+const DEFAULTS={theme:'light',enFont:'Georgia',zhFont:'Noto Serif CJK SC',forceBookFonts:false,fontSize:20,lineHeight:1.8,paragraphSpace:1.0,pageWidth:1280,rate:1,zhVoice:'',enVoice:'',quickVoice:'auto',librarySort:'recent',libraryStatus:'all',libraryView:'grid',libraryFavorites:[],libraryCollections:[],lastVoiceByLang:{},autoAdvance:true,autoScroll:true,speechFocus:'word-line'};
 const PALETTE=['#6f847d','#8b766c','#697e91','#86856d','#986c66','#736c85','#53776d','#87735e'];
 const MIME={svg:'image/svg+xml',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',webp:'image/webp',avif:'image/avif',bmp:'image/bmp',css:'text/css',woff:'font/woff',woff2:'font/woff2',ttf:'font/ttf',otf:'font/otf',mp3:'audio/mpeg',mp4:'video/mp4',m4a:'audio/mp4',ogg:'audio/ogg'};
 const state={db:null,library:[],temporary:new Map(),book:null,zip:null,meta:null,manifest:new Map(),spine:[],toc:[],chapter:-1,urls:new Map(),chapterCache:new Map(),preparePromises:new Map(),styleCache:new Map(),noteDocCache:new Map(),noteReturn:null,coverUrls:new Map(),loadToken:0,renderToken:0,settings:{...DEFAULTS},progress:{},bookmarks:{},railOpen:false,drawer:null,tocTab:'toc',voices:[],synth:window.speechSynthesis||null,tts:{mode:'stopped',token:0,segments:[],index:0,activeEl:null,selectedEl:null,utterance:null,focusRange:null,focusLine:null,boundarySeen:false},paging:{page:0,pages:1,columns:2,step:0,gap:0,restore:0},resizeTimer:0,toastTimer:0,readingAnchor:null};
@@ -1470,89 +1565,58 @@ function setTheme(theme){
  note.style.colorScheme=effective==='dark'?'dark':'light';
 }
 let folioLookupFontGeneration=0;
-let folioOnlineWeightControlGeneration=0;
-function folioSourceHanWeights(font){
- const base=FOLIO_CHINESE_WEB_FONTS[font]?.webWeights;
- if(!base)return null;
- const adjustment=clamp(Number(state.settings.zhOnlineInk)||0,-50,120);
- return {regular:clamp(base.regular+adjustment,400,750),
-         bold:clamp(base.bold+adjustment,700,900),
-         heading:clamp(base.heading+adjustment,650,900)};
-}
-function syncOnlineFontWeightSetting(){
- const selected=state.settings.zhFont,gen=++folioOnlineWeightControlGeneration;
- const offset=clamp(Number(state.settings.zhOnlineInk)||0,-50,120);
- $('zhOnlineInk').value=offset;
- $('zhOnlineInkVal').textContent=offset===0?'Standard':(offset>0?'+':'')+offset;
- $('onlineFontInkRow').hidden=true;
- if(!FOLIO_CHINESE_WEB_FONTS[selected]?.webWeights)return;
- void folioHasInstalledChineseFont(selected).then(local=>{
-  if(gen!==folioOnlineWeightControlGeneration||state.settings.zhFont!==selected)return;
-  $('onlineFontInkRow').hidden=!!local;
- });
-}
 function syncLookupFonts(){
  const en=EN_FONT_STACKS[state.settings.enFont]||EN_FONT_STACKS.Georgia;
  const zh=ZH_FONT_STACKS[state.settings.zhFont]||ZH_FONT_STACKS['Noto Serif CJK SC'];
  $('app').style.setProperty('--folio-lookup-en-font',cssFontStack(en));
  $('app').style.setProperty('--folio-lookup-zh-font',cssFontStack(zh));
- // The reader already bundles these English font faces. Reuse them in the
- // lookup card so Libertinus/EB Garamond render identically outside the iframe.
  let faces=document.getElementById('folioLookupFontFaces');
  if(!faces){faces=document.createElement('style');faces.id='folioLookupFontFaces';document.head.append(faces)}
  const embeddedFace=BUNDLED_EN_FONT_RULES[state.settings.enFont]||'';
  const faceKey=state.settings.enFont+'|'+state.settings.zhFont;
  if(faces.dataset.font!==faceKey){faces.textContent=embeddedFace+'\n'+folioChineseLocalFace(state.settings.zhFont);faces.dataset.font=faceKey}
- // The popup is in the parent document, but must follow exactly the same
- // loading/verification policy as EPUB chapters. Do not darken a fallback.
- const chosen=state.settings.zhFont;
- const spec=FOLIO_CHINESE_WEB_FONTS[chosen];
- const weights=folioSourceHanWeights(chosen);
- $('app').style.setProperty('--folio-online-zh-regular',String(weights?.regular||400));
- $('app').style.setProperty('--folio-online-zh-bold',String(weights?.bold||700));
+ const chosen=state.settings.zhFont,spec=FOLIO_CHINESE_WEB_FONTS[chosen];
  const generation=++folioLookupFontGeneration;
  $('app').classList.remove('folio-online-source-han');
- let remote=document.getElementById('folioLookupRemoteFont');
- if(remote&&remote.getAttribute('href')!==(spec?.href||'')){remote.remove();remote=null}
- void folioHasInstalledChineseFont(chosen).then(local=>{
+ const old=document.getElementById('folioLookupRemoteFont');
+ if(old&&old.dataset.folioFont!==chosen)old.remove();
+ void folioHasInstalledChineseFont(chosen).then(async local=>{
   if(generation!==folioLookupFontGeneration||chosen!==state.settings.zhFont)return;
-  if(!spec||local){remote?.remove();return}
-  // Do not download a CJK webfont just to open the library or settings.
+  if(!spec||local){document.getElementById('folioLookupRemoteFont')?.remove();return}
+  // Opening settings or the shelf must not download large CJK fonts.
   if($('folioWordCard').hidden||!$('wordDetail').querySelector('.word-zh-block'))return;
-  const activate=async()=>{
-   if(remote)remote.dataset.folioReady='verifying';
-   try{
-    const loaded=await document.fonts.load('400 14px '+JSON.stringify(spec.webFamily),'中文字体');
-    if(generation!==folioLookupFontGeneration||chosen!==state.settings.zhFont)return;
-    const valid=loaded.some(f=>f.status==='loaded'&&f.family.replace(/^['"]|['"]$/g,'')===spec.webFamily);
-    if(!valid)throw Error('Webfont unavailable');
-    if(weights)$('app').classList.add('folio-online-source-han');
-    if(remote)remote.dataset.folioReady='1';
-   }catch{
-    if(generation!==folioLookupFontGeneration)return;
-    $('app').classList.remove('folio-online-source-han');
-    remote?.remove();
+  let remote=document.getElementById('folioLookupRemoteFont');
+  if(!remote){
+   if(spec.regularURL){
+    remote=document.createElement('style');remote.textContent=folioChineseWebFaceRules(spec);
+   }else{
+    remote=document.createElement('link');remote.rel='stylesheet';remote.href=spec.href;
    }
-  };
-  remote=document.getElementById('folioLookupRemoteFont');
-  if(remote){
-   if(remote.dataset.folioReady==='1'){if(weights)$('app').classList.add('folio-online-source-han')}
-   else if(remote.dataset.folioReady==='verifying'){void activate()}
-   else if(remote.dataset.folioReady==='loading'){
-    remote.addEventListener('load',activate,{once:true});
-    remote.addEventListener('error',()=>{if(generation===folioLookupFontGeneration)$('app').classList.remove('folio-online-source-han')},{once:true});
-   } else void activate();
-   return;
+   remote.id='folioLookupRemoteFont';remote.dataset.folioFont=chosen;
+   document.head.append(remote);
   }
-  remote=document.createElement('link');remote.id='folioLookupRemoteFont';remote.rel='stylesheet';remote.href=spec.href;
-  remote.dataset.folioReady='loading';
-  remote.addEventListener('load',activate,{once:true});
-  remote.addEventListener('error',()=>{remote.remove();if(generation===folioLookupFontGeneration)$('app').classList.remove('folio-online-source-han')},{once:true});
-  document.head.append(remote);
+  if(remote.dataset.folioReady==='1')return;
+  try{
+   // CSS registered in the parent document; the matching face is verified via
+   // FontFaceSet, rather than by the generic fallback's apparent appearance.
+   if(remote.tagName==='LINK'&&!remote.sheet)await new Promise((resolve,reject)=>{
+    remote.addEventListener('load',resolve,{once:true});remote.addEventListener('error',reject,{once:true});
+   });
+   const loaded=await document.fonts.load('normal 14px '+JSON.stringify(spec.webFamily),'中文字体');
+   if(generation!==folioLookupFontGeneration||chosen!==state.settings.zhFont)return;
+   const valid=loaded.some(f=>f.status==='loaded'&&f.family.replace(/^['"]|['"]$/g,'')===spec.webFamily);
+   if(!valid)throw Error('Chinese webfont unavailable');
+   remote.dataset.folioReady='1';
+   if(spec.regularFace)$('app').classList.add('folio-online-source-han');
+  }catch{
+   if(generation!==folioLookupFontGeneration)return;
+   $('app').classList.remove('folio-online-source-han');
+   document.getElementById('folioLookupRemoteFont')?.remove();
+  }
  });
 }
-function bindSetting(id,key,convert=val=>val,render=false){const el=$(id);el.addEventListener('input',()=>{state.settings[key]=convert(el.type==='checkbox'?el.checked:el.value);safeSave(STORAGE.settings,state.settings);syncSettingsLabels();if(key==='theme')setTheme(state.settings.theme);if(key==='enFont'||key==='zhFont')syncLookupFonts();if(key==='zhFont')syncOnlineFontWeightSetting();if(render)updateReaderTheme()})}
-function initSettings(){const saved=safeParse(STORAGE.settings,{});if(saved.layoutVersion!==2){if(Number.isFinite(saved.pageWidth))saved.pageWidth=clamp(Math.round(saved.pageWidth*1.65/20)*20,700,2200);saved.layoutVersion=2;}state.settings={...DEFAULTS,...saved};state.settings.libraryFavorites=folioFavoriteIds(state.settings.libraryFavorites);state.settings.libraryCollections=folioCleanCollections(state.settings.libraryCollections);safeSave(STORAGE.settings,state.settings);state.progress=safeParse(STORAGE.progress,{});state.bookmarks=safeParse(STORAGE.bookmarks,{});setTheme(state.settings.theme);syncLookupFonts();
+function bindSetting(id,key,convert=val=>val,render=false){const el=$(id);el.addEventListener('input',()=>{state.settings[key]=convert(el.type==='checkbox'?el.checked:el.value);safeSave(STORAGE.settings,state.settings);syncSettingsLabels();if(key==='theme')setTheme(state.settings.theme);if(key==='enFont'||key==='zhFont')syncLookupFonts();if(render)updateReaderTheme()})}
+function initSettings(){const saved=safeParse(STORAGE.settings,{});delete saved.zhOnlineInk;if(saved.layoutVersion!==2){if(Number.isFinite(saved.pageWidth))saved.pageWidth=clamp(Math.round(saved.pageWidth*1.65/20)*20,700,2200);saved.layoutVersion=2;}state.settings={...DEFAULTS,...saved};state.settings.libraryFavorites=folioFavoriteIds(state.settings.libraryFavorites);state.settings.libraryCollections=folioCleanCollections(state.settings.libraryCollections);safeSave(STORAGE.settings,state.settings);state.progress=safeParse(STORAGE.progress,{});state.bookmarks=safeParse(STORAGE.bookmarks,{});setTheme(state.settings.theme);syncLookupFonts();
  for(const id of ['enFont','zhFont','forceBookFonts','fontSize','lineHeight','paragraphSpace','pageWidth','zhVoice','enVoice','quickRate','quickVoice','autoAdvance','autoScroll','speechFocus']){if(id==='quickRate')$('quickRate').value=state.settings.rate;else if(id==='quickVoice')$('quickVoice').value=state.settings.quickVoice;else {const field=state.settings[id];$(id).type==='checkbox'?$(id).checked=!!field:$(id).value=field}}
  for(const btn of document.querySelectorAll('[data-theme]'))btn.addEventListener('click',()=>{state.settings.theme=btn.dataset.theme;safeSave(STORAGE.settings,state.settings);setTheme(state.settings.theme);updateReaderTheme()});
  $('forceBookFonts').addEventListener('change',()=>{state.settings.forceBookFonts=$('forceBookFonts').checked;safeSave(STORAGE.settings,state.settings);if(state.book)renderChapter(state.chapter,pageFraction());});
@@ -1560,10 +1624,7 @@ function initSettings(){const saved=safeParse(STORAGE.settings,{});if(saved.layo
  for(const id of ['zhVoice','enVoice','quickVoice','speechFocus'])bindSetting(id,id);$('quickVoice').addEventListener('change',()=>{$('quickVoice').title=$('quickVoice').selectedOptions[0]?.textContent||'Reading voice'});$('speechFocus').addEventListener('change',()=>{folioClearSpeechPaint();});
  for(const id of ['autoAdvance','autoScroll'])bindSetting(id,id);
  $('quickRate').addEventListener('input',()=>{state.settings.rate=Number($('quickRate').value);safeSave(STORAGE.settings,state.settings);syncSettingsLabels()});
- $('zhOnlineInk').value=clamp(Number(state.settings.zhOnlineInk)||0,-50,120);
- $('zhOnlineInk').addEventListener('input',()=>{$('zhOnlineInkVal').textContent=Number($('zhOnlineInk').value)===0?'Standard':(Number($('zhOnlineInk').value)>0?'+':'')+$('zhOnlineInk').value});
- $('zhOnlineInk').addEventListener('change',()=>{state.settings.zhOnlineInk=Number($('zhOnlineInk').value);safeSave(STORAGE.settings,state.settings);syncLookupFonts();updateReaderTheme()});
- syncSettingsLabels();syncOnlineFontWeightSetting();}
+ syncSettingsLabels();}
 function syncSettingsLabels(){$('fontSizeVal').textContent=`${state.settings.fontSize} px`;$('lineHeightVal').textContent=Number(state.settings.lineHeight).toFixed(2).replace(/0$/,'');$('paragraphSpaceVal').textContent=Number(state.settings.paragraphSpace).toFixed(1)+' em';$('pageWidthVal').textContent=state.settings.pageWidth+' px';$('rateValue').textContent=Number(state.settings.rate).toFixed(2).replace(/0+$/,'').replace(/\.$/,'')+'×'}
 // Pagination is horizontal CSS multi-column flow. Every visible spread comprises
 // one to three fixed-height columns; overflow always creates another spread to the right.
@@ -3429,18 +3490,21 @@ const BUNDLED_EN_FONT_RULES={
 const FOLIO_CHINESE_WEB_FONTS={
  'Noto Serif CJK SC':{
   localFamily:'Folio Local Source Han Serif',
-  localNames:['Source Han Serif SC','Source Han Serif CN','Source Han Serif SC VF'],
-  webFamily:'Source Han Serif SC VF',
-  href:'https://cdn.jsdelivr.net/npm/cn-fontsource-source-han-serif-sc-vf@1.0.9/font.css',
-  webWeights:{regular:570,bold:780,heading:745},
+  // Prefer a real locally installed Regular style, not a variable-family alias.
+  localNames:['Source Han Serif CN Regular','SourceHanSerifCN-Regular','Source Han Serif SC Regular','SourceHanSerifSC-Regular','Source Han Serif SC','Source Han Serif CN'],
+  webFamily:'Folio Adobe Source Han Serif CN',
+  regularURL:'https://cdn.jsdelivr.net/gh/adobe-fonts/source-han-serif@release/SubsetOTF/CN/SourceHanSerifCN-Regular.otf',
+  boldURL:'https://cdn.jsdelivr.net/gh/adobe-fonts/source-han-serif@release/SubsetOTF/CN/SourceHanSerifCN-Bold.otf',
+  regularFace:'Regular',
   fallback:['Noto Serif CJK SC','Noto Serif SC','Songti SC','SimSun','serif']
  },
  'Noto Sans CJK SC':{
   localFamily:'Folio Local Source Han Sans',
-  localNames:['Source Han Sans SC','Source Han Sans CN','Source Han Sans SC VF'],
-  webFamily:'Source Han Sans SC VF',
-  href:'https://cdn.jsdelivr.net/npm/cn-fontsource-source-han-sans-sc-vf@1.0.10/font.css',
-  webWeights:{regular:535,bold:755,heading:725},
+  localNames:['Source Han Sans CN Regular','SourceHanSansCN-Regular','Source Han Sans SC Regular','SourceHanSansSC-Regular','Source Han Sans SC','Source Han Sans CN'],
+  webFamily:'Folio Adobe Source Han Sans CN',
+  regularURL:'https://cdn.jsdelivr.net/gh/adobe-fonts/source-han-sans@release/SubsetOTF/CN/SourceHanSansCN-Regular.otf',
+  boldURL:'https://cdn.jsdelivr.net/gh/adobe-fonts/source-han-sans@release/SubsetOTF/CN/SourceHanSansCN-Bold.otf',
+  regularFace:'Regular',
   fallback:['Noto Sans CJK SC','Noto Sans SC','Microsoft YaHei','PingFang SC','sans-serif']
  },
  'LXGW WenKai':{
@@ -3451,10 +3515,29 @@ const FOLIO_CHINESE_WEB_FONTS={
   fallback:['KaiTi','STKaiti','serif']
  }
 };
+/* Adobe's region-specific subset OTFs are real static Regular and Bold fonts.
+   Do not turn VF axes, synthetic strokes or optical darkening into a substitute
+   for the actual Regular face. The CDN is optional: local faces and ordinary
+   system fallbacks remain readable when offline. */
+function folioChineseWebFaceRules(spec){
+ if(!spec?.regularURL)return '';
+ const family=JSON.stringify(spec.webFamily);
+ return '@font-face{font-family:'+family+';src:url('+JSON.stringify(spec.regularURL)+') format("opentype");font-style:normal;font-weight:normal;font-display:swap}'
+      +'@font-face{font-family:'+family+';src:url('+JSON.stringify(spec.boldURL)+') format("opentype");font-style:normal;font-weight:bold;font-display:swap}';
+}
 function folioChineseLocalFace(font){
  const spec=FOLIO_CHINESE_WEB_FONTS[font];if(!spec)return '';
- const sources=spec.localNames.map(name=>'local('+JSON.stringify(name)+')').join(',');
- return '@font-face{font-family:'+JSON.stringify(spec.localFamily)+';src:'+sources+';font-weight:100 900;font-style:normal;font-display:swap}';
+ const source=names=>names.map(name=>'local('+JSON.stringify(name)+')').join(',');
+ const family=JSON.stringify(spec.localFamily);
+ if(!spec.regularURL)return '@font-face{font-family:'+family+';src:'+source(spec.localNames)+';font-weight:normal;font-style:normal;font-display:swap}';
+ // Real Regular and Bold local faces. Never claim that a Regular-only static OTF
+ // supports the entire 100–900 variable interval.
+ const regular=spec.localNames;
+ const bold=font==='Noto Serif CJK SC'
+  ?['Source Han Serif CN Bold','SourceHanSerifCN-Bold','Source Han Serif SC Bold','SourceHanSerifSC-Bold']
+  :['Source Han Sans CN Bold','SourceHanSansCN-Bold','Source Han Sans SC Bold','SourceHanSansSC-Bold'];
+ return '@font-face{font-family:'+family+';src:'+source(regular)+';font-weight:normal;font-style:normal;font-display:swap}'
+      +'@font-face{font-family:'+family+';src:'+source(bold)+';font-weight:bold;font-style:normal;font-display:swap}';
 }
 // Probe local availability without loading a CDN font. Unlike document.fonts.check(),
 // FontFace.load() with local() rejects when the requested face is absent.
@@ -3466,7 +3549,7 @@ function folioHasInstalledChineseFont(font){
   const test=Promise.resolve().then(async()=>{
    if(typeof FontFace!=='function')return false;
    const src=spec.localNames.map(name=>'local('+JSON.stringify(name)+')').join(',');
-   try{await new FontFace('Folio Installed Font Probe',src,{weight:'400',style:'normal'}).load();return true}
+   try{await new FontFace('Folio Installed Font Probe',src,{weight:'normal',style:'normal'}).load();return true}
    catch{return false}
   });
   FOLIO_LOCAL_CHINESE_PROBES.set(font,test);
@@ -3474,26 +3557,28 @@ function folioHasInstalledChineseFont(font){
  return FOLIO_LOCAL_CHINESE_PROBES.get(font);
 }
 function folioOnlineChineseReaderRules(font){
- const w=folioSourceHanWeights(font);
- if(!w)return '';
- // The standard font-weight property selects the same variable wght axis,
- // without an inherited low-level axis overriding book styling and Latin runs.
- // Activate the rules only after the actual online face has been verified.
+ if(!FOLIO_CHINESE_WEB_FONTS[font]?.regularFace)return '';
+ // Only after the actual web face is loaded. In the variable font,
+ // font-weight:normal selects its named Regular instance; bold uses Bold.
+ // Do not impose an optical weight or override publisher emphasis.
  return `html.folio-online-source-han:not(.folio-english-chapter) body{
-   font-weight:${w.regular}!important;
+   font-weight:normal!important;
+   font-variation-settings:normal!important;
  }
  html.folio-online-source-han:not(.folio-english-chapter) body :is(b,strong){
-   font-weight:${w.bold}!important;
+   font-weight:bold!important;
+   font-variation-settings:normal!important;
  }
  html.folio-online-source-han:not(.folio-english-chapter) body :is(h1,h2,h3,h4,h5,h6){
-   font-weight:${w.heading}!important;
+   font-weight:bold!important;
+   font-variation-settings:normal!important;
  }
  html.folio-online-source-han:not(.folio-english-chapter) body span.folio-latin{
-   font-weight:400!important;
+   font-weight:normal!important;
    font-variation-settings:normal!important;
  }
  html.folio-online-source-han:not(.folio-english-chapter) body :is(b,strong,h1,h2,h3,h4,h5,h6) span.folio-latin{
-   font-weight:700!important;
+   font-weight:bold!important;
    font-variation-settings:normal!important;
  }`;
 }
@@ -3555,7 +3640,7 @@ function readerCSS(){const s=state.settings,tone=folioEffectiveTheme(),night=ton
   margin:0!important;padding:0!important;touch-action:pan-y!important;overflow:visible!important;transform:translate3d(0,0,0);
   column-count:var(--folio-columns,2)!important;column-gap:var(--folio-gap)!important;column-fill:auto!important;
   background:${bg}!important;color:${ink}!important;font-family:${zhStack}!important;font-size:${s.fontSize}px!important;
-  line-height:${s.lineHeight}!important;font-weight:400!important;overflow-wrap:anywhere;word-break:normal;hyphens:auto;
+  line-height:${s.lineHeight}!important;font-weight:normal!important;overflow-wrap:anywhere;word-break:normal;hyphens:auto;
  }
  /* The selected Chinese font is the reading default, not an override of EPUB font semantics. */
  body :is(p,div,span,li,blockquote,h1,h2,h3,h4,h5,h6,a,em,strong,small,dt,dd,figcaption){line-height:inherit!important;color:inherit;}
@@ -3736,7 +3821,7 @@ function readerCSS(){const s=state.settings,tone=folioEffectiveTheme(),night=ton
  `}
 const readerStyleMemo={key:'',parts:null};
 function readerStyleParts(){
- const s=state.settings,key=JSON.stringify([s.theme,s.enFont,s.zhFont,s.zhOnlineInk,s.forceBookFonts,s.fontSize,s.lineHeight,s.paragraphSpace,s.pageWidth]);
+ const s=state.settings,key=JSON.stringify([s.theme,s.enFont,s.zhFont,s.forceBookFonts,s.fontSize,s.lineHeight,s.paragraphSpace,s.pageWidth]);
  if(readerStyleMemo.key===key&&readerStyleMemo.parts)return readerStyleMemo.parts;
  const css=readerCSS(),cut=css.indexOf(' :root{--folio-side:');
  readerStyleMemo.key=key;
@@ -3762,52 +3847,50 @@ function compactReaderFontRules(css){
  return compact;
 }
 async function loadRemoteReaderFonts(doc,token){
- const font=state.settings.zhFont;
- const spec=FOLIO_CHINESE_WEB_FONTS[font];
+ const font=state.settings.zhFont,spec=FOLIO_CHINESE_WEB_FONTS[font];
  const localAvailable=spec?await folioHasInstalledChineseFont(font):false;
  if(token!==state.renderToken||font!==state.settings.zhFont||!doc?.documentElement)return false;
  const root=doc.documentElement;
  const useWeb=Boolean(spec&&!localAvailable&&/[㐀-鿿]/.test(doc.body?.textContent||''));
  const old=doc.getElementById('folioRemoteFonts');
- const setOptical=enabled=>{
+ const markReady=enabled=>{
   if(token!==state.renderToken||font!==state.settings.zhFont||!root.isConnected)return;
   const active=doc===$('readerFrame').contentDocument;
   const had=root.classList.contains('folio-online-source-han');
-  const desired=Boolean(enabled&&spec.webWeights);
+  const desired=Boolean(enabled&&spec?.regularFace);
   root.classList.toggle('folio-online-source-han',desired);
   if(active&&had!==desired){invalidateFolioPageLayout(doc);schedulePagination(pageFraction(),token)}
  };
- if(!useWeb){old?.remove();setOptical(false);return localAvailable}
- if(old?.getAttribute('href')===spec.href){
-  if(old.dataset.folioReady==='1'){setOptical(true);return true}
+ if(!useWeb){old?.remove();markReady(false);return localAvailable}
+ if(old?.dataset.folioFont===font){
+  if(old.dataset.folioReady==='1'){markReady(true);return true}
   if(old.__folioPromise)return old.__folioPromise;
  }else old?.remove();
- // Keep the staged chapter invisible until its font has had a short chance to
- // settle. Do not apply online optical weights to a temporary fallback face.
- const link=doc.createElement('link');link.id='folioRemoteFonts';link.rel='stylesheet';link.href=spec.href;
- link.dataset.folioReady='loading';
+ const face=spec.regularURL;
+ const remote=face?doc.createElement('style'):doc.createElement('link');
+ remote.id='folioRemoteFonts';remote.dataset.folioFont=font;remote.dataset.folioReady='loading';
+ if(face)remote.textContent=folioChineseWebFaceRules(spec);
+ else {remote.rel='stylesheet';remote.href=spec.href}
  const request=new Promise(resolve=>{
   let settled=false;
   const finish=value=>{if(settled)return;settled=true;clearTimeout(timer);resolve(value)};
-  const timer=setTimeout(()=>{
-   if(link.isConnected)link.remove();
-   setOptical(false);finish(false);
-  },8000);
-  link.addEventListener('load',async()=>{
+  const timer=setTimeout(()=>{remote.remove();markReady(false);finish(false)},9000);
+  const activate=async()=>{
    try{
     const sample=(doc.body?.textContent||'').match(/[㐀-鿿]{1,12}/)?.[0]||'中文';
-    const faces=await doc.fonts.load('400 18px '+JSON.stringify(spec.webFamily),sample);
-    if(!link.isConnected||token!==state.renderToken||font!==state.settings.zhFont)return finish(false);
-    if(!faces.some(f=>f.status==='loaded'&&f.family.replace(/^['"]|['"]$/g,'')===spec.webFamily))throw Error('Webfont face not loaded');
-    link.dataset.folioReady='1';
-    setOptical(true);
-    finish(true);
-   }catch{link.remove();setOptical(false);finish(false)}
-  },{once:true});
-  link.addEventListener('error',()=>{link.remove();setOptical(false);finish(false)},{once:true});
+    const faces=await doc.fonts.load('normal 18px '+JSON.stringify(spec.webFamily),sample);
+    if(!remote.isConnected||token!==state.renderToken||font!==state.settings.zhFont)return finish(false);
+    if(!faces.some(f=>f.status==='loaded'&&f.family.replace(/^['"]|['"]$/g,'')===spec.webFamily))throw Error('Chinese face not loaded');
+    remote.dataset.folioReady='1';markReady(true);finish(true);
+   }catch{remote.remove();markReady(false);finish(false)}
+  };
+  if(face)queueMicrotask(activate);
+  else{
+   remote.addEventListener('load',activate,{once:true});
+   remote.addEventListener('error',()=>{remote.remove();markReady(false);finish(false)},{once:true});
+  }
  });
- link.__folioPromise=request;
- doc.head.append(link);
+ remote.__folioPromise=request;doc.head.append(remote);
  return request;
 }
 
@@ -5507,7 +5590,7 @@ function validatedReadingBackup(source){
  // Preserve v24's page-width schema and constrain numeric preferences.
  const clampSetting=(key,min,max)=>{if(settings[key]!==undefined)settings[key]=Math.max(min,Math.min(max,settings[key]))};
  clampSetting('fontSize',14,32);clampSetting('lineHeight',1.3,2.4);
- clampSetting('paragraphSpace',.3,2.0);clampSetting('pageWidth',700,2400);clampSetting('rate',.7,1.5);clampSetting('zhOnlineInk',-50,120);
+ clampSetting('paragraphSpace',.3,2.0);clampSetting('pageWidth',700,2400);clampSetting('rate',.7,1.5);
  if(!['light','sepia','dark','system'].includes(settings.theme))delete settings.theme;
  if(!FOLIO_SORT_CHOICES.includes(settings.librarySort))delete settings.librarySort;
  if(!FOLIO_STATUS_CHOICES.includes(settings.libraryStatus))delete settings.libraryStatus;
@@ -5586,8 +5669,7 @@ async function applyFolioReadingBackup(parsed){
   const el=$(id);if(el.type==='checkbox')el.checked=!!state.settings[id];else el.value=state.settings[id];
  }
  $('quickRate').value=state.settings.rate;
- $('zhOnlineInk').value=state.settings.zhOnlineInk;
- setTheme(state.settings.theme);syncLookupFonts();syncOnlineFontWeightSetting();syncSettingsLabels();folioClearSpeechPaint();
+ setTheme(state.settings.theme);syncLookupFonts();syncSettingsLabels();folioClearSpeechPaint();
  if(state.voices?.length)voicesAvailable();
  renderLibrary();renderBookmarks();
  if(state.book){
