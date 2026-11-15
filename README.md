@@ -43,3 +43,7 @@ See [CHANGELOG.md](CHANGELOG.md) for version history and [QUICK_START_PWA.md](QU
 ## License
 
 [MIT](LICENSE)
+
+### Edge Android voices
+
+Edge on Android may report no voices before its speech engine starts. In Folio, open **Appearance & data → Read aloud** and tap a voice selector; Folio activates the voice engine in that tap and then refreshes the menu. A brief, quiet preview may be audible. Some Edge-provided voices may still be inaccessible to the standard Web Speech API.
