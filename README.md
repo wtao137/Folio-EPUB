@@ -8,7 +8,7 @@ A clean, installable EPUB reader for Edge and Chrome. Folio runs entirely in the
 
 - Distraction-free, paginated reading with adaptive 1–3 column layouts and fast keyboard, wheel, and touch navigation.
 - English and Chinese fonts, Paper/Warm/Night/System themes, and publisher-font override.
-- Read aloud with available browser voices, bilingual support, and word/line tracking.
+- Read aloud with available browser voices, bilingual support, and word/line tracking. Voice menus can initialize Edge Android’s speech service without starting book narration.
 - Word lookup, bookmarks, chapter search, reading history, and a searchable table of contents.
 - Local EPUB library with shelves, favorites, reading progress, and ZIP backup/restore.
 - Installable PWA with an offline app shell. EPUB files are stored locally in IndexedDB.
@@ -23,7 +23,7 @@ A clean, installable EPUB reader for Edge and Chrome. Folio runs entirely in the
 
 ## Fonts and privacy
 
-Chinese typography offers two unified choices: **Source Han / Noto Serif** and **Source Han / Noto Sans**. Folio first checks installed Source Han or Noto CJK Regular fonts, then requests the official **Noto SC** Regular/Bold webfonts from `fonts.googleapis.com` and `fonts.gstatic.com` only when needed. Other installed fonts remain available from the font menu. No manual font upload is required and no font files are bundled.
+Chinese typography offers two unified choices: **Source Han / Noto Serif** and **Source Han / Noto Sans**. Folio first checks installed Source Han or Noto CJK Regular fonts, then requests the official **Noto SC** Regular/Bold webfonts from `fonts.googleapis.com` and `fonts.gstatic.com` only when needed. On Android, Folio also prefers the built-in Noto CJK Chinese fallback when the named local font is not exposed. Other installed fonts remain available from the font menu. No manual font upload is required and no font files are bundled.
 
 Books, reading positions, and shelves remain in your browser's storage. The PWA caches application files for offline use, not imported EPUBs or dictionary requests. Export a ZIP backup before changing browsers or hosting origins.
 

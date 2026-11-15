@@ -1265,6 +1265,48 @@
  .app :is(.library-filter,.search-input-wrap){transition:none}
 }
 
+
+/* v92: live voice pickers. The original <select> remains the source of truth.
+   Android native select menus cannot update their open option lists reliably. */
+.app .folio-voice-enhanced{position:relative}
+.app .folio-voice-enhanced::after{content:none!important}
+.app .folio-voice-enhanced select{
+ position:absolute!important;width:1px!important;height:1px!important;min-width:1px!important;
+ opacity:0!important;pointer-events:none!important;clip-path:inset(50%);border:0!important;
+ padding:0!important;overflow:hidden!important
+}
+.app .folio-voice-trigger{
+ display:flex;align-items:center;justify-content:space-between;gap:9px;box-sizing:border-box;
+ width:100%;min-width:0;min-height:40px;padding:9px 13px;border:1px solid var(--line);
+ border-radius:10px;background:var(--surface);color:var(--ink);
+ font:500 12px/1.35 Inter,ui-sans-serif,'Segoe UI',sans-serif;text-align:left;cursor:pointer;
+ box-shadow:0 1px 2px color-mix(in srgb,var(--ink) 5%,transparent)
+}
+.app .folio-voice-trigger:hover{border-color:var(--accent);background:var(--paper)}
+.app .folio-voice-trigger:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app .folio-voice-trigger[aria-expanded="true"]{border-color:var(--accent)}
+.app .folio-voice-trigger span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app .folio-voice-trigger .folio-voice-chevron{width:7px;height:7px;flex:none;
+ border-right:1.6px solid currentColor;border-bottom:1.6px solid currentColor;
+ transform:translateY(-2px) rotate(45deg);color:var(--muted)}
+.app .folio-voice-popover{position:fixed;z-index:1900;box-sizing:border-box;
+ min-width:175px;max-width:min(370px,calc(100vw - 20px));max-height:min(360px,60dvh);
+ overflow:auto;overscroll-behavior:contain;padding:6px;display:flex;flex-direction:column;gap:2px;
+ border:1px solid var(--line);border-radius:12px;box-shadow:var(--folio-ui-shadow);
+ background:var(--surface);color:var(--ink);scrollbar-width:auto
+}
+.app .folio-voice-popover[hidden]{display:none!important}
+.app .folio-voice-popover [role="option"]{display:block;min-height:35px;border:0;
+ border-radius:8px;padding:8px 11px;background:transparent;color:inherit;cursor:pointer;
+ text-align:left;white-space:normal;overflow-wrap:anywhere;
+ font:500 12px/1.35 Inter,ui-sans-serif,'Segoe UI',sans-serif}
+.app .folio-voice-popover [role="option"]:hover,
+.app .folio-voice-popover [role="option"]:focus-visible{background:var(--accent-light);outline:none}
+.app .folio-voice-popover [role="option"][aria-selected="true"]{background:var(--accent-light);font-weight:650}
+.app .folio-voice-empty{padding:10px;font-size:12px;line-height:1.5;color:var(--muted)}
+.app .folio-quick-select-wrap.folio-voice-enhanced{min-width:112px;max-width:220px}
+.app #ttsDock .folio-quick-select-wrap .folio-voice-trigger{min-height:35px;padding:7px 12px;font-size:11px}
+
 </style>
 </head>
 <body>
@@ -1382,7 +1424,7 @@
      
      <div class="setting-divider"></div>
      <div class="drawer-group"><h3>Read aloud · Web Speech</h3><label class="setting-label" for="zhVoice">Chinese voice</label><span class="folio-select-wrap"><select class="select" id="zhVoice"><option value="">System default</option></select></span><label class="setting-label" style="margin-top:18px" for="enVoice">English voice</label><span class="folio-select-wrap"><select class="select" id="enVoice"><option value="">System default</option></select></span>
-     <div class="switch-row"><label for="autoAdvance">Continue into next chapter</label><input type="checkbox" id="autoAdvance" checked></div><div class="switch-row"><label for="autoScroll">Follow narration across pages</label><input type="checkbox" id="autoScroll" checked></div><label class="setting-label" style="margin-top:17px" for="speechFocus">Reading focus</label><span class="folio-select-wrap"><select class="select" id="speechFocus"><option value="word-line">Word and line</option><option value="word">Word only</option><option value="line">Line only</option><option value="off">Off</option></select></span><button class="secondary-action" id="openDock"><svg class="icon sm"><use href="#i-headphones"/></svg> Show read-aloud controls</button>
+     <p class="setting-sub" id="folioVoiceDiscoveryStatus" role="status" aria-live="polite">Choose a voice to load available voices if Edge has not listed them yet.</p><div class="switch-row"><label for="autoAdvance">Continue into next chapter</label><input type="checkbox" id="autoAdvance" checked></div><div class="switch-row"><label for="autoScroll">Follow narration across pages</label><input type="checkbox" id="autoScroll" checked></div><label class="setting-label" style="margin-top:17px" for="speechFocus">Reading focus</label><span class="folio-select-wrap"><select class="select" id="speechFocus"><option value="word-line">Word and line</option><option value="word">Word only</option><option value="line">Line only</option><option value="off">Off</option></select></span><button class="secondary-action" id="openDock"><svg class="icon sm"><use href="#i-headphones"/></svg> Show read-aloud controls</button>
      </div>
      <div class="setting-divider"></div>
      <div class="drawer-group"><h3>Keyboard &amp; navigation</h3><button type="button" class="secondary-action" id="openFolioShortcuts">Show keyboard shortcuts</button><p class="setting-sub">You can also press ? while reading.</p></div><div class="setting-divider"></div>
@@ -1681,6 +1723,7 @@ function setRail(show){state.railOpen=show;$('app').classList.toggle('rail-hidde
 let folioDrawerReturnFocus=null;
 const folioDrawerIds={toc:'tocDrawer',settings:'settingsDrawer',search:'searchDrawer'};
 function closeDrawer(){
+ folioVoiceClose();
  const wasOpen=!!state.drawer;
  state.drawer=null;
  $('scrim').classList.remove('visible');
@@ -1700,7 +1743,7 @@ function showDrawer(which){
  $('scrim').classList.add('visible');
  const drawer=$(folioDrawerIds[which]);drawer.classList.add('visible');drawer.setAttribute('aria-modal','true');
  const triggerId={toc:'topToc',search:'topSearch',settings:'topSettings'}[which];$(triggerId).setAttribute('aria-expanded','true');
- if(which==='toc')renderTOC();if(which==='settings'){updateStorageStats();folioUpdateAppStatus().catch(()=>{});folioUpdateChineseFontStatus()}if(which==='search')onOpenFolioSearch();
+ if(which==='toc')renderTOC();if(which==='settings'){folioWarmVoicesForGesture('zh');updateStorageStats();folioUpdateAppStatus().catch(()=>{});folioUpdateChineseFontStatus()}if(which==='search')onOpenFolioSearch();
  if(window.innerWidth<=680)setRail(false);
  requestAnimationFrame(()=>{
   if(state.drawer!==which)return;
@@ -3566,7 +3609,11 @@ async function folioBuildChapterContent(path,chapterToken){
  const proseOutside=[...(body?.children||[])].filter(el=>!asides.some(a=>a===el||a.contains(el))&&el.textContent.trim().length>30).length;
  if(proseOutside)for(const aside of asides)aside.setAttribute('data-folio-popup-note','true');
   annotateFolioSpecialElements(body);
- const lang=doc.documentElement.getAttribute('lang')||doc.documentElement.getAttribute('xml:lang')||'';
+ const authoredLang=doc.documentElement.getAttribute('lang')||doc.documentElement.getAttribute('xml:lang')||'';
+ const languageSample=(body?.textContent||'').slice(0,6000);
+ const hanCount=(languageSample.match(/[\u3400-\u9fff]/g)||[]).length;
+ const latinCount=(languageSample.match(/[A-Za-z]/g)||[]).length;
+ const lang=authoredLang||(hanCount>=8&&hanCount*2>=latinCount?'zh-Hans':'en');
  const prepared={css,lang,bodyHTML:body?.innerHTML||'',fixedViewport:fixedLayout?fixedViewport:null};
  state.chapterCache.delete(path);state.chapterCache.set(path,prepared);
  if(state.chapterCache.size>6)state.chapterCache.delete(state.chapterCache.keys().next().value);
@@ -3795,6 +3842,15 @@ const FOLIO_CHINESE_WEB_FONTS={
 // verified face into the target document's FontFaceSet after local font detection.
 // Only local installed faces and the official Google Fonts web stylesheet are used.
 const FOLIO_REMOTE_RETRY_UNTIL=new Map();
+const folioIsAndroid=()=>/Android/i.test(navigator.userAgentData?.platform||navigator.userAgent||'');
+function folioAndroidSystemCJK(font){
+ if(!folioIsAndroid())return false;
+ const version=/Android\s+(\d+)/i.exec(navigator.userAgent||'');
+ // AOSP has included Noto Sans CJK for years; Chinese Noto Serif CJK was
+ // added later. Older devices should still have the official web fallback.
+ return !version||Number(version[1])>=(font==='Noto Serif SC'?9:5);
+}
+
 async function folioInstallLocalSourceHanFace(doc,spec,weight='normal'){
  const names=weight==='bold'?(spec.localBoldNames||[]):spec.localNames;
  if(!names?.length||!doc?.defaultView?.FontFace)throw Error('No installed Chinese face');
@@ -3921,6 +3977,7 @@ function readerCSS(){const s=state.settings,tone=folioEffectiveTheme(),night=ton
  body :is(p,div,span,li,blockquote,h1,h2,h3,h4,h5,h6,a,em,strong,small,dt,dd,figcaption){line-height:inherit!important;color:inherit;}
  body span.folio-latin{font-family:${enStack}!important;letter-spacing:normal;}
  ${folioOnlineChineseReaderRules(s.zhFont)}
+ html:is(:lang(zh-Hans),:lang(zh-CN)) body{-webkit-locale:'zh-Hans';}
  html.folio-english-chapter body{font-family:${enStack}!important;}
  html.folio-force-fonts body font{font-family:inherit!important;}
  body .folio-speaking{outline:none!important;outline-offset:0!important}
@@ -4146,10 +4203,10 @@ function folioUpdateChineseFontStatus(){
  const active=doc.getElementById('folioRemoteFonts');
  const relevant=active?.dataset.folioFont===font;
  const verified=relevant&&active.dataset.folioReady==='1'&&
-  [...doc.fonts].some(face=>face.family.replace(/^[\'\"]|[\'\"]$/g,'')===spec.webFamily&&face.status==='loaded'&&['normal','400'].includes(String(face.weight)));
+  (active.dataset.folioProvider==='android-system'||[...doc.fonts].some(face=>face.family.replace(/^[\'\"]|[\'\"]$/g,'')===spec.webFamily&&face.status==='loaded'&&['normal','400'].includes(String(face.weight))));
  if(verified){
   const provider=active.dataset.folioProvider;
-  label.textContent=name+' Regular: '+(provider==='installed'?'installed Source Han / Noto CJK':provider==='google'?'official Google Fonts':'online font')+' loaded.';
+  label.textContent=name+' Regular: '+(provider==='installed'?'installed Source Han / Noto CJK':provider==='android-system'?'Android system CJK fallback (face chosen by Edge)':provider==='google'?'official Google Fonts':'online font')+' '+(provider==='android-system'?'selected.':'loaded.');
  }else if(relevant&&active.dataset.folioReady==='loading'){
   label.textContent='Checking '+name+' Regular (installed font first)…';
  }else{
@@ -4194,8 +4251,15 @@ async function loadRemoteReaderFonts(doc,token){
    try{
     let result=null;
     try{result={face:await folioInstallLocalSourceHanFace(doc,spec),provider:'installed'}}catch{}
-    if(!result){
-     // Google CSS2 uses unicode-range WOFF2 shards; fetch only after local()
+    if(!result&&folioAndroidSystemCJK(font)&&(font==='Noto Serif SC'||font==='Noto Sans SC')){
+      // AOSP already routes zh-Hans serif/sans-serif to Noto CJK SC.
+      // Android does not expose Local Font Access; generic system fallback
+      // is more reliable than probing protected local() names. Do not claim
+      // an exact font face was inspected: OEM systems can substitute fonts.
+      result={face:null,provider:'android-system'};
+     }
+     if(!result){
+      // Google CSS2 uses unicode-range WOFF2 shards; fetch only after local()
      // actually rejects. The stylesheet and subsequent font loads are bounded.
      if(Date.now()<(FOLIO_REMOTE_RETRY_UNTIL.get(spec.href)||0))throw Error('Font stylesheet recently unavailable');
      if(!spec.href?.startsWith('https://fonts.googleapis.com/')&&
@@ -5276,7 +5340,148 @@ function changePage(step){if(!state.book)return;const p=state.paging;if(state.no
 function updateStorageStats(){const sizes=state.library.reduce((n,r)=>n+(r.size||0),0),value=sizes>1024*1024?(sizes/1048576).toFixed(1)+' MB':(sizes/1024).toFixed(0)+' KB';$('storageStats').textContent=`${state.library.length} ${state.library.length===1?'book':'books'} · ${value} of EPUB files`}
 function voicesAvailable(){if(!state.synth)return;let voices=state.synth.getVoices()||[];const key=v=>`${v.voiceURI}|${v.lang}`;const unique=new Map();for(const v of voices)unique.set(key(v),v);state.voices=[...unique.values()].sort((a,b)=>{const priority=v=>(/natural|online/i.test(v.name)?-2:0)+(/Microsoft/i.test(v.name)?-1:0);return priority(a)-priority(b)||a.lang.localeCompare(b.lang)||a.name.localeCompare(b.name)});
  function populate(id,language,placeholder){const el=$(id),prev=state.settings[id]||'';el.innerHTML='';el.add(new Option(placeholder,''));for(const v of state.voices){const isMatch=language==='zh'?/^(zh|cmn|yue)/i.test(v.lang):/^en/i.test(v.lang);if(!isMatch)continue;el.add(new Option(`${v.name} · ${v.lang}`,key(v)))}el.value=prev;if(el.value!==prev&&prev){el.add(new Option('Saved voice (not currently available)',prev));el.value=prev}}
- populate('zhVoice','zh','Automatic · Chinese');populate('enVoice','en','Automatic · English');const quick=$('quickVoice'),q=state.settings.quickVoice;quick.innerHTML=CSS.supports('appearance','base-select')?'<button><selectedcontent></selectedcontent></button>':'';quick.add(new Option('Auto voices','auto'));for(const v of state.voices.filter(x=>/^(zh|en|cmn|yue)/i.test(x.lang))){quick.add(new Option(`${v.name} · ${v.lang}`,key(v)))}quick.value=q;if(quick.value!==q){quick.add(new Option('Saved voice (not currently available)',q));quick.value=q}quick.title=quick.selectedOptions[0]?.textContent||'Reading voice';safeSave(STORAGE.settings,state.settings)}
+ populate('zhVoice','zh','Automatic · Chinese');populate('enVoice','en','Automatic · English');const quick=$('quickVoice'),q=state.settings.quickVoice;quick.innerHTML=CSS.supports('appearance','base-select')?'<button><selectedcontent></selectedcontent></button>':'';quick.add(new Option('Auto voices','auto'));for(const v of state.voices.filter(x=>/^(zh|en|cmn|yue)/i.test(x.lang))){quick.add(new Option(`${v.name} · ${v.lang}`,key(v)))}quick.value=q;if(quick.value!==q){quick.add(new Option('Saved voice (not currently available)',q));quick.value=q}quick.title=quick.selectedOptions[0]?.textContent||'Reading voice';safeSave(STORAGE.settings,state.settings);folioVoiceSyncTriggers()}
+// Edge Android can return zero voices until its speech service has been
+// activated by a user gesture. Open the picker immediately, then update it
+// in place when voiceschanged fires. A muted one-character utterance is used
+// only for discovery; it is never inserted into book narration.
+const folioVoicePicker={select:null,trigger:null,menu:null,poll:[],probe:null,probing:false,lastProbeAt:0};
+function folioVoiceSyncTriggers(){
+ for(const id of ['zhVoice','enVoice','quickVoice']){
+  const select=$(id),trigger=select?.parentElement?.querySelector('.folio-voice-trigger');
+  if(!trigger)continue;
+  const label=select.selectedOptions?.[0]?.textContent||'Automatic voice';
+  trigger.querySelector('span').textContent=id==='quickVoice'?label.replace(/ · .*$/, ''):label;
+  trigger.title=label;
+ }
+ if(folioVoicePicker.select)folioVoiceRenderOptions();
+ const status=$('folioVoiceDiscoveryStatus');
+ if(status)status.textContent=state.voices.length
+  ?`${state.voices.length} voices available. Choose Chinese or English voice.`
+  :'Tap a voice field to discover the voices available in this browser.';
+}
+function folioVoiceStopPoll(){
+ for(const timer of folioVoicePicker.poll)clearTimeout(timer);
+ folioVoicePicker.poll.length=0;
+}
+function folioVoiceClose(restore=false){
+ const p=folioVoicePicker;
+ if(!p.select)return;
+ p.trigger?.setAttribute('aria-expanded','false');
+ p.menu.hidden=true;
+ const returnTo=p.trigger;
+ p.select=null;p.trigger=null;
+ if(restore&&returnTo?.isConnected)returnTo.focus({preventScroll:true});
+}
+function folioVoicePosition(){
+ const p=folioVoicePicker;if(!p.select||p.menu.hidden)return;
+ const rect=p.trigger.getBoundingClientRect();
+ const vp=window.visualViewport, left=vp?.offsetLeft||0,top=vp?.offsetTop||0;
+ const width=vp?.width||innerWidth,height=vp?.height||innerHeight;
+ p.menu.style.width=Math.min(Math.max(rect.width,210),width-20)+'px';
+ const menuHeight=Math.min(p.menu.scrollHeight,Math.min(360,height*.6));
+ const below=top+height-rect.bottom-10,above=rect.top-top-10;
+ const y=below<menuHeight&&above>below?rect.top-menuHeight-5:rect.bottom+5;
+ p.menu.style.left=Math.max(left+10,Math.min(rect.left,left+width-p.menu.offsetWidth-10))+'px';
+ p.menu.style.top=Math.max(top+8,Math.min(y,top+height-menuHeight-8))+'px';
+}
+function folioVoiceRenderOptions(){
+ const p=folioVoicePicker;if(!p.select)return;
+ p.menu.replaceChildren();
+ const select=p.select;
+ for(const option of select.options){
+  if(option.value&&option.textContent.startsWith('Saved voice (not currently'))continue;
+  const row=document.createElement('button');row.type='button';row.setAttribute('role','option');
+  row.setAttribute('aria-selected',String(select.value===option.value));
+  row.textContent=option.textContent;row.dataset.value=option.value;
+  row.addEventListener('click',()=>{
+   select.value=row.dataset.value;
+   if(select.value!==row.dataset.value)return;
+   select.dispatchEvent(new Event('input',{bubbles:true}));
+   select.dispatchEvent(new Event('change',{bubbles:true}));
+   folioVoiceClose(true);folioVoiceSyncTriggers();
+  });
+  p.menu.append(row);
+ }
+ if(!state.voices.length){
+  const msg=document.createElement('div');msg.className='folio-voice-empty';msg.setAttribute('role','status');
+  msg.textContent=p.probing?'Discovering available voices in Edge…':'No voices returned yet. Tap the voice field to try discovery again.';
+  p.menu.append(msg);
+ }
+ folioVoicePosition();
+}
+function folioRefreshVoices(){
+ if(!state.synth)return;
+ try{voicesAvailable()}catch(e){console.warn('Voice discovery failed',e)}
+}
+function folioWarmVoicesForGesture(language='zh'){
+ const p=folioVoicePicker,synth=state.synth;
+ if(!synth||!window.SpeechSynthesisUtterance)return;
+ folioRefreshVoices();
+ if(state.voices.length||p.probing||Date.now()-p.lastProbeAt<2200||state.tts.mode!=='stopped'||synth.speaking||synth.pending||synth.paused)return;
+ p.probing=true;p.lastProbeAt=Date.now();
+ // Speak synchronously inside the click/tap event: Edge's mobile engine may
+ // require transient user activation to initialize its voice catalog.
+ try{
+  const utterance=new SpeechSynthesisUtterance('.');
+  utterance.lang=language==='en'?'en-US':'zh-CN';
+  utterance.volume=0;utterance.rate=1;utterance.pitch=1;
+  p.probe=utterance;
+  const done=()=>{if(p.probe!==utterance)return;p.probe=null;p.probing=false;folioRefreshVoices()};
+  utterance.onend=done;utterance.onerror=done;
+  synth.speak(utterance);
+ }catch(e){p.probe=null;p.probing=false;console.warn('Muted voice initialization unavailable',e)}
+ folioVoiceStopPoll();
+ for(const ms of [100,350,800,1600,3000])p.poll.push(setTimeout(()=>{
+  folioRefreshVoices();
+  if(ms===3000){p.probing=false;folioVoiceSyncTriggers();folioVoiceStopPoll()}
+ },ms));
+}
+function folioVoiceOpen(id){
+ const p=folioVoicePicker,select=$(id),trigger=select.parentElement.querySelector('.folio-voice-trigger');
+ if(p.select===select){folioVoiceClose(true);return}
+ folioVoiceClose();p.select=select;p.trigger=trigger;trigger.setAttribute('aria-expanded','true');
+ p.menu.hidden=false;folioRefreshVoices();folioVoiceRenderOptions();
+ folioWarmVoicesForGesture(id==='enVoice'?'en':'zh');
+ folioVoiceRenderOptions();
+}
+function folioInitVoicePickers(){
+ const p=folioVoicePicker;
+ const menu=document.createElement('div');menu.className='folio-voice-popover';menu.id='folioVoiceMenu';
+ menu.hidden=true;menu.setAttribute('role','listbox');menu.setAttribute('aria-label','Available reading voices');
+ $('app').append(menu);p.menu=menu;
+ for(const id of ['zhVoice','enVoice','quickVoice']){
+  const select=$(id),wrap=select.parentElement;wrap.classList.add('folio-voice-enhanced');
+  const button=document.createElement('button');button.type='button';button.className='folio-voice-trigger';
+  button.setAttribute('aria-label',select.getAttribute('aria-label')|| (id==='zhVoice'?'Chinese voice':id==='enVoice'?'English voice':'Reading voice'));
+  button.setAttribute('aria-haspopup','listbox');button.setAttribute('aria-expanded','false');button.setAttribute('aria-controls',menu.id);
+  const span=document.createElement('span');button.append(span);
+  const arrow=document.createElement('span');arrow.className='folio-voice-chevron';arrow.setAttribute('aria-hidden','true');button.append(arrow);
+  wrap.append(button);
+  button.addEventListener('click',()=>folioVoiceOpen(id));
+  button.addEventListener('keydown',e=>{if(['ArrowDown','ArrowUp','Enter',' '].includes(e.key)){
+   e.preventDefault();e.stopPropagation();folioVoiceOpen(id);
+   if(p.select===select&&['ArrowDown','ArrowUp'].includes(e.key))p.menu.querySelector('[role="option"]')?.focus();
+  }});
+  select.addEventListener('change',folioVoiceSyncTriggers);
+  document.querySelector(`label[for="${id}"]`)?.addEventListener('click',e=>{e.preventDefault();button.click()});
+ }
+ menu.addEventListener('keydown',e=>{
+  const rows=[...menu.querySelectorAll('[role="option"]')],index=rows.indexOf(document.activeElement);
+  if(e.key==='Escape'){e.preventDefault();e.stopPropagation();folioVoiceClose(true);return}
+  const next=e.key==='ArrowDown'?Math.min(rows.length-1,index+1):e.key==='ArrowUp'?Math.max(0,index-1):e.key==='Home'?0:e.key==='End'?rows.length-1:-1;
+  if(next>=0&&rows[next]){e.preventDefault();e.stopPropagation();rows[next].focus()}
+ });
+ document.addEventListener('pointerdown',e=>{
+  if(p.select&&!menu.contains(e.target)&&!p.trigger.contains(e.target))folioVoiceClose();
+ },true);
+ window.addEventListener('resize',folioVoicePosition,{passive:true});
+ window.visualViewport?.addEventListener('resize',folioVoicePosition,{passive:true});
+ window.visualViewport?.addEventListener('scroll',folioVoicePosition,{passive:true});
+ document.addEventListener('scroll',folioVoicePosition,true);
+ folioVoiceSyncTriggers();
+}
+
 function chooseVoice(lang){const key=v=>`${v.voiceURI}|${v.lang}`;const configured=state.settings.quickVoice!=='auto'?state.settings.quickVoice:(lang==='zh'?state.settings.zhVoice:state.settings.enVoice);const preferred=state.voices.find(v=>key(v)===configured);if(preferred)return preferred;const last=state.settings.lastVoiceByLang?.[lang];const remembered=state.voices.find(v=>key(v)===last);if(remembered)return remembered;let matching=state.voices.filter(v=>lang==='zh'?/^(zh|cmn|yue)/i.test(v.lang):/^en/i.test(v.lang));if(lang==='zh'){matching=matching.sort((a,b)=>(/zh-CN/i.test(b.lang)?1:0)-(/zh-CN/i.test(a.lang)?1:0))}else{matching=matching.sort((a,b)=>(/en-US/i.test(b.lang)?1:0)-(/en-US/i.test(a.lang)?1:0))}return matching.find(v=>/natural|online/i.test(v.name))||matching.find(v=>/Microsoft/i.test(v.name))||matching.find(v=>v.default)||matching[0]||null}
 function languageFor(text){const zh=(text.match(/[\u3400-\u9fff]/g)||[]).length,en=(text.match(/[A-Za-z]/g)||[]).length;return zh>=2&&zh*1.6>en*.65?'zh':'en'}
 // Each utterance uses the exact DOM text map used for highlighting. Respect
@@ -6342,6 +6547,7 @@ function bindEvents(){
  let dragCounter=0;for(const id of ['dropzone','main']){const el=$(id);el.addEventListener('dragenter',event=>{if(!event.dataTransfer?.types?.includes('Files'))return;event.preventDefault();dragCounter++;$('dropzone').classList.add('dragging')});el.addEventListener('dragover',event=>{if(event.dataTransfer?.types?.includes('Files'))event.preventDefault()});el.addEventListener('dragleave',event=>{event.preventDefault();dragCounter=Math.max(0,dragCounter-1);if(!dragCounter)$('dropzone').classList.remove('dragging')});el.addEventListener('drop',event=>{event.preventDefault();event.stopPropagation();dragCounter=0;$('dropzone').classList.remove('dragging');if(event.dataTransfer?.files?.length)importFiles(event.dataTransfer.files)})}
  document.addEventListener('keydown',event=>{
  if(event.key==='Escape'){
+  if(folioVoicePicker.select){event.preventDefault();folioVoiceClose(true);return}
   if(!$('folioProgressNavigator').hidden){event.preventDefault();folioCloseProgressNavigator(true);return}
   stopFolioHeldNavigation();cancelFolioWheelQueue();
   if(state.drawer){event.preventDefault();closeDrawer();return}
@@ -6372,7 +6578,7 @@ function bindEvents(){
  const observer=new ResizeObserver(()=>{if(state.book)schedulePagination(pageFraction(),state.renderToken)});observer.observe($('readingShell'));document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){stopFolioHeldNavigation();cancelFolioWheelQueue();folioPersistOnSuspend()}});window.addEventListener('pagehide',folioPersistOnSuspend);window.addEventListener('beforeunload',()=>{folioPersistOnSuspend();if(state.synth)state.synth.cancel()});
  if(state.synth){state.synth.addEventListener?.('voiceschanged',voicesAvailable);voicesAvailable();setTimeout(voicesAvailable,500);setTimeout(voicesAvailable,1600)}else $('ttsSubstatus').textContent='Speech is not supported in this browser';
  }
-async function start(){initSettings();folioInitializeLibraryPickers();bindEvents();setButtonState();try{state.db=await openDB()}catch(e){console.warn('Book storage unavailable',e);notify('Browser storage is limited: imported books may not persist')}await refreshLibrary();checkFolioPersistence().catch(()=>{});const last=Object.entries(state.progress).sort((a,b)=>(b[1].updatedAt||0)-(a[1].updatedAt||0))[0];if(last&&getBookRecord(last[0])){ // Keep a restful library landing instead of auto-loading the last book.
+async function start(){initSettings();folioInitializeLibraryPickers();bindEvents();folioInitVoicePickers();setButtonState();try{state.db=await openDB()}catch(e){console.warn('Book storage unavailable',e);notify('Browser storage is limited: imported books may not persist')}await refreshLibrary();checkFolioPersistence().catch(()=>{});const last=Object.entries(state.progress).sort((a,b)=>(b[1].updatedAt||0)-(a[1].updatedAt||0))[0];if(last&&getBookRecord(last[0])){ // Keep a restful library landing instead of auto-loading the last book.
  $('topSubtitle').textContent='Your library';}}
 
 // v10: Inflection-aware word lookup, while keeping the original clicked word.
