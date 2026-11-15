@@ -1,3 +1,21 @@
+## v91 — Technical EPUB blocks and safer theme contrast
+
+- Prevented clipped first characters and borders in preformatted source-code blocks with negative publisher margins or hanging indents.
+- Long code lines now wrap within one reading column, preserving whitespace and explicit line breaks instead of disappearing inside a hidden or oversized horizontal scrollport.
+- Corrected wrapping and font-size inheritance for nested `<pre><code>` (previously shrunk twice), long technical identifiers, and code blocks that fragment across pages; restored left/right keyboard page turning for wrapped technical blocks.
+- Added a bounded contrast check for publisher-styled code and quotations. When their background conflicts with Paper, Warm, or Night text, Folio uses a readable theme surface; legible publisher colors are preserved.
+- Clamped negative inline margins on publisher tables and figures so they cannot disappear beneath page-edge navigation masks.
+- Added Chromium regression coverage at 390, 830, 1360, and 2100 CSS pixels, covering 1/2/3 columns, code edges, long lines, theme changes, quotation contrast and technical-block navigation.
+- Bumped the service-worker app-shell cache to `folio-shell-v91`; EPUB storage and saved reading data are unchanged.
+
+## v90.9 — Search focus and PWA action spacing
+
+- Eliminated the double/mismatched focus border on the library's “Find a book or author” field. The rounded outer field now owns the focus indicator, and the inner input remains accessible without drawing a second rectangular outline.
+- Applied the same compound-input treatment to in-book search, including Paper, Warm, Night, and System themes.
+- Grouped the Install Folio and Check for app updates actions with a consistent 10px gap and shared button sizing, including when the Install action appears conditionally.
+- Kept the existing theme system, unified local-first CJK fonts, official Google Fonts web fallback, reader engine, and PWA-only architecture unchanged.
+- Updated the offline shell cache to `folio-shell-v90.9` and added browser regression checks.
+
 ## v90.8 — Full theme consistency and typography initialization
 
 - Replaced Paper-specific sidebar labels, Contents links, button hover colors, focus outlines, loading overlay, toast and TTS controls with shared Paper/Warm/Night theme tokens.

@@ -2721,6 +2721,33 @@ function protectColumnEdges(doc){
   const margin=parseFloat(st.marginInlineStart)||0;
   if(margin < -0.5)edits.push([el,'margin-inline-start','0px']);
  }
+ // Preformatted blocks are omitted from the ordinary paragraph-indent pass.
+ // Some EPUB CSS gives them a negative margin/indent or no inner gutter;
+ // masked CSS columns then cut off their first characters and left border.
+ // Keep the publisher's nonnegative spacing, and only repair unsafe values.
+ for(const pre of doc.body.querySelectorAll('pre')){
+  const style=win.getComputedStyle(pre);
+  if(style.position==='absolute'||style.position==='fixed')continue;
+  const size=parseFloat(style.fontSize)||16;
+  const marginStart=parseFloat(style.marginInlineStart)||0;
+  const marginEnd=parseFloat(style.marginInlineEnd)||0;
+  const paddingStart=parseFloat(style.paddingInlineStart)||0;
+  const paddingEnd=parseFloat(style.paddingInlineEnd)||0;
+  const minimumGutter=Math.max(10,Math.min(16,Math.ceil(size*.65)));
+  if(marginStart<2)edits.push([pre,'margin-inline-start','2px']);
+  if(marginEnd<2)edits.push([pre,'margin-inline-end','2px']);
+  if(paddingStart<minimumGutter-.5)edits.push([pre,'padding-inline-start',minimumGutter+'px']);
+  if(paddingEnd<minimumGutter-.5)edits.push([pre,'padding-inline-end',minimumGutter+'px']);
+  if((parseFloat(style.textIndent)||0)<-.5)edits.push([pre,'text-indent','0px']);
+ }
+ // Publisher pull quotes/figures sometimes bleed into the navigation mask.
+ // Clamp only negative margins, leaving normal indented quotations intact.
+ for(const el of doc.body.querySelectorAll('figure,table')){
+  const st=win.getComputedStyle(el);
+  if(st.position==='absolute'||st.position==='fixed')continue;
+  if((parseFloat(st.marginInlineStart)||0)<-.5)edits.push([el,'margin-inline-start','0px']);
+  if((parseFloat(st.marginInlineEnd)||0)<-.5)edits.push([el,'margin-inline-end','0px']);
+ }
  for(const [el,name,value] of edits)el.style.setProperty(name,value,'important');
 }
 // getClientRects accounts for elements which fragment across several columns.
@@ -3576,9 +3603,24 @@ function makeChapterDocument(prepared){
       Do not alter the math tree or shrink scientific symbols to unreadable sizes. */
    math[display="block"]{max-inline-size:100%;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}
    math[display="block"]::-webkit-scrollbar{height:5px}
-   /* Technical pre/code material remains available at full width. */
-   pre{overflow-x:auto;overflow-y:visible;max-inline-size:100%;scrollbar-width:thin}
-   pre code{white-space:pre;overflow-wrap:normal}
+   /* Reflowable EPUBs can contain preformatted blocks wider than a column.
+      A nested scrollport clips both the first glyph and the right edge after a
+      paginated transform. Preserve whitespace and hard line breaks, but let
+      long physical lines wrap within the current reading column instead. */
+   body pre{box-sizing:border-box!important;inline-size:auto!important;
+    min-inline-size:0!important;max-inline-size:100%!important;
+    white-space:pre-wrap!important;overflow-wrap:anywhere!important;
+    word-break:normal!important;overflow:visible!important;
+    text-indent:0!important;
+    -webkit-box-decoration-break:clone;box-decoration-break:clone;}
+   body pre :is(code,kbd,samp,span){white-space:inherit!important;
+    overflow-wrap:anywhere!important;word-break:normal!important;}
+   /* The global monospace rule applies to both pre and code. Without this,
+      a nested <pre><code> is shrunk to .88em twice. */
+   body pre :is(code,kbd,samp){font-size:inherit!important;}
+   /* A quotation can start/end across a CSS column. Repeat its border and
+      padding at each fragment instead of slicing off its decorated edge. */
+   body blockquote{-webkit-box-decoration-break:clone;box-decoration-break:clone;}
    table :is(th,td){vertical-align:top}
    table :is(thead,tfoot){break-inside:avoid}
    table tr{break-inside:avoid}
@@ -3913,7 +3955,10 @@ function readerCSS(){const s=state.settings,tone=folioEffectiveTheme(),night=ton
  body img[data-folio-deferred-image]{background:color-mix(in srgb,${ink} 5%,${bg});border-radius:.2em;}
  body :is(img,svg,video){max-width:100%!important;max-height:calc(100vh - var(--folio-top) - var(--folio-bottom) - 55px)!important;object-fit:contain;height:auto;break-inside:avoid;}
  body table{max-width:100%!important;overflow-wrap:normal;white-space:normal;}
- body pre{max-width:100%!important;overflow-wrap:anywhere;white-space:pre-wrap;}
+ /* Force a width that fits ONE reading column. The EPUB compatibility rules
+    below also override publisher nowrap/hidden-scroll declarations. */
+ body pre{max-width:100%!important;max-inline-size:100%!important;
+   overflow-wrap:anywhere!important;white-space:pre-wrap!important;}
 
  /* Figure sizing is determined per chapter/column width by fitReaderFigures().
     A short caption stays beside its image; a long caption may fragment instead
@@ -3936,6 +3981,15 @@ function readerCSS(){const s=state.settings,tone=folioEffectiveTheme(),night=ton
  body :is(td,th){overflow-wrap:anywhere;word-break:break-word;}
  body :is(table,blockquote,pre){break-inside:auto!important;}
  body table{border-collapse:collapse}body :is(pre,code,kbd,samp){font-family:ui-monospace,Consolas,monospace!important;font-size:.88em;white-space:pre-wrap;overflow-wrap:anywhere}
+ /* A publisher can paint a pale code/quotation box while Folio uses Night's
+    pale body ink. Repair only blocks flagged as incompatible with the active
+    theme; leave well-contrasted publisher artwork and colors alone. */
+ body :is(pre,blockquote)[data-folio-tone-surface]{
+   background-color:${night?'#303b35':warm?'#eae0cc':'#f0f1ed'}!important;
+   border-color:${night?'#526559':warm?'#c8bba4':'#c6d1c9'}!important;
+   color:${ink}!important;
+ }
+ body pre[data-folio-tone-surface] :is(code,kbd,samp,span){color:inherit!important;}
  body a{color:${link}!important;text-decoration-color:${link};}
  body :is(small,aside,figcaption){color:${secondary}}body *::selection{background:${mark}!important}
  /* Speech tracking is paint-only: no span wrapping, no font metric changes. */
@@ -4178,13 +4232,50 @@ async function loadRemoteReaderFonts(doc,token){
  return request;
 }
 
+// Repair genuinely conflicting publisher code/quote surfaces, without a
+// blanket background override. Attribute assignment is batched so the browser
+// computes style only after the old repair flag has been removed. Re-run after
+// theme changes, since the same author's CSS may be safe in Paper but unsafe
+// in Night. The scan is bounded for very long technical EPUB chapters.
+function repairReaderBlockContrast(doc){
+ if(!doc?.body)return;
+ const blocks=Array.from(doc.body.querySelectorAll('pre,blockquote')).slice(0,320);
+ for(const el of blocks)el.removeAttribute('data-folio-tone-surface');
+ const win=doc.defaultView,night=folioEffectiveTheme()==='dark';
+ const parse=color=>{
+  const value=String(color);
+  if(/^color\(srgb\s/i.test(value)){
+   const parts=value.slice(value.indexOf(' ')+1,-1).split(/[\s,\/]+/).filter(Boolean).map(Number);
+   if(parts.length<3||parts.slice(0,3).some(x=>!Number.isFinite(x)))return null;
+   return [parts[0]*255,parts[1]*255,parts[2]*255,parts.length>=4?parts[3]:1];
+  }
+  const m=value.match(/^rgba?\(([^)]+)\)$/i);if(!m)return null;
+  const a=m[1].split(/[\s,\/]+/).filter(Boolean).map(Number);
+  if(a.length<3||a.slice(0,3).some(x=>!Number.isFinite(x)))return null;
+  return [a[0],a[1],a[2],a.length>=4?a[3]:1];
+ };
+ const luminance=v=>{
+  const c=v.slice(0,3).map(x=>{x=Math.min(255,Math.max(0,x))/255;return x<=.04045?x/12.92:((x+.055)/1.055)**2.4;});
+  return .2126*c[0]+.7152*c[1]+.0722*c[2];
+ };
+ const fixes=[];
+ for(const el of blocks){
+  const st=win.getComputedStyle(el),background=parse(st.backgroundColor),foreground=parse(st.color);
+  if(!background||!foreground||background[3]<.80)continue;
+  const a=luminance(background),b=luminance(foreground);
+  const contrast=(Math.max(a,b)+.05)/(Math.min(a,b)+.05);
+  if(contrast<4.2||(night&&a>.57))fixes.push(el);
+ }
+ for(const el of fixes)el.setAttribute('data-folio-tone-surface','');
+}
+
 function updateReaderTheme(){if(!state.book)return;const doc=$('readerFrame').contentDocument;if(!doc)return;
  if(folioIsFixedPage(doc)){
   const tone=folioEffectiveTheme();
   const paper=tone==='dark'?'#242b29':tone==='sepia'?'#f1e7d4':'#fbfaf7';
   doc.documentElement.style.background=paper;
   invalidateFolioPageLayout(doc);schedulePagination(0,state.renderToken);return;
- }flushFolioAnchor();invalidateFolioPageLayout(doc);const oldFrac=pageFraction(),token=state.renderToken;const styles=readerStyleParts(),fontStyle=doc.getElementById('folioFontStyle'),style=doc.getElementById('folioReaderStyle');if(fontStyle)fontStyle.textContent=compactReaderFontRules(styles.fonts);if(style)style.textContent=styles.layout;void loadRemoteReaderFonts(doc,token);schedulePagination(oldFrac,token);if(doc.fonts?.status==='loading')doc.fonts.ready.then(()=>{if(token===state.renderToken){invalidateFolioPageLayout(doc);schedulePagination(pageFraction(),token)}}).catch(()=>{})}
+ }flushFolioAnchor();invalidateFolioPageLayout(doc);const oldFrac=pageFraction(),token=state.renderToken;const styles=readerStyleParts(),fontStyle=doc.getElementById('folioFontStyle'),style=doc.getElementById('folioReaderStyle');if(fontStyle)fontStyle.textContent=compactReaderFontRules(styles.fonts);if(style)style.textContent=styles.layout;repairReaderBlockContrast(doc);void loadRemoteReaderFonts(doc,token);schedulePagination(oldFrac,token);if(doc.fonts?.status==='loading')doc.fonts.ready.then(()=>{if(token===state.renderToken){invalidateFolioPageLayout(doc);schedulePagination(pageFraction(),token)}}).catch(()=>{})}
 // EPUB 2/3 notes: standard noteref, ARIA doc-noteref and common superscript links.
 const notePreview={request:0,timer:0,closeTimer:0,link:null};
 function isSemanticNote(el){return /(?:^|\s)(?:footnote|endnote)(?:\s|$)/i.test(folioEpubType(el))||/^(?:doc-footnote|doc-endnote)$/i.test(el?.getAttribute?.('role')||'')}
@@ -4543,7 +4634,7 @@ async function renderChapter(index,fraction=0,opts={}){
   if(!stagedDoc?.body)throw new Error('Browser blocked book rendering');
   // Do potentially expensive font wrapping and publisher-style corrections
   // before the new page becomes visible.
-   if(!folioIsFixedPage(stagedDoc)){applyScriptFonts(stagedDoc);protectColumnEdges(stagedDoc);}
+   if(!folioIsFixedPage(stagedDoc)){applyScriptFonts(stagedDoc);protectColumnEdges(stagedDoc);repairReaderBlockContrast(stagedDoc);}
    // Start decoding likely first-spread images while waiting for fonts; never
    // hold up the chapter swap for image decoding.
    folioWarmEarlyChapterImages(stagedDoc,token);
@@ -4604,7 +4695,13 @@ async function renderChapter(index,fraction=0,opts={}){
   }
   if(state.drawer||event.altKey||event.ctrlKey||event.metaKey||!state.book)return;
   if(event.target?.closest?.('a,button,input,textarea,select,[contenteditable="true"]'))return;
-  if(event.target?.closest?.('pre,math[display="block"]')&&['ArrowLeft','ArrowRight'].includes(event.key))return;
+  // Arrow keys are reserved for horizontal inspection only when the
+  // focused technical block actually has horizontally scrollable contents.
+  // Wrapped <pre> blocks should retain normal reader page navigation.
+  if(['ArrowLeft','ArrowRight'].includes(event.key)){
+   const scroller=event.target?.closest?.('pre,math[display="block"]');
+   if(scroller&&scroller.scrollWidth>scroller.clientWidth+2)return;
+  }
   if(handleFolioNavigationKeydown(event))return;
   if(event.key==='Home'){event.preventDefault();folioJumpToChapterEdge(false)}
   else if(event.key==='End'){event.preventDefault();folioJumpToChapterEdge(true)}
