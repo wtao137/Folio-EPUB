@@ -1224,6 +1224,47 @@
 
 /* v90.8: narration controls are not inherently light-colored in Warm/Night. */
 .app .tts-dock,.app .reader-view > .tts-dock{color:var(--ink)}
+
+/* v90.9 · Compound fields have exactly one visible border and focus ring.
+   The form control stays keyboard-focusable; the outer group owns its outline. */
+.app :is(.library-filter,.search-input-wrap){
+  transition:border-color .14s ease,box-shadow .14s ease;
+}
+.app :is(.library-filter,.search-input-wrap):focus-within{
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--folio-control-focus);
+}
+.app :is(.library-filter,.search-input-wrap) input,
+.app :is(.library-filter,.search-input-wrap) input:focus,
+.app :is(.library-filter,.search-input-wrap) input:focus-visible{
+  appearance:none;-webkit-appearance:none;
+  min-height:0;min-width:0;height:100%;
+  padding:0;margin:0;border:0!important;border-radius:0;
+  outline:0!important;box-shadow:none!important;
+  background:transparent!important;color:var(--ink);caret-color:var(--accent);
+}
+.app :is(.library-filter,.search-input-wrap) input::-webkit-search-decoration{display:none}
+/* PWA install and update actions: equal rhythm whether one or both appear. */
+.app .folio-pwa-actions{
+  display:grid;grid-template-columns:minmax(0,1fr);
+  gap:10px;margin:12px 0 11px;
+}
+.app .folio-pwa-actions .secondary-action{
+  margin:0;min-width:0;min-height:42px;
+  padding:11px 14px;background:var(--surface);color:var(--ink);
+  border:1px solid var(--line);border-radius:10px;
+}
+.app .folio-pwa-actions .secondary-action:hover:not(:disabled){
+  background:var(--folio-control-hover);border-color:color-mix(in srgb,var(--accent) 35%,var(--line));
+}
+.app .folio-pwa-actions .secondary-action:focus-visible{
+  border-color:var(--accent);outline:2px solid var(--accent);outline-offset:2px;
+}
+.app .folio-pwa-actions .secondary-action[hidden]{display:none!important}
+@media(prefers-reduced-motion:reduce){
+ .app :is(.library-filter,.search-input-wrap){transition:none}
+}
+
 </style>
 </head>
 <body>
@@ -1347,8 +1388,10 @@
      <div class="drawer-group"><h3>Keyboard &amp; navigation</h3><button type="button" class="secondary-action" id="openFolioShortcuts">Show keyboard shortcuts</button><p class="setting-sub">You can also press ? while reading.</p></div><div class="setting-divider"></div>
      <div class="drawer-group"><h3>Progressive web app</h3>
       <div class="storage-row folio-app-status"><div><strong>Install &amp; offline access</strong><small id="folioAppStatus" role="status">Checking app status…</small></div><svg class="icon sm muted" aria-hidden="true"><use href="#i-book"/></svg></div>
-      <button type="button" class="secondary-action" id="folioInstallFromSettings" hidden>Install Folio</button>
-      <button type="button" class="secondary-action" id="folioCheckUpdates">Check for app updates</button>
+      <div class="folio-pwa-actions" role="group" aria-label="App installation and updates">
+       <button type="button" class="secondary-action" id="folioInstallFromSettings" hidden>Install Folio</button>
+       <button type="button" class="secondary-action" id="folioCheckUpdates">Check for app updates</button>
+      </div>
       <p class="setting-sub">Install the PWA from an HTTPS website in Edge or Chrome. Your EPUB files stay in this browser’s storage; online word lookups need an internet connection.</p>
      </div><div class="setting-divider"></div>
      <div class="drawer-group"><h3>Local storage</h3><div class="storage-row"><div><strong>Saved books</strong><small id="storageStats">Calculating…</small></div><svg class="icon sm muted"><use href="#i-lock"/></svg></div>
