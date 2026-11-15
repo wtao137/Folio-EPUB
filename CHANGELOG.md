@@ -1,3 +1,22 @@
+## v90.8 — Full theme consistency and typography initialization
+
+- Replaced Paper-specific sidebar labels, Contents links, button hover colors, focus outlines, loading overlay, toast and TTS controls with shared Paper/Warm/Night theme tokens.
+- Synchronized the dictionary popup, note popup, PWA update notice and notifications with the active theme, including elements rendered outside the main application container.
+- Fixed text contrast on the Night narration dock and on primary buttons with the light Night accent; unified disabled/hover/focus presentation.
+- Improved theme consistency for book removal, warning actions, search highlights, controls and placeholder text, without changing EPUB publisher artwork or fixed-layout content.
+- System theme now applies the appropriate native form-control color scheme and updates browser theme-color metadata from the actual displayed palette.
+- Fixed fresh-profile and invalid saved Chinese font values incorrectly overriding the default selection, which could leave the Chinese-font dropdown blank. Existing legacy Source Han/Noto settings remain migrated normally.
+- Added Chromium regression checks across 390px/1360px, Paper/Warm/Night/System and the detached notification/dictionary surfaces.
+- Retained PWA-only design, automatic installed CJK font priority, and official Google Fonts fallback.
+
+## v90.7 — Unified CJK families and themed library controls
+
+- Consolidated the separate Source Han and Noto CJK Serif/Sans choices into a single local-first Serif and a single local-first Sans setting, with official Google Fonts as fallback.
+- Automatically migrate legacy `Noto Serif CJK SC` / `Noto Sans CJK SC` settings, including reading-data backups.
+- Removed the obsolete manual Source Han file-import panel and related data-loading code; no font binaries are bundled.
+- Replaced native library select popups with consistent themed, accessible menus. Four filters support keyboard arrows, Home/End, Enter, Escape, pointer selection and native-select change events.
+- Improved theme consistency, menu focus, and narrow-window behavior. Preserved PWA-only architecture.
+
 ## v90.6 — Local-first Chinese font selection
 
 - Prefer installed Noto CJK/Source Han Regular and Bold faces before requesting the official Google Fonts CSS2 stylesheet.

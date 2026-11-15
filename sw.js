@@ -1,5 +1,5 @@
 // Folio app shell. Books live in IndexedDB and never enter Cache Storage.
-const CACHE='folio-shell-v90-6';
+const CACHE='folio-shell-v90.8';
 const SHELL=['./index.html','./manifest.webmanifest','./icons/folio-192.png','./icons/folio-512.png'];
 const HOME=new URL('./index.html',self.registration.scope).pathname;
 self.addEventListener('install',event=>event.waitUntil((async()=>{

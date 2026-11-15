@@ -23,11 +23,9 @@ A clean, installable EPUB reader for Edge and Chrome. Folio runs entirely in the
 
 ## Fonts and privacy
 
-Folio defaults to **Noto Serif SC** and offers **Noto Sans SC**. It first uses installed Noto CJK or Source Han fonts, then loads the corresponding Google Fonts webfont only when no local match exists. Google Fonts provides Simplified Chinese Regular and Bold faces through CSS2 with character-subset downloads. Select either in **Appearance → Chinese font**. They require access to `fonts.googleapis.com` and `fonts.gstatic.com`; the browser automatically requests additional character subsets as necessary.
+Chinese typography offers two unified choices: **Source Han / Noto Serif** and **Source Han / Noto Sans**. Folio first checks installed Source Han or Noto CJK Regular fonts, then requests the official **Noto SC** Regular/Bold webfonts from `fonts.googleapis.com` and `fonts.gstatic.com` only when needed. Other installed fonts remain available from the font menu. No manual font upload is required and no font files are bundled.
 
-Adobe **Source Han Serif/Sans CN** remain separate font choices. If those hosts cannot be reached, download the fonts from the [Adobe Serif](https://github.com/adobe-fonts/source-han-serif) or [Adobe Sans](https://github.com/adobe-fonts/source-han-sans) repositories and use **Appearance → Use your own Source Han files**. Uploaded font files stay in browser storage and are not sent to a server. Folio does not ship font binaries.
-
-The reader and diagnostic clearly identify remote, user-imported, installed, and system fallback states. EPUBs and reading progress stay in browser storage. The PWA caches its application shell, but not books or external dictionary responses.
+Books, reading positions, and shelves remain in your browser's storage. The PWA caches application files for offline use, not imported EPUBs or dictionary requests. Export a ZIP backup before changing browsers or hosting origins.
 
 ## Development
 
