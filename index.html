@@ -1307,6 +1307,10 @@
 .app .folio-quick-select-wrap.folio-voice-enhanced{min-width:112px;max-width:220px}
 .app #ttsDock .folio-quick-select-wrap .folio-voice-trigger{min-height:35px;padding:7px 12px;font-size:11px}
 
+
+/* The experimental streaming provider has its own selected voices; hide only
+   the device-voice quick picker while it is selected. */
+.app.folio-neural-active #ttsDock .folio-quick-select-wrap{display:none!important}
 </style>
 </head>
 <body>
@@ -1423,8 +1427,17 @@
      </div>
      
      <div class="setting-divider"></div>
-     <div class="drawer-group"><h3>Read aloud · Web Speech</h3><label class="setting-label" for="zhVoice">Chinese voice</label><span class="folio-select-wrap"><select class="select" id="zhVoice"><option value="">System default</option></select></span><label class="setting-label" style="margin-top:18px" for="enVoice">English voice</label><span class="folio-select-wrap"><select class="select" id="enVoice"><option value="">System default</option></select></span>
-     <p class="setting-sub" id="folioVoiceDiscoveryStatus" role="status" aria-live="polite">Tap a voice field to load the browser’s available voices.</p><div class="switch-row"><label for="autoAdvance">Continue into next chapter</label><input type="checkbox" id="autoAdvance" checked></div><div class="switch-row"><label for="autoScroll">Follow narration across pages</label><input type="checkbox" id="autoScroll" checked></div><label class="setting-label" style="margin-top:17px" for="speechFocus">Reading focus</label><span class="folio-select-wrap"><select class="select" id="speechFocus"><option value="word-line">Word and line</option><option value="word">Word only</option><option value="line">Line only</option><option value="off">Off</option></select></span><button class="secondary-action" id="openDock"><svg class="icon sm"><use href="#i-headphones"/></svg> Show read-aloud controls</button>
+     <div class="drawer-group"><h3>Read aloud</h3>
+     <label class="setting-label" for="folioTTSEngine">Voice provider</label><span class="folio-select-wrap"><select class="select" id="folioTTSEngine"><option value="device">Device voices · Web Speech</option><option value="edge-direct">Edge neural · direct streaming (experimental)</option></select></span>
+     <div id="folioDirectChoices" hidden>
+      <p class="setting-sub">Direct browser-to-Microsoft WebSocket audio, independent of installed voices. Not an official public API; some browsers reject its handshake. No server or account required.</p>
+      <label class="setting-label" style="margin-top:12px" for="directZhVoice">Chinese neural voice</label><span class="folio-select-wrap"><select class="select" id="directZhVoice"></select></span>
+      <label class="setting-label" style="margin-top:14px" for="directEnVoice">English neural voice</label><span class="folio-select-wrap"><select class="select" id="directEnVoice"></select></span>
+      <button class="secondary-action" type="button" id="folioDirectTest" style="margin-top:12px">Test direct connection</button>
+      <p class="setting-sub" id="folioDirectStatus" role="status" aria-live="polite">Direct TTS is experimental.</p>
+     </div>
+     <div id="folioWebSpeechChoices"><label class="setting-label" style="margin-top:14px" for="zhVoice">Chinese voice</label><span class="folio-select-wrap"><select class="select" id="zhVoice"><option value="">System default</option></select></span><label class="setting-label" style="margin-top:18px" for="enVoice">English voice</label><span class="folio-select-wrap"><select class="select" id="enVoice"><option value="">System default</option></select></span>
+     <p class="setting-sub" id="folioVoiceDiscoveryStatus" role="status" aria-live="polite">Tap a voice field to load the browser’s available voices.</p></div><div class="switch-row"><label for="autoAdvance">Continue into next chapter</label><input type="checkbox" id="autoAdvance" checked></div><div class="switch-row"><label for="autoScroll">Follow narration across pages</label><input type="checkbox" id="autoScroll" checked></div><label class="setting-label" style="margin-top:17px" for="speechFocus">Reading focus</label><span class="folio-select-wrap"><select class="select" id="speechFocus"><option value="word-line">Word and line</option><option value="word">Word only</option><option value="line">Line only</option><option value="off">Off</option></select></span><button class="secondary-action" id="openDock"><svg class="icon sm"><use href="#i-headphones"/></svg> Show read-aloud controls</button>
      </div>
      <div class="setting-divider"></div>
      <div class="drawer-group"><h3>Keyboard &amp; navigation</h3><button type="button" class="secondary-action" id="openFolioShortcuts">Show keyboard shortcuts</button><p class="setting-sub">You can also press ? while reading.</p></div><div class="setting-divider"></div>
@@ -1507,7 +1520,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 const $=id=>document.getElementById(id);
 const ICON=(name,cls='')=>`<svg class="icon ${cls}"><use href="#i-${name}"/></svg>`;
 const STORAGE={settings:'folio.settings.v1',progress:'folio.progress.v1',bookmarks:'folio.bookmarks.v1'};
-const DEFAULTS={theme:'light',enFont:'Georgia',zhFont:'Noto Serif SC',forceBookFonts:false,fontSize:20,lineHeight:1.8,paragraphSpace:1.0,pageWidth:1280,rate:1,zhVoice:'',enVoice:'',quickVoice:'auto',librarySort:'recent',libraryStatus:'all',libraryView:'grid',libraryFavorites:[],libraryCollections:[],lastVoiceByLang:{},autoAdvance:true,autoScroll:true,speechFocus:'word-line'};
+const DEFAULTS={theme:'light',enFont:'Georgia',zhFont:'Noto Serif SC',forceBookFonts:false,fontSize:20,lineHeight:1.8,paragraphSpace:1.0,pageWidth:1280,rate:1,zhVoice:'',enVoice:'',quickVoice:'auto',librarySort:'recent',libraryStatus:'all',libraryView:'grid',libraryFavorites:[],libraryCollections:[],lastVoiceByLang:{},autoAdvance:true,autoScroll:true,speechFocus:'word-line',ttsEngine:'device',directZhVoice:'zh-CN-XiaoxiaoNeural',directEnVoice:'en-US-JennyNeural'};
 const PALETTE=['#6f847d','#8b766c','#697e91','#86856d','#986c66','#736c85','#53776d','#87735e'];
 const MIME={svg:'image/svg+xml',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',webp:'image/webp',avif:'image/avif',bmp:'image/bmp',css:'text/css',woff:'font/woff',woff2:'font/woff2',ttf:'font/ttf',otf:'font/otf',mp3:'audio/mpeg',mp4:'video/mp4',m4a:'audio/mp4',ogg:'audio/ogg'};
 const state={db:null,library:[],temporary:new Map(),book:null,zip:null,meta:null,manifest:new Map(),spine:[],toc:[],chapter:-1,urls:new Map(),chapterCache:new Map(),preparePromises:new Map(),styleCache:new Map(),noteDocCache:new Map(),noteReturn:null,coverUrls:new Map(),loadToken:0,renderToken:0,settings:{...DEFAULTS},progress:{},bookmarks:{},railOpen:false,drawer:null,tocTab:'toc',voices:[],synth:window.speechSynthesis||null,tts:{mode:'stopped',token:0,segments:[],index:0,activeEl:null,selectedEl:null,utterance:null,focusRange:null,focusLine:null,boundarySeen:false},paging:{page:0,pages:1,columns:2,step:0,gap:0,restore:0},resizeTimer:0,toastTimer:0,readingAnchor:null};
@@ -1743,7 +1756,7 @@ function showDrawer(which){
  $('scrim').classList.add('visible');
  const drawer=$(folioDrawerIds[which]);drawer.classList.add('visible');drawer.setAttribute('aria-modal','true');
  const triggerId={toc:'topToc',search:'topSearch',settings:'topSettings'}[which];$(triggerId).setAttribute('aria-expanded','true');
- if(which==='toc')renderTOC();if(which==='settings'){folioRefreshVoices();updateStorageStats();folioUpdateAppStatus().catch(()=>{});folioUpdateChineseFontStatus()}if(which==='search')onOpenFolioSearch();
+ if(which==='toc')renderTOC();if(which==='settings'){if(!state.voices.length&&!folioIsEdgeAndroid)folioRefreshVoices();updateStorageStats();folioUpdateAppStatus().catch(()=>{});folioUpdateChineseFontStatus()}if(which==='search')onOpenFolioSearch();
  if(window.innerWidth<=680)setRail(false);
  requestAnimationFrame(()=>{
   if(state.drawer!==which)return;
@@ -5348,9 +5361,14 @@ const folioIsEdgeAndroid=/Android/i.test(navigator.userAgent)&&/\bEdgA?\//i.test
 const folioVoicePicker={select:null,trigger:null,menu:null,poll:[],probe:null,
  probing:false,lastProbeAt:0,engineReady:!folioIsEdgeAndroid,error:''};
 function folioVoiceEngineStarted(){
+ // Only Edge Android needs speech-start-driven enumeration. On desktop a
+ // chapter may contain thousands of spoken passages, so never rebuild all
+ // voice controls at every onstart event.
+ if(!folioIsEdgeAndroid)return;
  const p=folioVoicePicker;
  if(!p.engineReady)p.engineReady=true;
- folioRefreshVoices();
+ // Once Edge has supplied its catalog, voiceschanged owns future updates.
+ if(!state.voices.length)folioRefreshVoices();
 }
 function folioVoiceSyncTriggers(){
  for(const id of ['zhVoice','enVoice','quickVoice']){
@@ -5444,11 +5462,11 @@ function folioVoiceCancelProbe(){
  folioVoiceSyncTriggers();
 }
 function folioWarmVoicesForGesture(language='zh'){
+ // This audible-initialization workaround is Edge-Android-specific.
+ // No utterance, speech probe, poll timer or cooldown runs on desktop.
+ if(!folioIsEdgeAndroid)return;
  const p=folioVoicePicker,synth=state.synth;
  if(!synth||!window.SpeechSynthesisUtterance)return;
- // Most browsers enumerate eagerly. Edge Android MUST NOT call getVoices()
- // here: its engine only becomes queryable after onstart/onend of real speech.
- if(!folioIsEdgeAndroid)folioRefreshVoices();
  if(state.voices.length||p.probing||Date.now()-p.lastProbeAt<650||
     state.tts.mode!=='stopped'||synth.speaking||synth.pending||synth.paused)return;
  p.probing=true;p.error='';p.lastProbeAt=Date.now();
@@ -5505,8 +5523,10 @@ function folioVoiceOpen(id){
  p.menu.hidden=false;
  // Important: the real speak() call happens directly within this click event
  // and precedes *any* attempt to enumerate voices on Edge Android.
- if(folioIsEdgeAndroid&&!p.engineReady)folioWarmVoicesForGesture(id==='enVoice'?'en':'zh');
- else{folioRefreshVoices();if(!state.voices.length)folioWarmVoicesForGesture(id==='enVoice'?'en':'zh')}
+ if(folioIsEdgeAndroid){
+  if(!p.engineReady)folioWarmVoicesForGesture(id==='enVoice'?'en':'zh');
+  else if(!state.voices.length)folioRefreshVoices();
+ }else if(!state.voices.length)folioRefreshVoices();
  folioVoiceRenderOptions();
 }
 function folioInitVoicePickers(){
@@ -6007,7 +6027,176 @@ let folioSpeechRecoveryTimer=null;
 function folioClearSpeechRecovery(){
  if(folioSpeechRecoveryTimer!==null){clearTimeout(folioSpeechRecoveryTimer);folioSpeechRecoveryTimer=null}
 }
+/* Folio experimental browser-only Edge neural streaming.
+ * No service worker, proxy, or background socket is used. The endpoint is unofficial
+ * and may reject a normal browser WebSocket handshake. Only runs when selected.
+ */
+const FOLIO_DIRECT_VOICES={
+ zh:[['zh-CN-XiaoxiaoNeural','Xiaoxiao · Mandarin'],['zh-CN-XiaoyiNeural','Xiaoyi · Mandarin'],['zh-CN-YunxiNeural','Yunxi · Mandarin'],['zh-CN-YunjianNeural','Yunjian · Mandarin'],['zh-CN-YunyangNeural','Yunyang · Mandarin'],['zh-TW-HsiaoChenNeural','HsiaoChen · Taiwan'],['zh-HK-HiuGaaiNeural','HiuGaai · Cantonese']],
+ en:[['en-US-AriaNeural','Aria · US'],['en-US-JennyNeural','Jenny · US'],['en-US-GuyNeural','Guy · US'],['en-US-ChristopherNeural','Christopher · US'],['en-GB-SoniaNeural','Sonia · UK'],['en-GB-RyanNeural','Ryan · UK'],['en-AU-NatashaNeural','Natasha · Australia']]
+};
+const FOLIO_EDGE_HOST='wss://api.msedgeservices.com/tts/cognitiveservices/websocket/v1';
+const FOLIO_EDGE_TOKEN='6A5AA1D4EAFF4E9FB37E23D68491D6F4';
+const FOLIO_EDGE_VERSION='143.0.3650.75';
+const folioDirectSelected=()=>state.settings.ttsEngine==='edge-direct';
+function folioDirectStatus(message){const el=$('folioDirectStatus');if(el)el.textContent=message}
+const folioDirectHex=bytes=>Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('').toUpperCase();
+const folioRol16=x=>((x<<16)|(x>>>16))>>>0;
+// Reproduces the public, timestamped Sec-MS-GEC v2 wire format.
+async function folioDirectSecurityToken(now=Date.now()){
+ const prefix=[0x79706f43,0x68676972,0x43282074,0x694d2029,0x736f7263,0x2074666f,0x70726f43,0x7461726f,0x2e6e6f69,0x6c6c4120,0x67697220,0x20737468,0x65736572,0x64657672,0x0000002e];
+ const seconds=Math.floor(now/1000)+11644473600;
+ const ticks=(seconds-seconds%300)*10000000;
+ const suffix=new TextEncoder().encode(`${ticks.toFixed(0)}${FOLIO_EDGE_TOKEN}`);
+ const input=new Uint8Array(57+suffix.length),dv=new DataView(input.buffer);
+ prefix.forEach((value,i)=>dv.setUint32(4*i,value,true));input.set(suffix,57);
+ const digest=new Uint8Array(await crypto.subtle.digest('SHA-256',input));
+ function words(bytes){const padded=new Uint8Array(Math.ceil(bytes.length/8)*8);padded.set(bytes);const view=new DataView(padded.buffer);return Array.from({length:padded.length/4},(_,i)=>view.getUint32(4*i,true))}
+ const w=words(input),k=words(digest),a=(k[0]|1)>>>0,b=(k[1]|1)>>>0;
+ let swapAcc=0,swapLast=0,revAcc=0,revLast=0;
+ for(let i=0;i<w.length;i+=2){
+  let t=folioRol16((Math.imul(folioRol16(w[i]),0xef0569fb)+Math.imul(w[i],a))>>>0);
+  let q=Math.imul(t,0x76f50f34)>>>0;
+  swapAcc=(swapAcc+Math.imul(folioRol16(q),0xc3efea97)+q)>>>0;
+  t=folioRol16((Math.imul(folioRol16(w[i+1]),0xc31713db)+Math.imul(w[i+1],b))>>>0);
+  q=Math.imul(t,0x1881ce3c)>>>0;
+  swapLast=(Math.imul(folioRol16(q),0x35bd1ec9)+q)>>>0;swapAcc=(swapAcc+swapLast)>>>0;
+  revLast=Math.imul(revLast+w[i],a)>>>0;
+  for(const c of [0xcf98b111,0x87085b9f,0x12ceb96d,0x257e1d83])revLast=Math.imul(folioRol16(revLast),c)>>>0;
+  let r=Math.imul(w[i+1]+revLast,b)>>>0;
+  r=Math.imul(folioRol16(r),0xa27416f5)>>>0;
+  r=folioRol16(Math.imul(folioRol16(r),0xd38396ff)>>>0);
+  revAcc=(revAcc+revLast)>>>0;
+  revLast=Math.imul(folioRol16(Math.imul(r,0x7c932b89)>>>0),0xbfa49f69)>>>0;
+  revAcc=(revAcc+revLast)>>>0;
+ }
+ const out=new ArrayBuffer(8),view=new DataView(out);
+ view.setUint32(0,swapLast^revLast,true);view.setUint32(4,swapAcc^revAcc,true);
+ return folioDirectHex(new Uint8Array(out))+'-'+folioDirectHex(digest);
+}
+const folioDirect={socket:null,context:null,source:null,timer:null,pending:false,generation:0,started:0,currentItem:null,currentBoundaries:[],currentBoundary:-1,
+ unlock(){if(!folioDirectSelected())return;const Context=window.AudioContext||window.webkitAudioContext;if(!Context)return;try{if(!this.context||this.context.state==='closed')this.context=new Context();this.context.resume().catch(()=>{})}catch(e){folioDirectStatus('Audio could not be unlocked: '+e.message)}},
+ stopSource(){if(this.timer){clearInterval(this.timer);this.timer=null}if(this.source){try{this.source.onended=null;this.source.stop()}catch{}try{this.source.disconnect()}catch{}this.source=null}},
+ cancel(closeContext=false){this.generation++;this.pending=false;if(this.socket){const ws=this.socket;this.socket=null;try{ws.close()}catch{}}this.stopSource();this.currentItem=null;this.currentBoundaries=[];if(closeContext&&this.context){const c=this.context;this.context=null;void c.close().catch(()=>{})}},
+ pause(){if(this.context?.state==='running')void this.context.suspend().catch(()=>{});if(this.timer){clearInterval(this.timer);this.timer=null}},
+ resume(){if(this.context){void this.context.resume().then(()=>this.startTicker()).catch(()=>{})}},
+ startTicker(){if(!this.source||this.timer||state.tts.mode!=='playing')return;this.timer=setInterval(()=>this.tick(),65)},
+ tick(){if(!this.source||state.tts.mode!=='playing')return;const elapsed=Math.max(0,(this.context.currentTime-this.started)*1e7);const b=this.currentBoundaries;
+  let lo=0,hi=b.length;while(lo<hi){const m=(lo+hi)>>1;if(b[m].offset<=elapsed)lo=m+1;else hi=m}const n=lo-1;
+  if(n!==this.currentBoundary&&n>=0){this.currentBoundary=n;const entry=b[n];folioSpeechPaint(this.currentItem,entry.position,true,entry.text.length)}
+ },
+};
+const folioDirectEscape=value=>String(value).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g,'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
+function folioDirectSpeechRequest({text,voice,rate=1},onSocket){
+ let ws=null,ended=false,timer=null,parts=[],boundaries=[],bytes=0;
+ const controller={cancel:()=>{if(ws){try{ws.close()}catch{}}}};
+ const promise=(async()=>{
+  if(!window.WebSocket||!window.crypto?.subtle)throw new Error('WebSocket and secure Web Crypto are required.');
+  const params=new URLSearchParams({ConnectionId:folioDirectHex(crypto.getRandomValues(new Uint8Array(16))),
+   'Ocp-Apim-Subscription-Key':FOLIO_EDGE_TOKEN,'Sec-MS-GEC':await folioDirectSecurityToken(),
+   'Sec-MS-GEC-Version':'2-'+FOLIO_EDGE_VERSION});
+  const url=FOLIO_EDGE_HOST+'?'+params.toString();
+  return await new Promise((resolve,reject)=>{
+   const finish=(error,result)=>{if(ended)return;ended=true;clearTimeout(timer);try{ws?.close()}catch{};if(error)reject(error);else resolve(result)};
+   const watchdog=()=>{clearTimeout(timer);timer=setTimeout(()=>finish(new Error('Direct WebSocket timed out.')),12000)};
+   try{ws=new WebSocket(url)}catch(e){finish(e);return}
+   ws.binaryType='arraybuffer';onSocket?.(ws,controller);watchdog();
+   ws.onopen=()=>{
+    watchdog();const date=new Date().toUTCString();
+    const config=JSON.stringify({context:{synthesis:{audio:{metadataoptions:{sentenceBoundaryEnabled:false,wordBoundaryEnabled:true},outputFormat:'audio-24khz-48kbitrate-mono-mp3'}}}});
+    const ssml=`<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="${folioDirectEscape(voice.slice(0,5))}"><voice name="${folioDirectEscape(voice)}"><prosody rate="${Math.round((rate-1)*100)}%">${folioDirectEscape(text)}</prosody></voice></speak>`;
+    ws.send(`Content-Type:application/json; charset=utf-8\r\nPath:speech.config\r\nX-Timestamp:${date}\r\n\r\n${config}`);
+    ws.send(`Content-Type:application/ssml+xml\r\nPath:ssml\r\nX-RequestId:${params.get('ConnectionId')}\r\nX-Timestamp:${date}\r\n\r\n${ssml}`);
+   };
+   ws.onerror=()=>finish(new Error('Direct WebSocket handshake rejected or blocked by the browser/service.'));
+   ws.onclose=()=>{if(!ended)finish(new Error('Direct WebSocket closed before audio was received.'))};
+   ws.onmessage=event=>{
+    watchdog();const data=event.data;
+    if(typeof data==='string'){
+     if(data.includes('Path:audio.metadata')){
+      const body=data.slice(data.search(/\r?\n\r?\n/)).trim();try{for(const entry of JSON.parse(body).Metadata||[]){if(entry.Type==='WordBoundary'&&Number.isFinite(entry.Data?.Offset))boundaries.push({offset:entry.Data.Offset,text:String(entry.Data.text?.Text||'')})}}catch{}
+     }else if(data.includes('Path:turn.end')){
+      if(!bytes)finish(new Error('Server ended without sending MP3 audio.'));
+      else finish(null,{blob:new Blob(parts,{type:'audio/mpeg'}),boundaries});
+     }
+     return;
+    }
+    if(!(data instanceof ArrayBuffer))return;
+    const raw=new Uint8Array(data),head=new TextDecoder().decode(raw.subarray(0,Math.min(512,raw.length)));
+    if(!/Path:audio\b/i.test(head))return;
+    const sep=head.search(/\r?\n\r?\n/);if(sep<0)return;
+    const headerTerm=head.slice(sep).match(/^\r?\n\r?\n/)[0];
+    const skip=new TextEncoder().encode(head.slice(0,sep+headerTerm.length)).length;
+    if(raw.length>skip){const packet=raw.slice(skip);bytes+=packet.length;if(bytes>4*1024*1024){finish(new Error('Synthesis exceeded the per-passage audio limit.'));return}parts.push(packet)}
+   };
+  });
+ })();
+ return {promise,cancel:controller.cancel};
+}
+function folioDirectVoice(lang){const list=FOLIO_DIRECT_VOICES[lang==='zh'?'zh':'en'];const id=state.settings[lang==='zh'?'directZhVoice':'directEnVoice'];return list.some(v=>v[0]===id)?id:list[0][0]}
+async function folioDirectPlayNext(token,item){
+ folioDirect.cancel();const generation=folioDirect.generation;
+ const offset=Math.max(0,Math.min(item.text.length-1,state.tts.resumeOffset||0));
+ const text=item.text.slice(offset);folioDirect.currentItem=item;folioDirect.pending=true;
+ if(state.settings.autoScroll&&!state.tts.followSuspended)goToSpeechSegment(item);
+ folioSpeechPaint(item,offset,false);
+ const voice=folioDirectVoice(item.lang);
+ updateTTSUI(`${voice.replace(/Neural$/,'')} · connecting…`);
+ try{
+  const request=folioDirectSpeechRequest({text,voice,rate:state.settings.rate},ws=>{if(folioDirect.generation===generation)folioDirect.socket=ws;else ws.close()});
+  const {blob,boundaries}=await request.promise;
+  if(token!==state.tts.token||folioDirect.generation!==generation||state.tts.mode==='stopped')return;
+  folioDirect.socket=null;
+  const ctx=folioDirect.context;if(!ctx)throw new Error('Audio was not unlocked. Tap Play to retry.');
+  const buffer=await ctx.decodeAudioData(await blob.arrayBuffer());
+  if(token!==state.tts.token||folioDirect.generation!==generation||state.tts.mode==='stopped')return;
+  const source=ctx.createBufferSource();source.buffer=buffer;source.connect(ctx.destination);
+  let cursor=0;
+  folioDirect.currentBoundaries=boundaries.map(b=>{const match=text.indexOf(b.text,cursor);const pos=offset+(match>=0?match:cursor);cursor=(match>=0?match:cursor)+b.text.length;return {...b,position:Math.max(offset,Math.min(item.text.length-1,pos))}}).sort((a,b)=>a.offset-b.offset);
+  folioDirect.currentBoundary=-1;folioDirect.source=source;folioDirect.pending=false;
+  folioDirect.started=ctx.currentTime;
+  source.onended=()=>{
+   if(token!==state.tts.token||folioDirect.source!==source||folioDirect.generation!==generation||state.tts.mode==='stopped')return;
+   folioDirect.stopSource();state.tts.index++;state.tts.resumeOffset=0;
+   if(state.tts.mode==='playing')speakNext(token);else{state.tts.needsRestart=true;updateTTSUI()}
+  };
+  source.start();
+  if(state.tts.mode==='paused')folioDirect.pause();else folioDirect.startTicker();
+  updateTTSUI(`${voice.replace(/Neural$/,'')} · ${state.tts.index+1}/${state.tts.segments.length}`);
+ }catch(e){
+  if(token!==state.tts.token||folioDirect.generation!==generation||state.tts.mode==='stopped')return;
+  const message=String(e?.message||e);
+  folioDirectStatus(message);
+  stopSpeech();notify('Direct neural TTS unavailable: '+message);
+ }
+}
+async function folioDirectTest(){const button=$('folioDirectTest');if(!button||button.disabled)return;button.disabled=true;folioDirectStatus('Testing direct WebSocket connection…');
+ let request;
+ try{request=folioDirectSpeechRequest({text:'Hello.',voice:folioDirectVoice('en'),rate:1});const result=await request.promise;
+  if(result.blob.size>0)folioDirectStatus(`Connection succeeded · ${result.blob.size} bytes MP3 received. Browser-only playback is available.`);
+  else throw new Error('No audio received.');
+ }catch(e){folioDirectStatus('Unavailable: '+String(e.message||e)+ ' A PWA cannot override rejected browser WebSocket handshake headers.');}
+ finally{button.disabled=false}
+}
+function folioDirectEngineUI(){
+ const direct=folioDirectSelected(),web=$('folioWebSpeechChoices'),settings=$('folioDirectChoices');
+ $('app')?.classList.toggle('folio-neural-active',direct);
+ if(web)web.hidden=direct;if(settings)settings.hidden=!direct;
+ if(direct)folioDirectStatus('Experimental browser-only service. Text is sent to Microsoft when playback starts. No backend or system voices are used.');
+}
+function folioDirectInitUI(){
+ for(const [id,lang] of [['directZhVoice','zh'],['directEnVoice','en']]){
+  const select=$(id);if(!select)continue;select.replaceChildren();for(const [key,label] of FOLIO_DIRECT_VOICES[lang])select.add(new Option(label,key));
+  const chosen=state.settings[id];if(chosen&&FOLIO_DIRECT_VOICES[lang].some(([k])=>k===chosen))select.value=chosen;
+  select.addEventListener('change',()=>{state.settings[id]=select.value;safeSave(STORAGE.settings,state.settings);if(state.tts.mode!=='stopped')stopSpeech()});
+ }
+ const engine=$('folioTTSEngine');engine.value=folioDirectSelected()?'edge-direct':'device';
+ engine.addEventListener('change',()=>{if(state.tts.mode!=='stopped')stopSpeech();state.settings.ttsEngine=engine.value;safeSave(STORAGE.settings,state.settings);folioDirectEngineUI()});
+ $('folioDirectTest').addEventListener('click',folioDirectTest);folioDirectEngineUI();
+}
+
 function stopSpeech(){
+ folioDirect.cancel(true);
  folioClearSpeechRecovery();selectSpeechOrigin(null);
  state.tts.token++;state.tts.mode='stopped';state.tts.utterance=null;
  state.tts.segments=[];state.tts.index=0;state.tts.needsRestart=false;
@@ -6018,6 +6207,7 @@ function stopSpeech(){
 }
 function pauseSpeech(){
  if(state.tts.mode!=='playing')return;
+ if(folioDirectSelected()){state.tts.mode='paused';folioDirect.pause();updateTTSUI();return}
  state.tts.needsRestart=!!state.tts.needsRestart||folioSpeechRecoveryTimer!==null;
  folioClearSpeechRecovery();state.tts.mode='paused';
  try{state.synth?.pause()}catch{}
@@ -6025,6 +6215,7 @@ function pauseSpeech(){
 }
 function resumeSpeech(){
  if(state.tts.mode!=='paused')return;
+ if(folioDirectSelected()){state.tts.mode='playing';updateTTSUI();if(folioDirect.pending)return;if(folioDirect.source)folioDirect.resume();else speakNext(state.tts.token);return}
  state.tts.mode='playing';updateTTSUI();
  if(state.tts.chapterTransitioning)return;
  if(state.tts.needsRestart||!state.tts.utterance){
@@ -6066,6 +6257,7 @@ function speakNext(token){
   }
   stopSpeech();notify('Finished reading this section');return;
  }
+ if(folioDirectSelected()){folioDirectPlayNext(token,item);return}
  if(!state.synth){stopSpeech();notify('Text-to-speech is not available in this browser');return}
  const voice=chooseVoice(item.lang);
  const offset=Math.max(0,Math.min(item.text.length-1,state.tts.resumeOffset||0));
@@ -6128,6 +6320,7 @@ function folioSkipSpeechPassage(direction){
  state.tts.recoveryIndex=-1;state.tts.recoveryCount=0;
  folioClearSpeechRecovery();clearHighlight();
  try{state.synth?.cancel()}catch{}
+ folioDirect.cancel();
  // Explicitly skipping to another spoken passage is a request to follow it.
  state.tts.followSuspended=false;
  if(state.settings.autoScroll)goToSpeechSegment(state.tts.segments[at]);
@@ -6135,10 +6328,11 @@ function folioSkipSpeechPassage(direction){
  else updateTTSUI(`Passage ${at+1} / ${state.tts.segments.length} · paused`);
 }
 function startSpeech(origin=null){
- folioVoiceCancelProbe();
+ if(!folioDirectSelected())folioVoiceCancelProbe();
  if(!state.book){notify('Open a book first');return}
- if(!state.synth){notify('Your browser does not expose text-to-speech');return}
+ if(!state.synth&&!folioDirectSelected()){notify('Your browser does not expose text-to-speech');return}
  stopSpeech();
+ if(folioDirectSelected())folioDirect.unlock();
  state.tts.segments=currentSpeechSegments();
  if(!state.tts.segments.length){notify('No readable text found in this chapter');return}
  const clickedIndex=origin?state.tts.segments.findIndex(item=>item.el===origin):-1;
@@ -6641,9 +6835,9 @@ function bindEvents(){
  });
  window.addEventListener('blur',()=>{stopFolioHeldNavigation();cancelFolioWheelQueue()});
  const observer=new ResizeObserver(()=>{if(state.book)schedulePagination(pageFraction(),state.renderToken)});observer.observe($('readingShell'));document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){stopFolioHeldNavigation();cancelFolioWheelQueue();folioPersistOnSuspend()}});window.addEventListener('pagehide',folioPersistOnSuspend);window.addEventListener('beforeunload',()=>{folioPersistOnSuspend();if(state.synth)state.synth.cancel()});
- if(state.synth){state.synth.addEventListener?.('voiceschanged',folioRefreshVoices);if(!folioIsEdgeAndroid){folioRefreshVoices();setTimeout(folioRefreshVoices,500);setTimeout(folioRefreshVoices,1600)}}else $('ttsSubstatus').textContent='Speech is not supported in this browser';
+ if(state.synth){state.synth.addEventListener?.('voiceschanged',folioRefreshVoices);if(!folioIsEdgeAndroid){folioRefreshVoices();if(!state.voices.length)setTimeout(()=>{if(!state.voices.length)folioRefreshVoices()},1000)}}else $('ttsSubstatus').textContent='Speech is not supported in this browser';
  }
-async function start(){initSettings();folioInitializeLibraryPickers();bindEvents();folioInitVoicePickers();setButtonState();try{state.db=await openDB()}catch(e){console.warn('Book storage unavailable',e);notify('Browser storage is limited: imported books may not persist')}await refreshLibrary();checkFolioPersistence().catch(()=>{});const last=Object.entries(state.progress).sort((a,b)=>(b[1].updatedAt||0)-(a[1].updatedAt||0))[0];if(last&&getBookRecord(last[0])){ // Keep a restful library landing instead of auto-loading the last book.
+async function start(){initSettings();folioInitializeLibraryPickers();bindEvents();folioInitVoicePickers();folioDirectInitUI();setButtonState();try{state.db=await openDB()}catch(e){console.warn('Book storage unavailable',e);notify('Browser storage is limited: imported books may not persist')}await refreshLibrary();checkFolioPersistence().catch(()=>{});const last=Object.entries(state.progress).sort((a,b)=>(b[1].updatedAt||0)-(a[1].updatedAt||0))[0];if(last&&getBookRecord(last[0])){ // Keep a restful library landing instead of auto-loading the last book.
  $('topSubtitle').textContent='Your library';}}
 
 // v10: Inflection-aware word lookup, while keeping the original clicked word.

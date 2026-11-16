@@ -1,3 +1,20 @@
+## v94 — Experimental direct neural speech
+
+- Add an opt-in browser-only Edge neural WebSocket provider, separate from device Web Speech. Available on any platform; remote handshake acceptance is not guaranteed.
+- Provide a built-in Chinese/English neural voice catalog, a manual connection test, MP3 passage playback via Web Audio, and word-boundary synchronized reader highlighting.
+- Use explicit error reporting (rather than silent fallback) for restricted WebSocket connections. Only connect upon user request; no new background tasks on desktop or mobile.
+- Retain the v93.1 desktop voice-enumeration performance optimization and existing Edge Android voice-discovery workaround for device voices.
+- Retain PWA-only deployment; no proxy, backend, or native application.
+
+## v93 — Edge Android 157 voice initialization
+
+- Avoid calling `speechSynthesis.getVoices()` during startup on Edge Android. This browser has a reported bug in which early enumeration can leave its voice catalog empty.
+- Opening a voice selector now requests TTS engine activation in that user gesture with a very brief low-volume speech sample. Only after the engine reports speech start are voices queried. A short sample may be audible.
+- Update Chinese, English, and quick-voice lists without requiring the book narration button; stop and cancel discovery samples, and keep existing narration separate.
+- Poll voice availability for engines that omit `voiceschanged`. Show an honest fallback message if no voices appear; no private Edge API is available to web pages.
+- Protect dictionary fallback and first book narration from querying Edge voices prematurely.
+- Add `tests/edge_android_voice_v93.py` to simulate a voice engine that is permanently poisoned by early enumeration. This is **not** a test on real Edge Android 157.
+
 ## v92 — Android voice discovery and Chinese system fonts
 
 - Edge Android: opening voice settings, or a voice picker, refreshes Web Speech voices and can trigger a short muted initialization when the voice catalog is initially empty. The list updates live without starting book narration; narration already playing is never interrupted by discovery.
