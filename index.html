@@ -2631,7 +2631,12 @@ function paginateChapter(fraction=pageFraction(),token=state.renderToken){
    enabled:!!state.settings.qualityWrap,
    deferValidation:true,
    anchor:state.readingAnchor,
-   key:readerStyleMemo.key+'|'+wantedColumns+'|'+(doc.documentElement.lang||'')
+   key:readerStyleMemo.key+'|'+wantedColumns+'|'+(doc.documentElement.lang||''),
+   // The preparation key is independent of page width, column count, and
+   // paragraph line breaks. Reuse Canvas glyph metrics on width-only reflow.
+   prepKey:JSON.stringify([state.settings.enFont,state.settings.zhFont,
+    state.settings.forceBookFonts,state.settings.fontSize,
+    doc.documentElement.lang||'',doc.fonts?.status||''])
   });
   if(result.anchor)state.readingAnchor=result.anchor;
  }
@@ -3998,15 +4003,15 @@ function readerCSS(){const s=state.settings,tone=folioEffectiveTheme(),night=ton
  /* Browser line breaking remains the safe fallback for complex EPUB markup.
     The optional KP engine wraps *eligible* prose into optimized line boxes; it
     never runs inside ruby, math, illustrations, footnotes or fixed-layout books. */
- ${s.qualityWrap?`body :is(p,blockquote){text-wrap:pretty;line-break:strict;hyphens:auto;text-autospace:normal;}
- body p:not(.poem):not(.verse):not(.code):not(.source-code):not(.math):not(.displaymath):not(.equation){text-align:justify!important;text-align-last:start!important;}
- body p[data-folio-kp]{text-indent:0!important;text-align:start!important;text-wrap:wrap!important;hyphens:none!important;}
- body p[data-folio-kp]>span.folio-kp-line{display:block!important;box-sizing:border-box!important;inline-size:100%!important;white-space:nowrap!important;
+ ${s.qualityWrap?`body :is(p,li,dd,blockquote,figcaption){text-wrap:pretty;line-break:strict;hyphens:auto;text-autospace:normal;}
+ body :is(p,li,dd,blockquote,figcaption):not(.poem):not(.verse):not(.code):not(.source-code):not(.math):not(.displaymath):not(.equation){text-align:justify!important;text-align-last:start!important;}
+ body :is(p,li,dd,blockquote,figcaption)[data-folio-kp]{text-indent:0!important;text-align:start!important;text-wrap:wrap!important;hyphens:none!important;}
+ body :is(p,li,dd,blockquote,figcaption)[data-folio-kp]>span.folio-kp-line{display:block!important;box-sizing:border-box!important;inline-size:100%!important;white-space:nowrap!important;
    overflow-wrap:normal!important;word-break:normal!important;text-align:start!important;text-align-last:start!important;line-break:strict!important;}
- body p[data-folio-kp]>span.folio-kp-line .folio-kp-ideograph-glue{display:inline-block!important;vertical-align:baseline!important;height:0!important;min-width:0!important;max-width:none!important;line-height:0!important;overflow:hidden!important;pointer-events:none!important;font-size:0!important;}
- body p[data-folio-kp]>span.folio-kp-hyphenated::after{content:'‐';display:inline;font-variant-ligatures:none;}
- body p[data-folio-kp]>span.folio-kp-line:first-child{break-after:avoid;}
- body p[data-folio-kp]>span.folio-kp-line:nth-last-child(2){break-after:avoid;}`:''}
+ body :is(p,li,dd,blockquote,figcaption)[data-folio-kp]>span.folio-kp-line .folio-kp-ideograph-glue{display:inline-block!important;vertical-align:baseline!important;height:0!important;min-width:0!important;max-width:none!important;line-height:0!important;overflow:hidden!important;pointer-events:none!important;font-size:0!important;}
+ body :is(p,li,dd,blockquote,figcaption)[data-folio-kp]>span.folio-kp-hyphenated::after{content:'‐';display:inline;font-variant-ligatures:none;}
+ body :is(p,li,dd,blockquote,figcaption)[data-folio-kp]>span.folio-kp-line:first-child{break-after:avoid;}
+ body :is(p,li,dd,blockquote,figcaption)[data-folio-kp]>span.folio-kp-line:nth-last-child(2){break-after:avoid;}`:''}
  /* Two-line minima at regular paragraph/quote column breaks, without imposing
     multi-line grouping on figure captions, lists, or the footnote area. */
  body :where(p,blockquote){orphans:2;widows:2;}

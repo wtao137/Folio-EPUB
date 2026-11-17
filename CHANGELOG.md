@@ -1,3 +1,22 @@
+## v92.4 — Canvas-first incremental typography and responsive-width correction (2026-11-17)
+
+- Precompute styled text boxes using Canvas and retain measurements across width-only repagination; separate paragraph source DOM from the visible line-box tree.
+- Preserve existing line nodes when their breakpoints remain unchanged; retarget measured Western/CJK spacing in place and reuse matching line prefixes/suffixes after actual rebreaking.
+- Added bounded stability for tiny width changes, avoiding unnecessary CJK/English line flicker while still enforcing the justification quality gate.
+- Corrected actual inner-column sizing: an EPUB's text container may be narrower than the visible spread. Use its current content width instead of a stale spread-width offset. Fixes clipped lines after responsive resizing.
+- Enabled eligible prose in lists, descriptions, quotations and captions, retaining native layout for blocks whose semantic structure or whitespace makes them unsafe.
+- Tested SICP, Chinese prose, footnotes, MathML, responsive columns, image fit, native fallback, source restoration and offline PWA behavior. See typography implementation notes for limitations.
+
+## Folio v92.1 — Better justified spacing, conservative performance improvements (2026-11-17)
+
+- Correct a feasibility bug in the Knuth–Plass glue solver: lines exceeding the goal by a few pixels can now use bounded **negative Western word spacing** rather than being discarded before shrinkability is considered. That provides more good paragraph-wide line-break choices and reduces pressure to over-expand other lines or insert extra discretionary hyphens.
+- Use a fast, equivalent ASCII grapheme path for English paragraphs and continue using `Intl.Segmenter` for Chinese, mixed, accented, emoji and complex Unicode text. Source characters and original inline markup are preserved. Use binary search to locate the original styled run when reconstructing each optimized line.
+- The observed SICP section 1.1 result at 1000px: lines with >5.5px *additional* word spacing **14→5**, discretionary hyphens **30→27**, 45 optimized paragraphs, no measured overflow. This is a browser regression measurement, not a general guarantee. At 390px, more paragraphs can be handled; some added paragraphs contain additional hyphens, so quality remains subject to visual review.
+- The ASCII tokenizer microbenchmark is about four times faster, but complete chapter loading **was not demonstrated faster**. In three local SICP 1000px repeats, median end-to-end time was ~1.65s for v92.0 and ~1.72s for this revision. Quality is improved at some cost; Chromium pagination still dominates elapsed time. Two Chinese 1130px candidate runs took ~0.94–0.96s, with unchanged glyph layout. Do not mistake tokenizer throughput for overall reading-performance improvement.
+- Real EPUB checks preserve all 25 section-1.1 SICP footnote links and MathML spacing; the Chinese book still optimizes 63 paragraphs in the tested chapter and retains its native-layout fallback. The deliberately conservative native fallback remains for overwide/complex markup.
+
+**Important:** This is not a fully optical TeX engine. Glyph protrusion, variable-font expansion, and global pagination optimization are not implemented. Knuth–Plass is still optional and off by default. No EPUB books are distributed.
+
 ## Folio v92.0 — Better line spacing and less synchronous layout work (2026-11-17)
 
 - Extend TeX-pattern discretionary break candidates to English words of seven or more letters, keeping 2-character prefixes and 3-character suffixes *only* with high penalties. Optimizer chooses them when they prevent significantly worse word spacing; final lines continue to use normal ragged-last book typography.
