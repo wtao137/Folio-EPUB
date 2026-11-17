@@ -1,3 +1,21 @@
+# v91.4 — Display-equation MathML spacing and faster paragraph analysis (2026-11-17)
+
+- Correct missing gaps around natural-language words inside **display MathML**, especially `<mtext>if </mtext><mi>x</mi>`, where MathML drops the author's trailing ASCII space. Insert `<mspace width="0.25em">` only when a boundary gap is missing; preserve authored `<mspace>` and the original equation text. Also repair inline MathML, without splitting formulas across Knuth–Plass lines.
+- Apply lightweight per-chapter repair *before pagination* (one traversal; no geometry reads). Spacing adjusts automatically with the math font size. Repeated calls are idempotent.
+- Avoid inappropriate `overflow-wrap:anywhere` inside display equations, keep MathML text tokens together, and prevent Knuth–Plass from reflowing publisher display-math containers.
+- Cache computed style references within a paragraph's text-run measurement pass; smooth adjacent ragged-line lengths with a bounded transition penalty and eliminate redundant optimizer tolerance retries. Keep existing width cache, batched DOM writes, and native fallback for complex math.
+- Add 4-viewport MathML spacing tests, an explicit-publisher-gap no-duplication test, off/on restoration tests, and update the offline PWA cache to include the MathML helper.
+- Preserve v91.3 typography settings, book storage, browser speech, and image navigation.
+
+# v91.3 — Knuth–Plass text-quality fixes and inline MathML (2026-11-17)
+
+- Fix normal prose: preserve the author's left/justified alignment and eliminate a 2.8% line-width shortfall that caused excessive justification. Permit carefully limited justification only when spacing is reasonable.
+- Parse XHTML source newlines/tabs/repeated spaces as collapsed CSS whitespace, retaining every source character and restoring the original DOM when the option is switched off.
+- Include inline MathML fractions, subscripts, and superscripts in the paragraph-wide DP optimizer as measured atomic boxes; preserve native MathML layout inside each equation. Block or unmanageably wide equations remain native.
+- Budget CJK/Latin automatic spacing, validate actual shaped line widths in Chromium and automatically revert paragraphs that would overflow.
+- Add Chromium regression coverage for math, mixed-script prose, publisher alignment, HTML whitespace, 390–2100px layouts, and complete restoration. The default remains off.
+- Keep PWA book data, fonts, image viewer, quiet margin navigation and browser speech unchanged. Update shell cache to v91.3.
+
 # v91.2 — Knuth–Plass multilingual typesetting (2026-11-17)
 
 - Added a genuine TeX-style paragraph-global minimum-demerit line-break optimizer with boxes, glue, penalties, fitness classes and CJK kinsoku constraints; the feature stays optional/off by default.

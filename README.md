@@ -6,7 +6,9 @@ A clean, installable EPUB reader for Edge and Chrome. Folio runs entirely in the
 
 ## Features
 
-- Optional **Knuth–Plass paragraph typesetting** for eligible Chinese, English and mixed prose, with native layout fallback for complex EPUB markup (v91.2). See [typography implementation](TYPOGRAPHY_IMPLEMENTATION.md).
+- **v91.4:** Repair trimmed word spaces in native display and inline MathML (such as piecewise “if x” conditions). Correct spacing using native `<mspace>` elements and preserve original text.
+
+- Optional **Knuth–Plass paragraph typesetting** for eligible Chinese, English and mixed prose, with inline MathML support and native layout fallback for complex EPUB markup (v91.3+). See [typography implementation](TYPOGRAPHY_IMPLEMENTATION.md).
 
 - Distraction-free, paginated reading with adaptive 1–3 column layouts and fast keyboard, wheel, and touch navigation.
 - English and Chinese fonts, Paper/Warm/Night/System themes, and publisher-font override.
