@@ -1,4 +1,4 @@
-/* Folio MathML language-spacing repair — v1.0.
+/* Folio MathML language-spacing and legacy mspace repair — v1.1.
  * MathML Core trims ASCII whitespace at both ends of token elements such as
  * <mtext>. In equations like <mtext>if </mtext><mi>x</mi>, that loses the
  * author's intended inter-token word space. Preserve the markup and shape,
@@ -14,6 +14,33 @@
 })(typeof window!=='undefined'?window:(typeof globalThis!=='undefined'?globalThis:null),function(){
  'use strict';
  const NS='http://www.w3.org/1998/Math/MathML';
+ // MathML 3 named spaces are not part of MathML Core. Chromium silently gives
+ // <mspace width="thickmathspace"> a width of zero. Preserve their exact
+ // 18-mu TeX dimensions without rewriting the source EPUB.
+ const NAMED_SPACES={veryverythinmathspace:1,verythinmathspace:2,thinmathspace:3,
+  mediummathspace:4,thickmathspace:5,verythickmathspace:6,veryverythickmathspace:7};
+ function normalizeNamedSpace(doc){
+  let normalized=0,negative=0;
+  for(const el of doc.body.querySelectorAll('math mspace[width]')){
+   if(el.namespaceURI!==NS)continue;
+   const value=(el.getAttribute('width')||'').trim().toLowerCase();
+   const minus=value.startsWith('negative');
+   const key=minus?value.slice(8):value;
+   const units=NAMED_SPACES[key];if(units===undefined)continue;
+   // MathML Core <mspace> widths are non-negative. Negative MathML 3
+   // glue is represented with a native mpadded negative lspace wrapper.
+   // Avoid generating negative-width boxes unsupported in current Chrome.
+   if(minus){
+    const pad=doc.createElementNS(NS,'mpadded');
+    pad.setAttribute('width','0');pad.setAttribute('lspace',(-units/18).toFixed(6)+'em');
+    pad.setAttribute('data-folio-negative-space','1');
+    el.parentNode.insertBefore(pad,el);el.remove();negative++;continue;
+   }
+   el.setAttribute('width',(units/18).toFixed(6)+'em');normalized++;
+  }
+  return {normalized,negative};
+ }
+
  const MATH_WORDS=/^(?:if|when|where|otherwise|else|unless|then|for|with|and|or|such\s+that|provided\s+that|if\s+and\s+only\s+if|for\s+all|in\s+which|only\s+if)$/iu;
  const NEIGHBOR_ATOM=new Set(['mi','mn','mtext','ms','msup','msub','msubsup','mfrac','msqrt','mroot','mrow','mover','munder','munderover','menclose','mfenced','mpadded']);
  const gap = el=>el?.localName==='mspace' || el?.getAttribute?.('data-folio-math-spacing')==='1';
@@ -46,6 +73,7 @@
  }
  function repair(doc){
   if(!doc?.body)return {expressions:0,words:0,inserted:0};
+  const spaceStats=normalizeNamedSpace(doc);
   const elements=doc.body.querySelectorAll('math mtext');
   let inserted=0,words=0;
   const mathFound=new Set();
@@ -67,7 +95,7 @@
     add(el,false);inserted++;
    }
   }
-  return {expressions:mathFound.size,words,inserted};
+  return {expressions:mathFound.size,words,inserted,...spaceStats};
  }
- return {repair,version:'1.0.0'};
+ return {repair,normalizeNamedSpace,version:'1.1.0'};
 });

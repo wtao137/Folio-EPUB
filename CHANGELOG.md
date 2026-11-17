@@ -1,3 +1,36 @@
+## Folio v91.8 — Measured Chinese and mixed-script justification (2026-11-17)
+
+- Bring Chinese and mixed-script paragraphs onto the same physical glue model used for English: Knuth–Plass now explicitly controls bounded inter-ideograph gaps rather than independently asking Chromium to justify reconstructed lines.
+- Restrict stretchable CJK glue to boundaries between true ideographs. Do not add width around fullwidth punctuation, inside Latin words, or across math/footnote atoms; preserve strict punctuation line-breaking restrictions and add ASCII parenthesis handling.
+- When a justified line contains both Han and Latin, optimize Han gap expansion together with bounded Western `word-spacing` and compare the actual costs. Protect English font/kerning and avoid excessive English word-space expansion.
+- Reconcile mixed-script glyph shaping and browser `text-autospace` using one geometry correction after batched DOM insertion. Leave pure Chinese lines alone when already accurate. Invisible width-only spans preserve the book's `textContent`, inline styling, ordinary links, and reading position.
+- Speed up the common pure-English and pure-CJK fit cases with analytic spacing costs instead of candidate enumeration. Skip discretionary English hyphenation search for already well-fitted paragraphs; retain conservative fallback, 300 ms pre-format budget, and a per-paragraph spacer cap to protect complex books.
+- Tested original SICP EPUB, a separate real 111-paragraph/14-reference Chinese EPUB chapter (not distributed), and a four-viewport synthetic English/Chinese/mixed XHTML regression. All text remained identical after enable/disable; no recorded line overflow in eligible transformed paragraphs. The English synthetic 1360px test remains 0 spaces above 1.7× natural width versus 21 with native greedy justification.
+- The result is a better measured paragraph renderer, not a full TeX engine. Complex markup, unsupported writing modes, overly long paragraphs, page-global balancing, glyph protrusion and font expansion remain delegated to the browser.
+
+## Folio v91.7 — Pretext-inspired precision line fitting (2026-11-17)
+
+- Rework Knuth–Plass demerits around the **actual inter-word spacing that the renderer applies**, rather than approving a breakpoint and letting browser CSS justify it differently. Western lines use per-line, bounded `word-spacing`, including modest compression where needed, while keeping publisher-defined paragraph alignment.
+- Adopt stronger stretch/"river" penalties, better fitness transitions, accurate Canvas-measured visible hyphen widths and a proper feasibility check after adjustments. Fix the prior mistaken rejection of lines that only fit after their permitted glue compression and an overly permissive final-line check.
+- Prefer native CJK character distribution for mixed justified lines with many ideographs. Continue conservative punctuation restrictions and native fallback for unsupported markup; no inserted source text or invisible edits to the EPUB.
+- Recognize safe superscript EPUB footnote anchors as **atomic measured boxes**, keep a note attached to its preceding text, preserve its native DOM/link/ID and reference preview. Paragraphs with unrelated IDs, other superscripts, or complex content still use browser layout.
+- Confirm rendered Western fitted-line widths within about 1.6 CSS pixels of the computed goal on synthetic tests at 390–2100px. The synthetic English justification test had no spaces exceeding 1.7× their natural width (versus 21 with native greedy rendering at 1360px). These are local benchmarks, not a claim of universal TeX/LaTeX equivalence.
+- Validate the user-supplied SICP EPUB, including MathML, 25 note links, reading-position restoration, inline markup and multi-column pagination. Original book is never bundled. Knuth–Plass remains an opt-in setting.
+
+## Folio v91.6 — SICP EPUB typography and rendering fixes (2026-11-17)
+
+- Restore MathML 3 named spaces to actual numerical MathML Core widths (e.g. `thickmathspace = 5/18em`); confirmed on SICP square-root equation in Chromium. Keep original book file untouched and preserve mtext word-space handling.
+- Detect Texinfo `<a class="footnote_link" href="#FOOT4"><sup>4</sup></a>` references and normalize nested superscript CSS to remove large negative publisher margins/padding/offsets. Preserve click-to-follow and hover-to-preview.
+- Improve Knuth–Plass with bundled, lazily parsed TeX-derived English hyphenation patterns; compare a discretionary-hyphen plan against the non-hyphenated candidate, penalize visual hyphens and use geometry-safe fallback. Paragraphs with complicated EPUB structures keep native browser flow.
+- Complete v91.5's quiet-UI cleanup: remove margin hover instructions; consolidate mouse/key/hold guidance in the shortcut guide; remove redundant PWA installation and long reader explainer text.
+- Regression-verified actual `sicp.epub` section 1.1 at 390, 830, 1360, and 2100 px; no EPUB content is bundled. PWA and reader checks continue to pass.
+
+## Folio v91.5 — Quiet interface copy and navigational help (2026-11-17)
+
+- Removed descriptive browser tooltips from the invisible left/right reading margins; the margins retain their hand cursor, single-click and press-and-hold behavior, and accessible Previous/Next page names.
+- Consolidated mouse-edge, mouse-hold and keyboard page-turn instructions in the Reading shortcuts guide (`?`).
+- Removed redundant PWA/online dictionary instructions and the verbose compatibility blurb from Settings, and shortened the backup helper text. PWA installation/update buttons and accessibility status remain intact.
+
 # v91.4 — Display-equation MathML spacing and faster paragraph analysis (2026-11-17)
 
 - Correct missing gaps around natural-language words inside **display MathML**, especially `<mtext>if </mtext><mi>x</mi>`, where MathML drops the author's trailing ASCII space. Insert `<mspace width="0.25em">` only when a boundary gap is missing; preserve authored `<mspace>` and the original equation text. Also repair inline MathML, without splitting formulas across Knuth–Plass lines.

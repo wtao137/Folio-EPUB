@@ -6,12 +6,14 @@ A clean, installable EPUB reader for Edge and Chrome. Folio runs entirely in the
 
 ## Features
 
+- **v91.8:** Knuth–Plass now explicitly distributes measured CJK character gaps and English word spacing within justified mixed-language lines, with a final browser-shaping correction and bounded performance.
+
 - **v91.4:** Repair trimmed word spaces in native display and inline MathML (such as piecewise “if x” conditions). Correct spacing using native `<mspace>` elements and preserve original text.
 
-- Optional **Knuth–Plass paragraph typesetting** for eligible Chinese, English and mixed prose, with inline MathML support and native layout fallback for complex EPUB markup (v91.3+). See [typography implementation](TYPOGRAPHY_IMPLEMENTATION.md).
+- Optional **Knuth–Plass paragraph typesetting** with Pretext-demo-inspired spacing penalties, exact word-space fitting, TeX-style hyphenation, multilingual punctuation handling, atomic inline MathML and safe superscript footnote references. Complex EPUB markup retains native layout. See [typography implementation](TYPOGRAPHY_IMPLEMENTATION.md).
 
-- Distraction-free, paginated reading with adaptive 1–3 column layouts and fast keyboard, wheel, and touch navigation.
-- English and Chinese fonts, Paper/Warm/Night/System themes, and publisher-font override.
+- Distraction-free paginated reading, adaptive 1–3 columns, click-or-hold margin turning, and a concise shortcut guide.
+- English and Chinese fonts, Paper/Warm/Night/System themes, publisher-font override, and optional paragraph optimization with English TeX hyphenation.
 - Read aloud with available browser voices, bilingual support, and word/line tracking.
 - Word lookup, bookmarks, chapter search, reading history, and a searchable table of contents.
 - Local EPUB library with shelves, favorites, reading progress, and ZIP backup/restore.
@@ -51,3 +53,13 @@ See [CHANGELOG.md](CHANGELOG.md) for version history and [QUICK_START_PWA.md](QU
 ## v91.1 update
 
 A new **Improved line breaking** switch is available in Settings → Typography (off by default). Image previews now have **Fit page / Fit width / 100%** modes. Clicking blank margins turns pages without hover arrows; holding continues fast turning. For the Pretext and Knuth–Plass assessment, see [TYPOGRAPHY_EVALUATION.md](TYPOGRAPHY_EVALUATION.md). The original v91 Web Speech engine is retained.
+
+## SICP and other mathematical EPUBs
+
+MathML 3 named <mspace> sizes such as `thickmathspace` are converted to numeric MathML Core dimensions in the in-browser chapter DOM. The EPUB archive is not changed. Footnote links written as `footnote_link` or `#FOOT4` receive the reader's semantic-footnote treatment, with conflicting publisher superscript margins and offsets neutralized. Note hover previews and link navigation are preserved.
+
+English TeX-pattern hyphenation is optional. Folio's quality mode compares a non-hyphenated Knuth–Plass plan with a hyphenated plan, penalizes unnecessary breaks, and restores the safe browser layout when geometry verification fails. This does not provide full TeX microtypography, multi-page paragraph optimization or breakpoints inside MathML.
+
+Run `python tests/sicp_real_epub_v916.py` with `SICP_EPUB=/path/to/sicp.epub` to reproduce book-specific tests (the user's EPUB is **not** packaged).
+
+See `HYPHENATION_LICENSE.txt` for the freely redistributable en-US hyphenation pattern notice.
