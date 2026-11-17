@@ -6,6 +6,14 @@ A clean, installable EPUB reader for Edge and Chrome. Folio runs entirely in the
 
 ## Features
 
+- **v92.8:** Improved paragraph-wide hyphenation decisions and subtle Canvas-measured optical alignment of suitable punctuation, with real EPUB browser tests. The standard layout and offline dictionary remain unchanged; see [typography notes](TYPOGRAPHY_IMPLEMENTATION.md).
+
+- **v92.7:** More reliable word lookup: brief, clearly labeled common uses for ambiguous everyday words; better handling of rare or obsolete dictionary senses; exact-word-first lookup; and improved distinction between a general meaning and a sentence-specific interpretation. See [dictionary quality notes](DICTIONARY_QUALITY.md).
+
+- **v92.6:** Faster Canvas-first Western token preparation, safer English hyphenation, modest Chinese gap compression for tiny resizes, reuse of premeasured break structures, and isolation of MathML/inline code spacing. The standard visual layout is unchanged; the optional algorithm remains off by default. See [the implementation notes](TYPOGRAPHY_IMPLEMENTATION.md).
+
+- **v92.5:** Faster EPUB page counting using already composed Knuth–Plass lines instead of repeatedly measuring every text fragment; lightweight plain-prose preparation; and batched overflow validation with conservative reuse of previously validated small-width adjustments. Text and page geometry are unchanged in tested EPUBs.
+
 - **v92.4:** Canvas-first paragraph preparation, width-only reflow without unnecessary DOM replacement, faster stable line-spacing updates, and a fix for EPUB text containers narrower than the outer page. Eligible list/quotation prose is supported; native-layout fallback remains. See [typography implementation](TYPOGRAPHY_IMPLEMENTATION.md).
 
 - **v92.0:** Better-justified English lines using bounded microtracking and expanded, conservatively penalized TeX hyphenation opportunities; compressed CJK spacing markup; deferred line validation after pagination geometry is available. Actual Chromium before/after samples are provided separately.

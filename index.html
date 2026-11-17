@@ -169,7 +169,7 @@
 .enhanced-field button{border:1px solid var(--line,#ddd);background:transparent;color:var(--ink,#26362f);border-radius:6px;cursor:pointer;padding:6px 9px;font:inherit}
 .enhanced-status:not(:empty){margin-top:7px;line-height:1.45;color:var(--muted,#68766a)}
 .word-detail .word-example{font-size:12px;line-height:1.5;opacity:.78;margin:4px 0 8px;padding-left:10px;border-left:2px solid var(--line,#ddd)}
-.word-detail .word-glance{font-size:13px;line-height:1.6;margin:0 0 6px}
+.word-detail .word-glance{font-size:13px;line-height:1.58;margin:0 0 8px;overflow-wrap:anywhere}.word-detail .word-glance .word-pos{display:inline-block;margin-right:7px;font-size:11px;font-weight:600;font-style:normal;color:var(--muted,#68766a)}
 
 .folio-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto}
 @media(max-width:520px){.folio-actions{gap:6px}.folio-actions .ghostbtn{padding:7px 9px;font-size:11px}}
@@ -1432,7 +1432,7 @@
   </main>
  </div>
   <aside id="folioWordCard" class="word-card" hidden role="dialog" aria-modal="false" aria-label="Dictionary lookup">
-    <div class="word-head"><div class="word-title-row"><div><div class="word-overline">ONLINE DICTIONARY</div><h3 id="wordTitle">Word</h3><div id="wordLemma" class="word-lemma" hidden></div></div><button type="button" id="wordClose" class="word-close" aria-label="Close dictionary" title="Close">&times;</button></div>
+    <div class="word-head"><div class="word-title-row"><div><div class="word-overline">WORD LOOKUP</div><h3 id="wordTitle">Word</h3><div id="wordLemma" class="word-lemma" hidden></div></div><button type="button" id="wordClose" class="word-close" aria-label="Close dictionary" title="Close">&times;</button></div>
       <div class="word-phonetics"><button type="button" id="wordUS" class="word-sound" title="Play American pronunciation"><span class="word-sound-icon">♪</span> US <span id="wordUSIPA" class="ipa"></span></button><button type="button" id="wordUK" class="word-sound" title="Play British pronunciation"><span class="word-sound-icon">♪</span> UK <span id="wordUKIPA" class="ipa"></span></button></div>
     </div>
     <div class="word-detail" id="wordDetail" aria-live="polite" aria-relevant="additions text"><section id="wordEnglishSection" class="word-def-section" aria-label="English definitions"><p class="word-loading">Looking up English meanings…</p></section><section id="wordChineseSection" class="word-def-section" aria-label="Chinese definitions"></section></div>
@@ -2242,7 +2242,18 @@ function occupiedReaderSpreads(doc,body,step){
   const physical=Math.floor((rect.left-left+1)/step);
   if(physical>=0&&physical<100000)filled.add(physical);
  };
- const range=doc.createRange(),walker=doc.createTreeWalker(body,NodeFilter.SHOW_TEXT);
+ const range=doc.createRange(),walker=doc.createTreeWalker(body,
+  NodeFilter.SHOW_TEXT|NodeFilter.SHOW_ELEMENT,{
+   acceptNode(node){
+    // FILTER_REJECT skips the entire optimized line subtree, including
+    // all CJK tracked text and inline links. Line rectangles are marked
+    // separately below, without expensive Range geometry per text node.
+    if(node.nodeType===Node.ELEMENT_NODE){
+     return node.classList?.contains('folio-kp-line')?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_SKIP;
+    }
+    return NodeFilter.FILTER_ACCEPT;
+   }
+  });
  let node;
  while((node=walker.nextNode())){
   if(!node.nodeValue.trim())continue;
@@ -2253,6 +2264,13 @@ function occupiedReaderSpreads(doc,body,step){
   if(view.getComputedStyle(parent).visibility==='hidden')continue;
   range.selectNodeContents(node);
   for(const rect of range.getClientRects())mark(rect);
+ }
+ // Every Knuth-Plass line is a single non-fragmented block with visible
+ // text. Its rectangle covers exactly one occupied column without counting
+ // paragraph padding or artificial blank EPUB blocks.
+ for(const line of body.querySelectorAll('[data-folio-kp]>.folio-kp-line')){
+  if(!line.textContent.trim() || line.closest('[hidden],[aria-hidden="true"]'))continue;
+  for(const rect of line.getClientRects())mark(rect);
  }
  // Illustrated/diagram-only EPUB chapters may have no normal text nodes.
  for(const el of body.querySelectorAll('img,svg,video,canvas,hr')){
@@ -4009,6 +4027,8 @@ function readerCSS(){const s=state.settings,tone=folioEffectiveTheme(),night=ton
  body :is(p,li,dd,blockquote,figcaption)[data-folio-kp]>span.folio-kp-line{display:block!important;box-sizing:border-box!important;inline-size:100%!important;white-space:nowrap!important;
    overflow-wrap:normal!important;word-break:normal!important;text-align:start!important;text-align-last:start!important;line-break:strict!important;}
  body :is(p,li,dd,blockquote,figcaption)[data-folio-kp]>span.folio-kp-line .folio-kp-ideograph-glue{display:inline-block!important;vertical-align:baseline!important;height:0!important;min-width:0!important;max-width:none!important;line-height:0!important;overflow:hidden!important;pointer-events:none!important;font-size:0!important;}
+ body :is(p,li,dd,blockquote,figcaption)[data-folio-kp]>.folio-kp-line :is(code,kbd,samp,math){word-spacing:normal!important;letter-spacing:normal!important;}
+ body :is(p,li,dd,blockquote,figcaption)[data-folio-kp] .folio-kp-optical-end{display:inline!important;padding:0!important;border:0!important;letter-spacing:inherit!important;white-space:inherit!important;}
  body :is(p,li,dd,blockquote,figcaption)[data-folio-kp]>span.folio-kp-hyphenated::after{content:'‐';display:inline;font-variant-ligatures:none;}
  body :is(p,li,dd,blockquote,figcaption)[data-folio-kp]>span.folio-kp-line:first-child{break-after:avoid;}
  body :is(p,li,dd,blockquote,figcaption)[data-folio-kp]>span.folio-kp-line:nth-last-child(2){break-after:avoid;}`:''}
@@ -6528,7 +6548,10 @@ function wordCandidates(raw){
  if(w.length>=7&&w.endsWith('ment'))add(w.slice(0,-4),secondary);
  // Prefix stripping changes meaning, so never prefer it over a real complete word.
  if(w.length>=7){for(const p of ['un','re','dis','mis','pre','non'])if(w.startsWith(p))add(w.slice(p.length),secondary)}
- return [primary[0],w,...primary.slice(1),...secondary].filter((x,i,a)=>x&&a.indexOf(x)===i).slice(0,8);
+ // Always try the actual clicked word before speculative morphological variants.
+ // For instance, goods (merchandise) must not silently become good (adjective),
+ // and saw may refer to a tool rather than the past tense of see.
+ return [w,...primary,...secondary].filter((x,i,a)=>x&&a.indexOf(x)===i).slice(0,8);
 }
 function findClickedWord(event){
  const doc=$('readerFrame').contentDocument;
@@ -6657,9 +6680,16 @@ function normalize3325(json){
 }
 function normalizeEnglishDictionary(json){
  const entries=Array.isArray(json)?json:[];
- const en=[];
- for(const entry of entries)for(const meaning of entry.meanings||[])for(const d of (meaning.definitions||[]).slice(0,3)){
-  if(d.definition&&en.length<7)en.push({pos:String(meaning.partOfSpeech||''),text:String(d.definition),examples:d.example?[String(d.example)]:[]});
+ const en=[],seen=new Set();
+ // Do not truncate to the first three senses of the first grammatical group.
+ // Common meanings can appear in subsequent meanings, entries or POS groups.
+ outer: for(const entry of entries.slice(0,12))for(const meaning of (entry.meanings||[]).slice(0,24))for(const d of (meaning.definitions||[]).slice(0,16)){
+  const text=String(d.definition||'').trim(),pos=String(meaning.partOfSpeech||'').trim();
+  if(!text||text.length>700)continue;
+  const key=pos.toLowerCase()+'|'+text.toLowerCase().replace(/\s+/g,' ');
+  if(seen.has(key))continue;
+  seen.add(key);en.push({pos,text,examples:d.example?[String(d.example)]:[]});
+  if(en.length>=64)break outer;
  }
  const first=entries[0]||{};const phon=Array.isArray(first.phonetics)?first.phonetics:[];
  const get=region=>phon.find(p=>new RegExp('(?:^|[-_.])'+region+'(?=[-_.]|$)','i').test(p.audio||''))||{};
@@ -6667,12 +6697,125 @@ function normalizeEnglishDictionary(json){
  const audio=v=>{if(typeof v!=='string')return '';try{const u=new URL(v);return u.protocol==='https:'&&(['api.dictionaryapi.dev','ssl.gstatic.com','commons.wikimedia.org'].includes(u.hostname)||u.hostname.endsWith('.wikimedia.org'))?u.href:''}catch{return ''}};
  return {en,zh:[],usIPA:String(us.text||first.phonetic||'').replace(/^\/+|\/+$/g,''),ukIPA:String(uk.text||'').replace(/^\/+|\/+$/g,''),usAudio:audio(us.audio),ukAudio:audio(uk.audio),enSource:'Open English dictionary'};
 }
+
 function normalizeDatamuse(json,word){
  if(!Array.isArray(json))return {en:[],usIPA:'',headword:''};
  const e=json.find(x=>x.word?.toLowerCase()===word.toLowerCase());if(!e)return {en:[],usIPA:'',headword:''};
  const en=(e.defs||[]).slice(0,6).map(x=>{const m=String(x).match(/^([nvadj ]+)\t(.*)$/);return {pos:m?.[1]||'',text:(m?.[2]||x).trim(),examples:[]}}).filter(x=>x.text);
  const pron=Array.isArray(e.tags)?e.tags.find(x=>typeof x==='string'&&x.startsWith('pron:')):'';
  return {en,usIPA:pron?pron.slice(5):'',headword:e.defHeadword||'',enSource:'Datamuse / WordNet'};
+}
+// The public dictionary is useful for detail, but its raw first sense is NOT
+// a frequency ranking. These brief, authored summaries are intentionally
+// marked as common uses, not a claim about the precise sentence meaning.
+// Keep this list small and conservative; do not pretend to auto-disambiguate
+// polysemous words when there is insufficient context.
+const FOLIO_COMMON_USES=Object.freeze({
+ make:[['verb','Create, produce, or build something.'],['verb','Cause something to happen or someone to do something.']],
+ good:[['adjective','Of high quality, or suitable for a purpose.'],['adjective','Pleasant, useful, or beneficial.']],
+ get:[['verb','Receive, obtain, or acquire something.'],['verb','Become or reach a particular state.']],
+ take:[['verb','Pick up, carry, or bring something with you.'],['verb','Use, accept, or require something.']],
+ set:[['verb','Put something in a particular place or state.'],['noun','A group or collection of things.']],
+ run:[['verb','Move quickly on foot.'],['verb','Operate, manage, or function.']],
+ go:[['verb','Move or travel from one place to another.'],['verb','Proceed, develop, or function.']],
+ do:[['verb','Perform an action or complete a task.'],['verb','Act or behave in a particular way.']],
+ have:[['verb','Own, possess, or hold something.'],['verb','Experience or take part in something.']],
+ give:[['verb','Hand or provide something to someone.'],['verb','Cause or allow someone to have something.']],
+ put:[['verb','Place something somewhere.'],['verb','Express something in words.']],
+ work:[['verb','Do a job, task, or activity.'],['verb','Function or produce the desired result.']],
+ mean:[['verb','Signify or express something.'],['verb','Intend something to happen.']],
+ right:[['adjective','Correct or appropriate.'],['noun','A legal or moral entitlement.']],
+ well:[['adverb','In a good or satisfactory way.'],['adjective','In good health.']],
+ like:[['verb','Enjoy or be fond of something.'],['preposition','Similar to, or in the same way as.']],
+ just:[['adverb','Only, exactly, or very recently.'],['adjective','Fair and morally right.']],
+ still:[['adverb','Continuing up to this time.'],['adjective','Not moving or making a sound.']],
+ even:[['adverb','Used to emphasize something surprising.'],['adjective','Level, equal, or uniform.']],
+ light:[['noun','Brightness that makes things visible.'],['adjective','Not heavy or strong.']],
+ sound:[['noun','Something that can be heard.'],['verb','Seem or appear in a particular way.']],
+ hard:[['adjective','Firm and difficult to bend or break.'],['adjective','Difficult or requiring effort.']],
+ fast:[['adjective','Moving or happening quickly.'],['adverb','At a high speed.']],
+ kind:[['noun','A type or category.'],['adjective','Caring and considerate of others.']],
+ case:[['noun','A situation or example.'],['noun','A container or protective covering.']],
+ matter:[['noun','A subject or situation.'],['verb','Be important or significant.']],
+ point:[['noun','An idea or argument being made.'],['noun','A particular place, position, or moment.']],
+ course:[['noun','A series of lessons or a field of study.'],['noun','The direction or progression of something.']],
+ form:[['noun','The shape, structure, or type of something.'],['verb','Create, develop, or take shape.']],
+ order:[['noun','An arrangement or sequence.'],['verb','Request or instruct something.']],
+ interest:[['noun','Curiosity or attention toward something.'],['noun','Money paid for borrowing or deposited funds.']],
+ change:[['verb','Become different, or make something different.'],['noun','A difference or alteration.']],
+ fine:[['adjective','Acceptable or satisfactory.'],['adjective','Very thin, small, or delicate.']],
+ free:[['adjective','Not under control or restriction.'],['adjective','Without a monetary cost.']],
+ charge:[['verb','Ask someone to pay a price.'],['noun','A payment, responsibility, or amount of electrical charge.']],
+ book:[['noun','A written work, usually with pages.'],['verb','Reserve a place, ticket, or service.']],
+ play:[['verb','Take part in a game or activity for enjoyment.'],['verb','Perform music or act in a drama.']],
+ call:[['verb','Contact someone, especially by telephone.'],['verb','Give something a name or description.']],
+ turn:[['verb','Rotate or change direction.'],['noun','An occasion when it is someone’s time to act.']],
+ hold:[['verb','Carry, keep, or support something.'],['verb','Contain or accommodate something.']],
+ keep:[['verb','Retain or continue to possess something.'],['verb','Continue doing something.']],
+ leave:[['verb','Go away from a place.'],['verb','Allow something to remain in a state or place.']],
+ find:[['verb','Discover or locate something.'],['verb','Realize or experience something.']],
+ look:[['verb','Direct your eyes toward something.'],['verb','Appear or seem to be.']],
+ see:[['verb','Perceive with your eyes.'],['verb','Understand, recognize, or meet someone.']],
+ may:[['modal verb','Express that something is possible or permitted.']],
+ can:[['modal verb','Express ability or possibility.'],['noun','A metal container for food or drink.']],
+ will:[['modal verb','Express a future event or intention.'],['noun','Determination or a legal statement of wishes.']],
+ would:[['modal verb','Express a conditional action or a polite request.']],
+ should:[['modal verb','Express advice, expectation, or obligation.']],
+ might:[['modal verb','Express a possibility.'],['noun','Physical or political strength.']],
+ must:[['modal verb','Express necessity or strong obligation.']]
+});
+function folioQuickWordSenses(word){
+ const data=Object.hasOwn(FOLIO_COMMON_USES,String(word||'').toLowerCase())?FOLIO_COMMON_USES[word.toLowerCase()]:null;
+ return data?data.map(([pos,text])=>({pos,text,examples:[]})):[];
+}
+// Discourage archaic, specialist or usage-label-only glosses from leading
+// an uncurated entry. Avoid fabricating frequency/confidence percentages.
+function folioSenseScore(sense,index){
+ const gloss=String(sense.text||'').trim();
+ let score=12-Math.min(index,50)*0.18;
+ if(!gloss||gloss.length>360)score-=7;
+ if(gloss.length>=24&&gloss.length<=180)score+=1;
+ if(sense.examples?.[0])score+=0.25;
+ if(/^(?:\((?:archaic|obsolete|dated|historical|slang|rare|dialectal|regional|vulgar|colloquial)[^)]*\)|(?:archaic|obsolete|dated|historical|slang|rare|dialectal|regional|vulgar)\b)/i.test(gloss))score-=24;
+ if(/^(?:alternative|obsolete|archaic)\s+(?:form|spelling)\s+of\b/i.test(gloss))score-=20;
+ if(/^(?:in\s+(?:botany|zoology|chemistry|physics|law|medicine|music|heraldry)|(?:computing|mathematics|linguistics|anatomy|taxonomy)\s*:)\b/i.test(gloss))score-=5;
+ return score;
+}
+function folioRankDictionarySenses(senses){
+ const unique=[],seen=new Set();
+ for(const s of Array.isArray(senses)?senses:[]){
+  const text=String(s?.text||'').trim(),pos=String(s?.pos||'').trim();
+  if(!text)continue;
+  const key=pos.toLowerCase()+'|'+text.toLowerCase().replace(/\s+/g,' ');
+  if(seen.has(key))continue;
+  seen.add(key);unique.push({pos,text,examples:Array.isArray(s.examples)?s.examples:[]});
+ }
+ return unique.map((s,i)=>({...s,_rank:folioSenseScore(s,i),_index:i}))
+  .sort((a,b)=>b._rank-a._rank||a._index-b._index);
+}
+function folioSelectGlance(word,english){
+ const local=folioQuickWordSenses(word);
+ if(local.length){
+  const ranked=folioRankDictionarySenses(english);
+  // A learner seeing the quick verb/adjective meaning should see matching
+  // dictionary entries first, not an unrelated nominal or technical homonym.
+  const expected=new Set(local.map(x=>x.pos.toLowerCase()));
+  ranked.sort((a,b)=>{
+   const relevance=s=>(expected.has(s.pos.toLowerCase())?5:0)+s._rank;
+   return relevance(b)-relevance(a)||a._index-b._index;
+  });
+  return {glance:local,remaining:ranked.slice(0,7),curated:true};
+ }
+ const ranked=folioRankDictionarySenses(english);
+ if(!ranked.length)return {glance:[],remaining:[],curated:false};
+ const glance=[ranked[0]];
+ // Show a second grammatical role when available instead of suggesting
+ // that one rare POS fully captures a multi-purpose headword.
+ const firstPos=String(ranked[0].pos||'').toLowerCase();
+ const other=ranked.find(s=>s!==ranked[0]&&s.pos&&s.pos.toLowerCase()!==firstPos&&s._rank>=ranked[0]._rank-3)
+  ||ranked.find(s=>s!==ranked[0]&&s._rank>=ranked[0]._rank-2&&s.text.toLowerCase()!==ranked[0].text.toLowerCase());
+ if(other)glance.push(other);
+ return {glance,remaining:ranked.filter(s=>!glance.includes(s)).slice(0,7),curated:false};
 }
 // v52: Keep English and Chinese sections mounted independently. A late
 // dictionary response no longer destroys the user's selection or scroll
@@ -6686,12 +6829,21 @@ function renderWordLookup(){
  $('wordVocabLink').href='https://www.vocabulary.com/dictionary/'+encodeURIComponent(candidate);
  $('wordICibaLink').href='https://3325.cn/dict/'+encodeURIComponent(candidate);
  const line=(x,example=true)=>`<p class="word-definition">${x.pos?`<span class="word-pos">${escapeHTML(x.pos)}</span>`:''}${escapeHTML(x.text)}</p>${example&&x.examples?.[0]?`<p class="word-example">${escapeHTML(x.examples[0])}</p>`:''}`;
- const en=[];
- if(english.length){
-  en.push('<h4>Meaning at a glance</h4><p class="word-glance">'+escapeHTML(english[0].text)+'</p>');
-  if(english[0].examples?.[0])en.push('<p class="word-example">'+escapeHTML(english[0].examples[0])+'</p>');
-  en.push('<div class="word-source">'+escapeHTML(entry.enSource||'English dictionary')+'</div>');
-  if(english.length>1){en.push('<div class="word-separator"></div><h4>Other meanings</h4>');for(const x of english.slice(1,5))en.push(line(x))}
+ const en=[],selected=folioSelectGlance(candidate,english);
+ if(selected.glance.length){
+  en.push('<h4>'+(selected.curated?'Common uses':'Dictionary meanings')+'</h4>');
+  for(const x of selected.glance){
+   en.push('<p class="word-glance">'+(x.pos?'<span class="word-pos">'+escapeHTML(x.pos)+'</span>':'')+escapeHTML(x.text)+'</p>');
+   if(!selected.curated&&x.examples?.[0])en.push('<p class="word-example">'+escapeHTML(x.examples[0])+'</p>');
+  }
+  if(selected.curated)en.push('<div class="word-source">General senses · context may differ</div>');
+  if(english.length){
+   en.push('<div class="word-separator"></div><h4>'+(selected.curated?'Dictionary definitions':'Other meanings')+'</h4>');
+   for(const x of selected.remaining.slice(0,5))en.push(line(x));
+   en.push('<div class="word-source">'+escapeHTML(entry.enSource||'English dictionary')+'</div>');
+  }else if(wordLookup.loading){
+   en.push('<p class="word-loading" role="status">Checking dictionary definitions…</p>');
+  }
  }else if(wordLookup.loading)en.push('<p class="word-loading" role="status">Looking up English meanings…</p>');
  else en.push('<p class="word-unavailable">English explanation unavailable from online sources. Vocabulary.com can still be opened below.</p>');
  const zh=[];

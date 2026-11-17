@@ -1,3 +1,41 @@
+## v92.8 — Paragraph line choices and conservative optical punctuation (2026-11-17)
+
+- Add paragraph-level penalties for repeated discretionary hyphens, especially three or more hyphenated lines in succession. Increase the basic cost of dictionary hyphenation so intact words win when the paragraph can still be justified.
+- Introduce Canvas-measured **optical right-edge alignment** for selected punctuation (Latin and Chinese commas, stops, closing quotation marks and brackets). The DP and renderer use the same capped end-glyph discount, up to roughly 0.055em (about 1.1px in these tests). Preserve the original EPUB text and inline structure.
+- Use a more conservative text-width margin in Western prose, protecting complex source markup. Reject unacceptable line overflow and keep native justification as fallback. Experiments with much larger punctuation hangs caused real browser overflow and were discarded.
+- Do not apply hanging inside footnote atoms, inline code or MathML. List prose, blockquotes and mixed-script safety rules remain intact. This optional feature stays disabled by default.
+- Regression: SICP at 390/830/1360/2100px passes MathML and 25 footnotes; the 1000px test maintains 90 optimized prose blocks without overflow or fallback. Chinese test preserves 63 blocks. Real SICP passage now keeps *obtained* unsplit where v92.7 used `ob-tained`.
+- New focused `tests/optical_punctuation_v928.py`. Performance improvement is not claimed; the extra paragraph options have a small runtime cost on some setups.
+
+## v92.7 — Dictionary sense quality and honest quick meanings (2026-11-17)
+
+- Fix the old **Meaning at a glance** card incorrectly treating the first returned dictionary sense as the most common meaning. Replace it with concise, labeled **Common uses** for especially ambiguous everyday words, including *make* and *good*, while preserving separate full dictionary definitions and part-of-speech labels.
+- Expand and bound English dictionary normalization, de-duplicate senses, and demote archaic/obsolete/rare labels from quick summaries. Retain dictionary-specific source attribution and show multiple grammatical senses for uncurated words when appropriate.
+- Look up the exact word before attempting inflection fallback; avoid misreading `goods` as `good`, `saw` as `see`, and `better` as `good`. Preserve the original clicked form in the lookup title.
+- Verify with mocked English/Chinese API responses, offline quick-gloss access, cache reuse, HTML escaping, and responsive popup geometry. These tests do not claim the live third-party API responses always match their fixtures.
+- Re-run real SICP EPUB MathML/footnote regression at 390/830/1360/2100 px, real Chinese EPUB typography regression at 1128–1130 px, semantic prose and service-worker cache tests. No Knuth–Plass layout changes in v92.7.
+- Keep the existing EPUB library and reading positions untouched. Offline app-shell cache bumped to v92.7; no new external API or executable dependency.
+
+## v92.6 — Safer multilingual justification and Canvas-first token preparation (2026-11-17)
+
+- Replace per-ASCII-character token allocation with a directly segmented Western word/space/hyphen fast path. A 306-case independent equivalence regression confirms identical offsets and token types, and Unicode paragraphs still use grapheme-aware segmentation. In a focused Node benchmark the tokenization stage is substantially faster; *total* EPUB page readiness has not shown a reliable improvement.
+- Cache Knuth–Plass box/glue/penalty breakpoints and width prefix sums alongside Canvas-measured tokens. Reuse the detached original source on width-only reflow rather than concatenating the rendered paragraph's text as part of cache checking.
+- Allow **very small negative CJK inter-ideograph spacing** (no more than 0.025em per eligible gap), in addition to bounded positive spacing. Recompute valid breakpoints and fit with the actual rendered width; fall back to native EPUB layout rather than squeeze punctuation, Latin words, or paragraphs that fail quality checks. At a deliberately narrowed Chinese-book viewport, 62 blocks were optimized versus 59 in v92.5, with no detected line overflow.
+- Raise the penalties for awkward short English discretionary hyphen fragments and consecutive hyphenated lines; avoid treating mixed-case identifiers and all-uppercase acronyms as ordinary dictionary words. Only use US-English hyphenation patterns for English/Chinese/Japanese/Korean or unspecified-language prose, not known unrelated language codes.
+- Reset inherited Knuth–Plass line tracking and word spacing within inline `code`, `kbd`, `samp`, and native MathML boxes, while retaining surrounding paragraph justification. Preformatted code and display mathematics remain browser-managed.
+- Browser regressions: real SICP maths and all 25 footnotes, Chinese text and punctuation preservation, list and blockquote prose, line overflow, responsive resizing, page counts, fixed layouts, image viewer, keyboard/pointer navigation, and offline app-shell behavior. A combined long-running test batch timed out after the listed completed checks; its unfinished checks are not claimed as passed.
+- Default browser layout and preexisting EPUB books/storage are unchanged; enhanced Knuth–Plass remains off by default. Full and incremental PWA archives remain under 100 ZIP entries and exclude the test EPUBs.
+
+## v92.5 — Faster occupied-page scanning and stable validation (2026-11-17)
+
+- Measure each nonempty Knuth–Plass line box as one occupied-column unit, instead of calling `Range.getClientRects()` for all its internal CJK tracking spans, links and text fragments. Native and complex EPUB content still uses the original text-range scan; illustration-only chapters still count media rectangles.
+- Use a `TreeWalker` rejection filter to skip optimized line subtrees during occupancy scanning, rather than visiting every descendant and checking `closest()` repeatedly.
+- Add a lightweight preparation path for true text-only paragraphs: skip redundant descendant queries and computed-style lookups for single text runs. Styled runs, MathML, inline code, links and notes retain their original traversal and measurement.
+- Batch browser overflow reads before any restoration writes, preventing repeated multi-column reflows when a group of paragraphs requires native fallback.
+- Avoid rechecking *already validated*, unchanged line breaks after a tiny (<=2 CSS-pixel) width adjustment only when the same cached source/font is used and no mixed-script geometry correction is required. All new break plans and larger changes continue through browser overflow validation.
+- Check the supplied SICP and Chinese EPUBs at desktop widths, preserving 64 and 16 readable pages respectively, original text and links, and first-four-page navigation; regression checks include 390px mobile layouts and actual viewport resizing. Screenshots show pixel-identical SICP rendering and unchanged Chinese reading content (only a transient notification differed).
+- This is a rendering-performance and stability update, **not** a new optical-composition algorithm. Benchmarks are dependent on browser environment and should not be treated as guaranteed speedups. Knuth–Plass remains optional and disabled by default.
+
 ## v92.4 — Canvas-first incremental typography and responsive-width correction (2026-11-17)
 
 - Precompute styled text boxes using Canvas and retain measurements across width-only repagination; separate paragraph source DOM from the visible line-box tree.
