@@ -2629,6 +2629,7 @@ function paginateChapter(fraction=pageFraction(),token=state.renderToken){
  if(window.FolioKnuthPlass){
   const result=window.FolioKnuthPlass.typeset(doc,availableWidth,{
    enabled:!!state.settings.qualityWrap,
+   deferValidation:true,
    anchor:state.readingAnchor,
    key:readerStyleMemo.key+'|'+wantedColumns+'|'+(doc.documentElement.lang||'')
   });
@@ -2678,6 +2679,9 @@ function paginateChapter(fraction=pageFraction(),token=state.renderToken){
  // occupiedReaderSpreads counts the meaningful pages.
  fitReaderFigures(doc,body);
  const bodyBounds=body.getBoundingClientRect();
+ // Column geometry has now been flushed; validate KP line boxes without
+ // forcing the browser to lay out the entire chapter a second time.
+ window.FolioKnuthPlass?.validate?.(doc);
  const cs=doc.defaultView.getComputedStyle(body),width=bodyBounds.width,gap=parseFloat(cs.columnGap)||0;
  const cols=Math.max(1,parseInt(cs.columnCount,10)||1);
  // Chromium quantizes each column width down to its 1/64 CSS-pixel layout
@@ -3995,6 +3999,7 @@ function readerCSS(){const s=state.settings,tone=folioEffectiveTheme(),night=ton
     The optional KP engine wraps *eligible* prose into optimized line boxes; it
     never runs inside ruby, math, illustrations, footnotes or fixed-layout books. */
  ${s.qualityWrap?`body :is(p,blockquote){text-wrap:pretty;line-break:strict;hyphens:auto;text-autospace:normal;}
+ body p:not(.poem):not(.verse):not(.code):not(.source-code):not(.math):not(.displaymath):not(.equation){text-align:justify!important;text-align-last:start!important;}
  body p[data-folio-kp]{text-indent:0!important;text-align:start!important;text-wrap:wrap!important;hyphens:none!important;}
  body p[data-folio-kp]>span.folio-kp-line{display:block!important;box-sizing:border-box!important;inline-size:100%!important;white-space:nowrap!important;
    overflow-wrap:normal!important;word-break:normal!important;text-align:start!important;text-align-last:start!important;line-break:strict!important;}

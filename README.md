@@ -6,6 +6,9 @@ A clean, installable EPUB reader for Edge and Chrome. Folio runs entirely in the
 
 ## Features
 
+- **v92.0:** Better-justified English lines using bounded microtracking and expanded, conservatively penalized TeX hyphenation opportunities; compressed CJK spacing markup; deferred line validation after pagination geometry is available. Actual Chromium before/after samples are provided separately.
+
+- **v91.9:** User-opted full justification of prose, restrained English hyphenation with Knuth–Plass breaks, quality-controlled native justification fallback, and improved single-pass paragraph planning.
 - **v91.8:** Knuth–Plass now explicitly distributes measured CJK character gaps and English word spacing within justified mixed-language lines, with a final browser-shaping correction and bounded performance.
 
 - **v91.4:** Repair trimmed word spaces in native display and inline MathML (such as piecewise “if x” conditions). Correct spacing using native `<mspace>` elements and preserve original text.

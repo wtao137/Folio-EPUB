@@ -25,6 +25,7 @@
  const MAX_PARAGRAPH = 2500, MAX_TOKENS = 2100, MAX_PARAGRAPHS = 800, MAX_CJK_SPACERS = 850;
  const cacheByDoc = new WeakMap();
  const metricsCache = new Map();
+ const measureContexts = new WeakMap();
  const planCache = new Map();
  const HAS_SEGMENTER = typeof Intl !== 'undefined' && !!Intl.Segmenter;
  const graphemeSegmenter = HAS_SEGMENTER ? new Intl.Segmenter('und',{granularity:'grapheme'}) : null;
@@ -61,11 +62,11 @@
    if(t.kind!=='western'||!(/^[a-zA-Z]{7,}$/).test(t.text)){
     result.push(t);continue;
    }
-   const points=hyphenator.points(t.text);if(!points.length){result.push(t);continue;}
+   const points=hyphenator.points(t.text).filter(point=>point>=2 && t.text.length-point>=3);if(!points.length){result.push(t);continue;}
    let prev=0;
    for(const point of points){
     result.push({...t,text:t.text.slice(prev,point),start:t.start+prev,end:t.start+point,
-     hyphenBreak:true,hyphenWidth:0,width:0});prev=point;
+     hyphenBreak:true,hyphenPenalty:(point===2||t.text.length-point===3)?620:(point===3||point===4||t.text.length-point===4)?280:155,hyphenWidth:0,width:0});prev=point;
    }
    result.push({...t,text:t.text.slice(prev),start:t.start+prev,end:t.end,
     hyphenBreak:false,hyphenWidth:0,width:0});
@@ -77,7 +78,7 @@
   if(a.kind==='space')return {penalty:0,flagged:false,kind:'space'};
   if(b.kind==='note')return null; // Don't orphan a reference number at the start of a line.
   if(a.kind==='note')return {penalty:10,flagged:false,kind:'note'};
-  if(a.hyphenBreak)return {penalty:115,flagged:true,kind:'discretionary'};
+  if(a.hyphenBreak)return {penalty:a.hyphenPenalty||145,flagged:true,kind:'discretionary'};
   if(b.kind==='space')return null;
   const x=last(a.text),y=first(b.text);
   if(JOINERS.test(x)||JOINERS.test(y)||OPEN.has(x)||CLOSE.has(y)||NONSTART.has(y))return null;
@@ -119,7 +120,7 @@
  }
  function summarize(tokens){
   // Prefix sums make evaluation of a break O(1) instead of remeasuring it.
-  const w=[0],st=[0],sh=[0],spaces=[0],spaceWidth=[0],cjkGaps=[0],cjkCap=[0];
+  const w=[0],st=[0],sh=[0],spaces=[0],spaceWidth=[0],cjkGaps=[0],cjkCap=[0],letters=[0];
   for(const t of tokens){
    w.push(w.at(-1)+t.width+(t.afterAuto||0));
    st.push(st.at(-1)+(t.stretch||0)+(t.afterStretch||0));
@@ -128,8 +129,9 @@
    spaceWidth.push(spaceWidth.at(-1)+(t.kind==='space'?t.width:0));
    cjkGaps.push(cjkGaps.at(-1)+(t.afterStretch>0?1:0));
    cjkCap.push(cjkCap.at(-1)+(t.afterStretch||0));
+   letters.push(letters.at(-1)+(t.kind==='space'?1:Array.from(t.text).length));
   }
-  return {w,st,sh,spaces,spaceWidth,cjkGaps,cjkCap};
+  return {w,st,sh,spaces,spaceWidth,cjkGaps,cjkCap,letters};
  }
  // Use one coherent physical glue model in the DP and in the renderer.
  // Western spaces may shrink/stretch; Han--Han gaps may only expand. Compare
@@ -190,7 +192,7 @@
   }
   return best;
  }
- function lineMetrics(tokens,prefix,from,to,goal,final,alignment){
+ function lineMetrics(tokens,prefix,from,to,goal,final,alignment,fontSize=20,allowTracking=true){
   let start=from,end=to;
   while(start<end&&tokens[start].kind==='space')start++;
   while(end>start&&tokens[end-1].kind==='space')end--;
@@ -205,28 +207,39 @@
   const cjkGaps=prefix.cjkGaps[end]-prefix.cjkGaps[start]-(tail.afterStretch>0?1:0);
   const cjkCapacity=prefix.cjkCap[end]-prefix.cjkCap[start]-(tail.afterStretch||0);
   const relativeShortfall=Math.max(0,missing)/Math.max(1,goal);
+  const glyphCount=prefix.letters[end]-prefix.letters[start];
+  let tracking=0;
   let properties={justify:false,justifyMode:'none',wordSpacing:0,cjkSpacing:0,
    ratio:relativeShortfall,badness:0};
   if(final){
    if(missing<-.35)return null;
-   properties.badness=width<goal*.18?300:width<goal*.29?65:0;
+   properties.badness=width<goal*.16?17000:width<goal*.30?6500:width<goal*.44?1100:0;
   }else if(alignment!=='justify'){
    if(missing<-.35)return null;
    properties.badness=2300*relativeShortfall**2;
   }else if(cjkGaps>0){
    const fit=fitMixedGlue(missing,spaces,naturalSpace,cjkGaps,cjkCapacity);
    if(fit)properties=fit;
-   else if(missing>=-.35)properties.badness=1650+3600*relativeShortfall**2;
+   else if(missing>=-.35 && spaces>0){const ratio=missing/(spaces*naturalSpace);properties={justify:true,justifyMode:'spaces',wordSpacing:missing/spaces,cjkSpacing:0,ratio,badness:3800+6000*Math.max(0,ratio-.92)**2};}
+   else if(missing>=-.35 && cjkGaps>0){const ratio=missing/Math.max(1,cjkCapacity);properties={justify:true,justifyMode:'mixed',wordSpacing:0,cjkSpacing:missing/cjkGaps,ratio,badness:3800+2000*Math.max(0,ratio-.985)**2};}
    else return null;
   }else if(spaces>0 && naturalSpace>0){
-   const fit=fitMixedGlue(missing,spaces,naturalSpace,0,0);
-   if(fit)properties=fit;
-   else if(missing>=-.35)properties.badness=1650+3600*relativeShortfall**2;
+   // Microtracking distributes a *tiny* amount of surplus over glyphs,
+   // preventing rivers without noticeably distorting individual words.
+   // TeX uses font expansion; CSS variable-font widths aren't universal, so
+   // a rigorously bounded letter-spacing is the cross-font fallback here.
+   // Never apply tracking inside inline mathematical constructs.
+   if(allowTracking && glyphCount>=28 && missing>spaces*naturalSpace*.24){
+    tracking=Math.min(fontSize*.014, (missing-spaces*naturalSpace*.24)/glyphCount);
+   }
+   const fit=fitMixedGlue(missing-tracking*glyphCount,spaces,naturalSpace,0,0);
+   if(fit)properties={...fit,badness:fit.badness+3500*(tracking/fontSize)**2};
+   else if(missing>=-.35){tracking=0;const ratio=missing/(spaces*naturalSpace);properties={justify:true,justifyMode:'spaces',wordSpacing:missing/spaces,cjkSpacing:0,ratio,badness:3800+6000*Math.max(0,ratio-.92)**2};}
    else return null;
   }else if(missing>=-.35){
-   properties.badness=1700+3300*relativeShortfall**2;
+   properties.badness=50000+20000*relativeShortfall**2;
   }else return null;
-  return {...properties,width,missing,spaces,naturalSpace,cjkGaps,goal};
+  return {...properties,tracking,glyphCount,width,missing,spaces,naturalSpace,cjkGaps,goal};
  }
  function fitness(line){
   if(!line.justify)return line.missing>line.goal*.2?3:1;
@@ -236,12 +249,13 @@
   return 3;
  }
  function score(prev,line,entry,final){
-  let cost=prev.cost+12+Math.min(9000,line.badness);
-  if(entry.kind==='discretionary')cost+=88;
+  let cost=prev.cost+12+Math.min(100000,line.badness);
+  if(entry.kind==='discretionary')cost+=75;
   else if(entry.kind==='hyphen')cost+=45;
   else if(entry.penalty>0)cost+=entry.penalty*.30;
   if(Math.abs(fitness(line)-prev.fit)>1)cost+=115;
-  if(prev.flagged && entry.flagged)cost+=170;
+  if(prev.flagged && entry.flagged)cost+=200;
+  if(final && prev.flagged)cost+=145;
   // Avoid alternation between very stretched and very tight lines.
   if(!final&&prev.metrics&&prev.metrics.justify&&line.justify){
    const delta=Math.abs((prev.metrics.ratio||0)-(line.ratio||0));
@@ -255,7 +269,7 @@
  }
  function optimize(tokens,width,firstIndent=0,options={}){
   if(tokens.length===0)return null;
-  const {breaks}=nodesFor(tokens),prefix=summarize(tokens);
+  const decomposition=nodesFor(tokens),{breaks}=decomposition,prefix=summarize(tokens);
   if(breaks.length<2)return null;
   const fitGroups=4,maxBacktrack=144;
   // Justification is only considered for ratios <= 1.55, so a tolerance
@@ -273,7 +287,7 @@
      // pre-trim calculation incorrectly rejected a valid break after spaces.
      if(prefix.w[b.i]-prefix.w[left.i] > width*1.22+35 && j<k-1)break;
      const goal=width-(j===0?firstIndent:0);
-     const line=lineMetrics(tokens,prefix,left.i,b.i,goal,final,options.align||'start');
+     const line=lineMetrics(tokens,prefix,left.i,b.i,goal,final,options.align||'start',options.fontSize||20,options.allowTracking!==false);
      if(!line || !Number.isFinite(line.badness))continue;
      if(!final && line.justify && line.ratio>tolerance)continue;
      for(let f=0;f<fitGroups;f++){
@@ -294,9 +308,9 @@
     lines.push({from:breaks[node.prev].i,to:breaks[index].i,
      start:breaks[node.prev].i?tokens[breaks[node.prev].i]?.start:0,
      end:tokens[breaks[index].i-1]?.end||0,ratio:node.ratio,justify:node.metrics?.justify||false,
-     width:node.metrics?.width,goal:node.metrics?.goal,spaceCount:node.metrics?.spaces||0,badness:node.metrics?.badness,cost:node.cost,
+     width:node.metrics?.width,goal:node.metrics?.goal,spaceCount:node.metrics?.spaces||0,naturalSpace:node.metrics?.naturalSpace||0,badness:node.metrics?.badness,cost:node.cost,
      justifyMode:node.metrics?.justifyMode||'none',wordSpacing:node.metrics?.wordSpacing||0,
-     cjkSpacing:node.metrics?.cjkSpacing||0,
+     cjkSpacing:node.metrics?.cjkSpacing||0,tracking:node.metrics?.tracking||0,glyphCount:node.metrics?.glyphCount||0,
      hyphenate:index!==finalIndex && !!tokens[breaks[index].i-1]?.hyphenBreak});
     const prevIndex=node.prev;
     node=dp[prevIndex][node.prevFit];index=prevIndex;
@@ -304,7 +318,7 @@
    lines.reverse();
    // A paragraph containing only one achievable line needs no DOM changes.
    if(lines.length<2)return null;
-   return {lines,breakpoints:breaks.length,cost:best.cost,tolerance,nodes:nodesFor(tokens).nodes.length,_tokens:tokens};
+   return {lines,breakpoints:breaks.length,cost:best.cost,tolerance,nodes:decomposition.nodes.length,_tokens:tokens};
   }
   return null;
  }
@@ -360,7 +374,8 @@
   return {text:all,runs};
  }
  function makeMeasurer(doc,runs){
-  const ctx=doc.createElement('canvas').getContext('2d');
+  let ctx=measureContexts.get(doc);
+  if(!ctx){ctx=doc.createElement('canvas').getContext('2d');if(ctx)measureContexts.set(doc,ctx);}
   if(!ctx)return null;
   let lastFont='',lastKerning='';
   const measure=(t,run)=>{
@@ -466,15 +481,44 @@
     target.appendChild(run.node.cloneNode(true));
     continue;
    }
+   const source=run.node.nodeValue;
    let at=from;
    while(gapIndex<gaps.length && gaps[gapIndex].pos<=run.start+to){
     const local=gaps[gapIndex].pos-run.start;
     if(local<at){gapIndex++;continue;}
-    if(local>at)target.appendChild(doc.createTextNode(run.node.nodeValue.slice(at,local)));
+    // Dense Chinese text can have many sequential ideographic glue nodes.
+    // Represent a stretch of them with ONE tracked inline span. The negative
+    // terminal margin cancels letter-spacing after its final glyph, leaving
+    // precisely the same N-1 adjustable gaps with far fewer DOM children.
+    // Confine this to BMP ideographs in a single original text node: nested
+    // emphasis, supplementary graphemes and punctuation keep atomic spans.
+    let count=0;
+    const width=gaps[gapIndex].width;
+    if(local>at && local<to && local>=1 &&
+       IDEOGRAPH.test(source[local-1]) && IDEOGRAPH.test(source[local])){
+     let boundary=local, idx=gapIndex;
+     while(idx<gaps.length && boundary<to &&
+       gaps[idx].pos===run.start+boundary &&
+       Math.abs(gaps[idx].width-width)<.002 &&
+       IDEOGRAPH.test(source[boundary-1]) && IDEOGRAPH.test(source[boundary])){
+      count++;boundary++;idx++;
+     }
+     if(count>=3){
+      const begin=local-1;
+      if(begin>at)target.appendChild(doc.createTextNode(source.slice(at,begin)));
+      const cluster=doc.createElement('span');cluster.className='folio-kp-cjk-track';
+      cluster.style.letterSpacing=width.toFixed(4)+'px';
+      cluster.style.marginInlineEnd=(-width).toFixed(4)+'px';
+      cluster.textContent=source.slice(begin,boundary);
+      target.appendChild(cluster);
+      at=boundary;gapIndex+=count;continue;
+     }
+    }
+    if(local>at)target.appendChild(doc.createTextNode(source.slice(at,local)));
     appendGap(gaps[gapIndex].pos);
     at=local;
    }
-   if(to>at)target.appendChild(doc.createTextNode(run.node.nodeValue.slice(at,to)));
+   if(to>at)target.appendChild(doc.createTextNode(source.slice(at,to)));
   }
   return fragment;
  }
@@ -508,7 +552,7 @@
    p.removeAttribute('data-folio-kp');
    p.style.removeProperty('--folio-kp-indent');
   }
-  state.entries.clear();state.key='';state.invalid=true;
+  state.entries.clear();state.deferredPending=[];state.key='';state.invalid=true;
   return memory?restoreAnchor(memory)||anchor:anchor;
  }
  function fitParagraph(p,available,doc){
@@ -523,40 +567,40 @@
   const inlineMath=runs.filter(r=>r.type==='math');
   if(inlineMath.some(r=>!Number.isFinite(r.width)||r.width<1||r.width>width*.88||win.getComputedStyle(r.node).display.includes('block')))return null;
   const runSignature=runs.map(r=>r.start+','+r.end+','+r.font+','+r.letterSpacing+','+r.wordSpacing+','+(r.type==='math'?r.width:'')).join(';');
-  const alignment=cs.textAlign==='justify'?'justify':'start';
+  const alignment='justify'; // Opt-in quality mode requests fully justified prose.
   const planKey=width.toFixed(2)+'|'+indent.toFixed(2)+'|'+alignment+'|'+cs.textAutospace+'|'+runSignature+'|'+text;
   let choice=planCache.get(planKey);
   if(choice===undefined){
    const baseTokens=tokenize(text);
    if(baseTokens.length<3||baseTokens.length>MAX_TOKENS)return null;
-   if(!populateWidths(baseTokens,text,runs,doc,cs.textAutospace==='normal'))return null;
-   const baseOk=!baseTokens.some(t=>t.kind!=='space'&&t.width>width*.94);
-   const basePlan=baseOk?optimize(baseTokens,width-.35,indent,{align:alignment}):null;
-   let altPlan=null;
    const hyphenator=(typeof window!=='undefined'?window.FolioHyphenation:null);
-   // The discretionary DP nearly doubles solver work. For a well-fitted
-   // paragraph it cannot materially improve the page, so skip it.
-   const needsHyphen=!basePlan || basePlan.cost/Math.max(1,basePlan.lines.length)>130;
-   if(needsHyphen && hyphenator && baseTokens.some(t=>t.kind==='western'&&/^[a-zA-Z]{7,}$/.test(t.text))){
-    const hyphTokens=discretionaryTokens(baseTokens,hyphenator);
-    if(hyphTokens.length!==baseTokens.length && hyphTokens.length<=MAX_TOKENS){
-     if(populateWidths(hyphTokens,text,runs,doc,cs.textAutospace==='normal') &&
-       !hyphTokens.some(t=>t.kind!=='space'&&t.width>width*.94)){
-      altPlan=optimize(hyphTokens,width-.35,indent,{align:alignment});
-     }
-    }
+   // One global dynamic program: the optional breakpoints remain unchosen
+   // unless they actually improve the paragraph cost. Avoid solving the
+   // non-hyphenated paragraph a second time on every page layout.
+   let tokens=baseTokens;
+   if(alignment==='justify' && hyphenator && baseTokens.some(t=>t.kind==='western'&&/^[a-zA-Z]{7,}$/.test(t.text))){
+    const extra=discretionaryTokens(baseTokens,hyphenator);
+    if(extra.length<=MAX_TOKENS)tokens=extra;
    }
-   // Both plans are genuinely scored by the same demerit model. Use the
-   // discretionary solution only when it provides a meaningful improvement.
-   // Keep the original result ready for the browser's final geometry check.
-   const preferHyph=altPlan && (!basePlan || altPlan.cost+28<basePlan.cost);
-   choice={best:preferHyph?altPlan:basePlan,baseline:preferHyph?basePlan:null};
+   if(!populateWidths(tokens,text,runs,doc,cs.textAutospace==='normal'))return null;
+   if(tokens.some(t=>t.kind!=='space'&&t.width>width*.94)){return null;}
+   const plan=optimize(tokens,width-.35,indent,{align:alignment,fontSize:runs[0]?.fontSize||20,allowTracking:!inlineMath.length});
+   choice={best:plan,baseline:null};
    if(planCache.size>350){let count=0;for(const key of planCache.keys()){planCache.delete(key);if(++count>=80)break;}}
    planCache.set(planKey,choice);
   }
-  const overfull=plan=>plan?.lines.some(line=>line.width+(line.spaceCount||0)*(line.wordSpacing||0)+
+  const overfull=plan=>plan?.lines.some(line=>line.width+(line.spaceCount||0)*(line.wordSpacing||0)+(line.glyphCount||0)*(line.tracking||0)+
    (plan._tokens.slice(line.from,line.to-1).filter(t=>t.afterStretch>0).length)*(line.cjkSpacing||0)>line.goal+.8);
-  if(!choice?.best||overfull(choice.best))return null;
+  if(!choice?.best||overfull(choice.best)){return null;}
+  // An optimized paragraph must never contain mid-paragraph ragged lines.
+  // If its natural glue cannot be fitted attractively, Chromium's native
+  // justified layout is preferable to isolated words and large rivers.
+  const poorLine=choice.best.lines.slice(0,-1).some(line=>
+   !line.justify ||
+   (line.spaceCount>0 && (line.wordSpacing>Math.max(6.5,(line.naturalSpace||4)*2.0) ||
+     line.wordSpacing< -Math.max(1.4,(line.naturalSpace||4)*.27))) ||
+   (line.cjkSpacing>0 && line.cjkSpacing>Math.max(5.5,(runs[0]?.fontSize||20)*.28)));
+  if(poorLine)return null;
   function fragmentsFor(plan){
    if(!plan||overfull(plan))return null;
    const fragments=[];
@@ -586,7 +630,11 @@
     // The plan and renderer must use identical glue: Western word spacing is
     // applied explicitly, rather than asking the browser to choose a different
     // justification strategy after the Knuth–Plass optimization.
-    if(line.justify && line.justifyMode!=='none'){
+    if(line.justify){
+     if(Math.abs(line.tracking)>.005){
+      span.classList.add('folio-kp-microtrack');
+      span.style.setProperty('letter-spacing',line.tracking.toFixed(4)+'px','important');
+     }
      if(Math.abs(line.wordSpacing)>.01){
       span.classList.add('folio-kp-space-fit');
       span.style.setProperty('word-spacing',line.wordSpacing.toFixed(4)+'px','important');
@@ -598,15 +646,20 @@
       if(plan._tokens.slice(line.from,line.to).some(t=>t.kind==='western'))
        span.classList.add('folio-kp-mixed-fit');
      }
+     if(line.justifyMode==='none')span.classList.add('folio-kp-natural-fit');
     }else span.classList.add('folio-kp-ragged');
     fragments.push(span);
    }
    return fragments.map(el=>el.textContent).join('')===p.textContent?fragments:null;
   }
   const fragments=fragmentsFor(choice.best);
-  if(!fragments)return null;
+  if(!fragments){return null;}
   const baselineFragments=choice.baseline?fragmentsFor(choice.baseline):null;
   return {fragments,baselineFragments,baselineLines:choice.baseline?.lines.length||0,
+   fastSafe:runs.every(r=>r.type==='text'&&r.font===runs[0].font&&
+    r.letterSpacing===0&&r.wordSpacing===0) &&
+    (!/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(text) || !/[a-zA-Z0-9]/u.test(text)) &&
+    !choice.best.lines.some(l=>l.spaceCount===0&&l.justify),
    lines:choice.best.lines.length,chars:text.length,breakpoints:choice.best.breakpoints,tolerance:choice.best.tolerance};
  }
  function typeset(doc,available,config={}){
@@ -624,16 +677,18 @@
   }
   const win=doc.defaultView;
   const start=win.performance?.now?.()||Date.now();
-  let processed=0,skipped=0,lines=0,chars=0;
+  let processed=0,skipped=0,lines=0,chars=0,fastSafe=0;
   const pending=[];
+  const timestamps={};
   const paragraphs=Array.from(doc.body.querySelectorAll('p'));
   for(const p of paragraphs){
    if(processed>=MAX_PARAGRAPHS || (win.performance?.now?.()||Date.now())-start>300){skipped++;continue;}
    if(!selectEligible(p,win)){skipped++;continue;}
    const result=fitParagraph(p,available,doc);
-   if(result){pending.push([p,result]);processed++;chars+=result.chars;lines+=result.lines;}
+   if(result){pending.push([p,result]);if(result.fastSafe)fastSafe++;processed++;chars+=result.chars;lines+=result.lines;}
    else skipped++;
   }
+  timestamps.solve=(win.performance?.now?.()||Date.now())-start;
   // All expensive style/geometry reads happen before any write. Committing
   // paragraphs in a separate batch avoids layout thrashing in multi-columns.
   for(const [p,result] of pending){
@@ -643,10 +698,25 @@
    p.setAttribute('data-folio-kp','');
    state.entries.set(p,{original,...result});
   }
-  // Chromium's cross-script shaping (text-autospace, font fallback and
-  // punctuation) may disagree with canvas by a few pixels. Calibrate *only*
-  // the positive-width Han/Han glue, in a single extra read/write batch. No
-  // extra glyph splitting, and no changes to the original EPUB text.
+  state.deferredPending=pending;
+  state.key=key;state.invalid=false;
+  state.stats={enabled:true,processed,skipped,lines,chars,fastSafe,elapsedMs:(win.performance?.now?.()||Date.now())-start,timestamps};
+  // When changing fonts/columns, anchors inside a reformatted paragraph are
+  // resolved by character offset instead of stale text-node references.
+  if(!config.deferValidation)validate(doc);
+  const remapped=anchorMemory?restoreAnchor(anchorMemory):null;
+  return {...state.stats,anchor:remapped||anchor};
+ }
+ // Call after the pagination engine has already measured the column spread.
+ // Otherwise scrollWidth on each paragraph forces an early whole-chapter layout.
+ // Native fallback is still retained for any actual browser overflow.
+ function validate(doc){
+  const state=cacheByDoc.get(doc);
+  if(!state?.deferredPending?.length)return {changed:false,checked:0};
+  const pending=state.deferredPending;
+  state.deferredPending=[];
+  const win=doc.defaultView;
+  const started=win.performance?.now?.()||Date.now();
   const calibration=[];
   for(const [p] of pending){
    for(const line of p.children){
@@ -669,38 +739,31 @@
    }
   }
   for(const [gap,width] of calibration)gap.style.width=width.toFixed(4)+'px';
-  // Validate the browser's actual shaped widths after batched layout.
-  // The optimizer's model remains bounded; invalid content uses native layout.
+  let checked=0,removed=0,changed=calibration.length>0;
   for(const [p,result] of pending){
-   if(!p.isConnected)continue;
-   const overshoots=Array.from(p.children).some(line=>line.scrollWidth>line.clientWidth+2);
-   if(overshoots){
-    const saved=state.entries.get(p);
-    // If the discretionary/hyphenated plan shaped differently in Chromium,
-    // use the already measured non-hyphenated plan before giving up entirely.
-    if(result.baselineFragments){
-     p.replaceChildren(...result.baselineFragments);
-     const stillBad=Array.from(p.children).some(line=>line.scrollWidth>line.clientWidth+2);
-     if(!stillBad){
-      lines+=result.baselineLines-result.lines;
-      saved.lines=result.baselineLines;continue;
-     }
+   if(!p.isConnected||result.fastSafe)continue;
+   checked++;
+   if(p.scrollWidth<=p.clientWidth+2)continue;
+   const saved=state.entries.get(p);
+   if(result.baselineFragments){
+    p.replaceChildren(...result.baselineFragments);
+    if(p.scrollWidth<=p.clientWidth+2){
+     state.stats.lines+=result.baselineLines-result.lines;
+     saved.lines=result.baselineLines;changed=true;continue;
     }
-    const original=saved?.original;
-    if(original)p.replaceChildren(...original.childNodes);
-    p.removeAttribute('data-folio-kp');
-    state.entries.delete(p);
-    processed--;skipped++;lines-=result.lines;chars-=result.chars;
    }
+   if(saved?.original)p.replaceChildren(...saved.original.childNodes);
+   p.removeAttribute('data-folio-kp');
+   state.entries.delete(p);
+   state.stats.processed--;state.stats.skipped++;state.stats.lines-=result.lines;state.stats.chars-=result.chars;
+   removed++;changed=true;
   }
-  state.key=key;state.invalid=false;
-  state.stats={enabled:true,processed,skipped,lines,chars,elapsedMs:(win.performance?.now?.()||Date.now())-start};
-  // When changing fonts/columns, anchors inside a reformatted paragraph are
-  // resolved by character offset instead of stale text-node references.
-  const remapped=anchorMemory?restoreAnchor(anchorMemory):null;
-  return {...state.stats,anchor:remapped||anchor};
+  state.stats.validationMs=(win.performance?.now?.()||Date.now())-started;
+  state.stats.validationChecked=checked;
+  state.stats.validationFallbacks=removed;
+  return {changed,checked,removed};
  }
  function invalidate(doc){const s=cacheByDoc.get(doc);if(s)s.invalid=true;metricsCache.clear();planCache.clear();}
  function stats(doc){return cacheByDoc.get(doc)?.stats||null;}
- return {typeset,restore,invalidate,stats,tokenize,discretionaryTokens,breakAfter,optimize,nodesFor,populateWidths,version:'1.8.0'};
+ return {typeset,validate,restore,invalidate,stats,tokenize,discretionaryTokens,breakAfter,optimize,nodesFor,populateWidths,version:'1.10.0'};
 });

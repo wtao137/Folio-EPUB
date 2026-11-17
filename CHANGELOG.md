@@ -1,3 +1,25 @@
+## Folio v92.0 — Better line spacing and less synchronous layout work (2026-11-17)
+
+- Extend TeX-pattern discretionary break candidates to English words of seven or more letters, keeping 2-character prefixes and 3-character suffixes *only* with high penalties. Optimizer chooses them when they prevent significantly worse word spacing; final lines continue to use normal ragged-last book typography.
+- Add narrowly bounded per-line **microtracking** (up to 0.014em) for long Western justified lines, coordinated with the existing exact word-space fit. Avoid tracking lines containing MathML so mathematical operators, fractions and conditions keep native math spacing.
+- Replace dense runs of independent Chinese character-gap elements with one precisely tracked inline span per eligible ideograph sequence. Preserve source text, inline formatting and kinsoku constraints. On the 111-paragraph Chinese EPUB regression chapter, 2,646 separate CJK spacer elements in v91.9 became 361 grouped tracking spans plus 137 individual spacers.
+- Reuse the document's text-measurement canvas and separate line-break preparation from browser geometry validation. Validate after the existing multi-column layout flush, avoiding an extra forced full-chapter layout. Actual overflow still triggers native justified fallback. An overwidth paragraph is not forced through the algorithm.
+- Keep publisher MathML, linked footnote superscripts, images, code blocks and fixed-layout EPUBs intact. Preserve all original DOM text and restore it when the setting is turned off. The opt-in setting remains disabled by default.
+- Chromium samples from the supplied SICP EPUB show more even spacing and fewer conspicuously over-stretched lines. In three same-environment runs, median elapsed time from enabling the mode to complete pagination was approximately 1.72→1.67 seconds for SICP at 1000px and 1.08→0.88 seconds for the Chinese chapter at 1130px. These results are subject to device/font/browser variability and are not guaranteed speedups.
+
+**Scope:** This remains a selective paragraph typesetter, not complete TeX microtype. Font expansion, glyph protrusion and page-global widow/orphan optimization are not implemented. In particular, complex mixed paragraphs still use native justification when no acceptable fit can be found.
+
+## Folio v91.9 — Justified quality-first Knuth–Plass (2026-11-17)
+
+- The optional Knuth–Plass mode now requests full justification for ordinary prose, including the native fallback, rather than choosing cheap ragged lines. Final lines remain ragged as in normal book typography.
+- A real global line-break calculation uses TeX-pattern discretionary hyphens for longer English words (10+ Latin letters), and avoids splitting short words merely to fill a line. The demerit calculation penalizes discretionary breaks and awkward short fragments.
+- Calculated word- and CJK-spacing is applied directly to each chosen line. Incompatible or unattractively spaced paragraphs use Chromium's native justified layout with CSS hyphenation rather than forced line boxes.
+- For performance, the hybrid optimizer solves a single candidate graph with optional hyphens rather than fully solving non-hyphenated and hyphenated paragraphs separately. Overflow checks are grouped at the paragraph level before any fallback.
+- MathML block contents, technical blocks, punctuation constraints, in-book note links, paragraph text and original DOM restoration remain guarded.
+- Added regression tests with real SICP and real Chinese EPUB chapters; before/after Chromium screenshots accompany this release but are not part of the PWA zip.
+
+**Limitations:** This is not a full TeX page builder. Some paragraphs remain native when the column is too narrow, the markup is complex or the predicted gaps are unattractive. Native browser hyphenation depends on language metadata and installed dictionaries. Comparisons shown are browser screenshots, not simulated typesetting.
+
 ## Folio v91.8 — Measured Chinese and mixed-script justification (2026-11-17)
 
 - Bring Chinese and mixed-script paragraphs onto the same physical glue model used for English: Knuth–Plass now explicitly controls bounded inter-ideograph gaps rather than independently asking Chromium to justify reconstructed lines.
