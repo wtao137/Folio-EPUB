@@ -1,3 +1,22 @@
+# v91.2 — Knuth–Plass multilingual typesetting (2026-11-17)
+
+- Added a genuine TeX-style paragraph-global minimum-demerit line-break optimizer with boxes, glue, penalties, fitness classes and CJK kinsoku constraints; the feature stays optional/off by default.
+- Preserved inline English/Chinese font runs and author emphasis during DOM line reconstruction; kept original nodes for exact restoration.
+- Measured all paragraphs before applying any transformations to prevent expensive repeated multicolumn reflows.
+- Kept links, selectable text and EPUB paragraph IDs intact; complex inline markup retains native browser layout.
+- Updated PWA offline shell to include the local engine, and shipped the same engine embedded in standalone HTML.
+- Added 3-viewport real-browser multilingual line-break, punctuation, overflow, fallback and restoration regression tests.
+- No change to Web Speech engine, illustration-viewer modes, or margin-click page navigation.
+
+## v91.1 — Optional native text composition, quiet margin clicks, better image inspection
+
+- Retained the original v91 Web Speech reader and PWA data model. Experimental direct Edge WebSocket TTS is NOT reintroduced.
+- Evaluated Pretext and Knuth–Plass: introduced an opt-in browser-native `text-wrap:pretty` mode with strict CJK punctuation handling and mixed-script support, rather than rewriting book text or claiming a complete Knuth–Plass algorithm.
+- Removed left/right margin arrow glyphs and hover shading; preserved accessible buttons, hand cursor, single-click and press-and-hold turning. Click targets extend across the blank margin without covering the text.
+- Separated illustration preview into **Fit page**, **Fit width**, and **100%**. Fit width scrolls tall images vertically instead of silently shrinking them back to page height; Fit page now fits the actual stage, not a fixed 76dvh cap.
+- Preserved existing rendering settings, EPUB libraries, CJK font fallback policy, and chapter anchors. `folio-shell-v91.1` updates the offline PWA shell.
+- Added `TYPOGRAPHY_EVALUATION.md` and targeted Chromium image/typography tests.
+
 ## v91 — Technical EPUB blocks and safer theme contrast
 
 - Prevented clipped first characters and borders in preformatted source-code blocks with negative publisher margins or hanging indents.
