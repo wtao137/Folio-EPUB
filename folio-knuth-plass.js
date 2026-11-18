@@ -36,6 +36,10 @@
  const CODE_ATOM='\uFFF8'; // Inline code/keyboard/samp is an indivisible native-styled box.
  const NOTE_ATOM='\uFFF9'; // One intact superscript noteref, attached to its preceding word.
  const MAX_PARAGRAPH = 2500, MAX_TOKENS = 2100, MAX_PARAGRAPHS = 800, MAX_CJK_SPACERS = 850;
+ // Keep at most three previously validated line compositions per paragraph.
+ // Snapshots are created *on departure* from a width, so a cold chapter load
+ // incurs no template-cloning cost. The stored DOM is detached and bounded.
+ const MAX_SAVED_LAYOUTS=3, MAX_SAVED_LAYOUT_CHARS=2400;
  const cacheByDoc = new WeakMap();
  const metricsCache = new Map();
  const measureContexts = new WeakMap();
@@ -452,6 +456,13 @@
   // A caption may be under a figure, but a free-standing paragraph within
   // an image/figure group still belongs to the publisher's figure layout.
   if(tag!=='figcaption'&&p.closest('figure'))return false;
+  // Reject short/oversized/unsupported-script blocks *before* querying any
+  // computed styles or walking inline markup. Headings, short list items,
+  // SICP code labels and note fragments often account for half the chapter.
+  const text=p.textContent||'';
+  const minimum=tag==='p'?50:tag==='li'?65:75;
+  if(text.length<minimum||text.length>MAX_PARAGRAPH||/[\u2028\u2029]/u.test(text)||
+     /\p{Script=Arabic}|\p{Script=Hebrew}|[\u202a-\u202e\u2066-\u2069]/u.test(text))return false;
   const textOnly=p.childElementCount===0;
   if(p.hasAttribute('data-folio-kp')||(!textOnly && p.querySelector('img,svg:not(math svg),ruby,rt,rp,br,wbr,hr,button,input,textarea,select,figure,table,pre,[id]:not(a[data-folio-note-ref]),[contenteditable],iframe')))return false;
   if(!textOnly && p.querySelector('math[display="block"],math[id],math [id],math maction,math annotation-xml,.math-display,.displaymath,.equation,.katex-display,.MathJax_Display,mjx-container'))return false;
@@ -473,10 +484,6 @@
   if(cs.textTransform!=='none'||cs.textOverflow!=='clip'||cs.letterSpacing!=='normal'&&Math.abs(parseFloat(cs.letterSpacing)||0)>1)return false;
   const indent=parseFloat(cs.textIndent)||0;
   if(indent < -.1 || indent>Math.min(80,(parseFloat(cs.width)||550)*.22))return false;
-  if(/[\u2028\u2029]/u.test(p.textContent||''))return false;
-  const text=p.textContent||'';
-  const minimum=tag==='p'?50:tag==='li'?65:75;
-  if(text.length<minimum||text.length>MAX_PARAGRAPH||/\p{Script=Arabic}|\p{Script=Hebrew}|[\u202a-\u202e\u2066-\u2069]/u.test(text))return false;
   return true;
  }
  function eligibleWithCache(p,win,key,available){
@@ -555,8 +562,8 @@
    const cached=metricsCache.get(key);if(cached!==undefined)return cached;
    if(lastFont!==run.font){ctx.font=run.font;lastFont=run.font;}
    if(lastKerning!==run.kerning){try{ctx.fontKerning=run.kerning}catch{}lastKerning=run.kerning;}
-   const result=Math.max(0,ctx.measureText(t).width + run.letterSpacing*Math.max(0,Array.from(t).length-1)
-    +run.wordSpacing*(t.match(/ /g)||[]).length);
+   const result=Math.max(0,ctx.measureText(t).width + (run.letterSpacing?run.letterSpacing*Math.max(0,glyphLength(t)-1):0)
+    +(run.wordSpacing && t.includes(' ')?run.wordSpacing*(t.match(/ /g)||[]).length:0));
    if(metricsCache.size>20000){let count=0;for(const k of metricsCache.keys()){metricsCache.delete(k);if(++count>=4500)break;}}
    metricsCache.set(key,result);return result;
   };
@@ -573,8 +580,12 @@
    return width;
   };
   get.glyph=(offset,letter)=>{
-   const r=runs.find(x=>x.start<=offset&&offset<x.end)||runs[0];
-   return measure(letter,r);
+   // Thousands of hyphenation and punctuation measurements may occur in
+   // heavily marked-up books. Resolve the styled run in O(log n), with no
+   // repeated linear scan of all emphasized/linked fragments.
+   let lo=0,hi=runs.length;
+   while(lo<hi){const mid=(lo+hi)>>1;if(runs[mid].end<=offset)lo=mid+1;else hi=mid;}
+   return measure(letter,runs[Math.min(lo,runs.length-1)]);
   };
   return get;
  }
@@ -738,7 +749,7 @@
    p.removeAttribute('data-folio-kp');
    p.style.removeProperty('--folio-kp-indent');
   }
-  state.entries.clear();state.deferredPending=[];state.key='';state.invalid=true;
+  state.entries.clear();state.deferredPending=[];state.refinement=null;state.key='';state.invalid=true;
   return memory?restoreAnchor(memory)||anchor:anchor;
  }
  function prepareMeasuredParagraph(p,doc,preparationKey,autoSpace,sourceRoot=null){
@@ -811,6 +822,40 @@
   const width=style?Math.min(available,physicalWidth)-style.padding:Math.min(available,physicalWidth);
   if(!Number.isFinite(width)||width<170)return null;
   const indent=style?.indent||0;
+  const optimizeWidth=width-(HAN.test(previous?.sourceText||p.textContent)?.35:1.7);
+  // DOM-last optical tolerance. A previously validated line still fits if
+  // its available measure grows by at most 0.35% (capped at 2px). Keep the same
+  // precise justification rather than mutate dozens of line spans simply
+  // to distribute a visually imperceptible fractional-pixel surplus.
+  // Never do this on a shrink, after a font/style change, or after a failed
+  // validation. Retain the ORIGINAL checked width across repeated resizes:
+  // small increments must never accumulate into a large unjustified gap.
+  if(previous?.validatedSafe && previous.prepKey===preparationKey &&
+     Number.isFinite(previous.fitWidth) &&
+     optimizeWidth>=previous.fitWidth-0.03 &&
+     optimizeWidth-previous.fitWidth<=Math.min(2.05,previous.fitWidth*.0035) &&
+     previous.optimizedLines?.length>=2 && previous.layoutSignature){
+    return {reuse:true,cachedPreparation:true,retainedOpticalFit:true,
+     layoutSignature:previous.layoutSignature,lines:previous.lines,chars:previous.chars,
+     optimizedLines:previous.optimizedLines,breakpoints:previous.breakpoints,
+     fastSafe:previous.fastSafe};
+  }
+  // An EPUB page often revisits an exact earlier column width (settings
+  // panel, window snapping, switching 1/2/3 columns). Reuse its *validated*
+  // rendered layout, including nested HTML/MathML/footnote nodes, rather than
+  // rerunning Knuth-Plass and cloning every styled text run.
+  const saved=previous?.prepKey===preparationKey?
+   previous.layoutCache?.get(optimizeWidth.toFixed(2)):null;
+  if(saved && saved.fragments?.length && saved.prepKey===preparationKey){
+   // Consume the detached, previously checked DOM nodes. They can be
+   // snapshotted again on the next departure; never keep a live rendering
+   // simultaneously in the cache, where later spacing retargeting could
+   // mutate its stored styles.
+   previous.layoutCache.delete(optimizeWidth.toFixed(2));
+   return {...saved.data,fragments:saved.fragments,
+    baselineFragments:null,cachedPreparation:true,restoredLayout:true,
+    fitWidth:optimizeWidth,validatedSafe:true,validatedWidth:optimizeWidth};
+  }
   const prepared=prepareMeasuredParagraph(p,doc,preparationKey,style?.autoSpace||false,previous?.original||null);
   if(!prepared)return null;
   const {text,runs,tokens:measuredTokens,geometry}=prepared;
@@ -819,7 +864,6 @@
   const runSignature=prepared.signature;
   const alignment='justify'; // Opt-in quality mode requests fully justified prose.
   const planKey=width.toFixed(2)+'|'+indent.toFixed(2)+'|'+alignment+'|'+(style?.autoSpace?'normal':'none')+'|'+runSignature+'|'+text;
-  const optimizeWidth=width-(HAN.test(text)?.35:1.7);
   const solverOptions={align:alignment,fontSize:runs[0]?.fontSize||20,
    allowTracking:!inlineMath.length,geometry};
   let stabilized=false;
@@ -978,7 +1022,10 @@
     if(Math.abs(now.tracking)>.005)line.style.setProperty('letter-spacing',now.tracking.toFixed(4)+'px','important');
     else line.style.removeProperty('letter-spacing');count++;
    }
-   if(Math.abs(now.cjkSpacing)>.035 && Math.abs(now.cjkSpacing-was.cjkSpacing)>.002){
+   // Reset previously applied CJK glue when the new optimal adjustment is
+   // zero. Old logic only updated nonzero glue, leaving stale spacing on
+   // otherwise correctly reused lines after a width change.
+   if(Math.abs(now.cjkSpacing-was.cjkSpacing)>.002){
     const gaps=line.querySelectorAll('.folio-kp-ideograph-glue');
     for(const gap of gaps){
      gap.style.width=Math.max(0,now.cjkSpacing).toFixed(4)+'px';
@@ -999,6 +1046,7 @@
   const prior=previous.lineSignatures,next=result.lineSignatures;
   const existing=previous.fragments,newLines=result.fragments;
   if(!existing || !newLines)return;
+  const rebuilt=newLines.slice();
   // Reuse only aligned prefixes and suffixes. The middle may have gained/lost
   // lines; matching its indices would risk changing the reading order.
   let head=0;
@@ -1010,8 +1058,39 @@
         prior[prior.length-1-tail]===next[next.length-1-tail]){
    newLines[next.length-1-tail]=existing[prior.length-1-tail];tail++;
   }
-  result.reusedLines=head+tail;
+  // A cached alternate layout may share old line nodes with a later one.
+  // Never trust a signature alone: the source text must remain byte-exact.
+  // Revert to the freshly built lines if an EPUB's inline markup has changed
+  // how adjacent text runs are represented.
+  const expected=previous.original?.textContent;
+  if(expected!==undefined && newLines.map(n=>n.textContent).join('')!==expected){
+   newLines.splice(0,newLines.length,...rebuilt);
+   result.reusedLines=0;
+  }else result.reusedLines=head+tail;
  }
+ // Snapshot only when leaving a previously checked width. Cloning here is
+ // cheaper than rebuilding the marked-up text on every later return, and
+ // avoids burdening one-time cold reading. Even if prefix/suffix nodes are
+ // reused in a new layout, these saved templates stay independent.
+ function snapshotDepartingLayout(p,previous,prepKey){
+  if(!previous?.validatedSafe || previous.prepKey!==prepKey ||
+     !Number.isFinite(previous.fitWidth) ||
+     (previous.chars||0)>MAX_SAVED_LAYOUT_CHARS)return;
+  const cache=previous.layoutCache||(previous.layoutCache=new Map());
+  const key=previous.fitWidth.toFixed(2);
+  if(cache.has(key))return;
+  const lines=[...p.children];
+  if(lines.length!==previous.lines ||
+     !lines.every(l=>l.classList.contains('folio-kp-line')))return;
+  const {original,fragments,baselineFragments,layoutCache,
+   validatedSafe,validatedWidth,...data}=previous;
+  cache.set(key,{prepKey,data,fragments:lines.map(n=>n.cloneNode(true))});
+  while(cache.size>MAX_SAVED_LAYOUTS)cache.delete(cache.keys().next().value);
+ }
+ // The initial ~300ms budget is a FIRST-PAINT budget, not a permanent limit.
+ // Prepare the remaining paragraphs in idle slices, without mutating the
+ // active chapter on every slice. A final batched commit avoids repeated
+ // Chromium multicolumn pagination and preserves native DOM until ready.
  function typeset(doc,available,config={}){
   if(!doc?.body)return {enabled:false,processed:0};
   let state=cacheByDoc.get(doc);
@@ -1034,13 +1113,19 @@
   const start=win.performance?.now?.()||Date.now();
   let processed=0,skipped=0,lines=0,chars=0,fastSafe=0,reusedPreparations=0,newPreparations=0;
   let unchangedParagraphs=0,updatedParagraphs=0,reusedLineNodes=0,restoredParagraphs=0;
-  let retargetedParagraphs=0,spacingUpdates=0,stabilizedParagraphs=0;
+  let retargetedParagraphs=0,spacingUpdates=0,stabilizedParagraphs=0,retainedOpticalFits=0,restoredLayouts=0;
   const pending=[],toNative=[],toRetarget=[];
   const timestamps={};
   const paragraphs=Array.from(doc.body.querySelectorAll('p,li,dd,blockquote,figcaption'));
+  const initialBudget=Number.isFinite(config.budgetMs)?Math.max(0,config.budgetMs):300;
+  let budgetStopped=false;
+  const remaining=[];
   for(const p of paragraphs){
    const previous=canReuse?state.entries.get(p):null;
-   if(processed>=MAX_PARAGRAPHS || (win.performance?.now?.()||Date.now())-start>300){
+   if(processed>=MAX_PARAGRAPHS || budgetStopped ||
+      (win.performance?.now?.()||Date.now())-start>initialBudget){
+    if(!budgetStopped && processed<MAX_PARAGRAPHS)budgetStopped=true;
+    if(budgetStopped && processed<MAX_PARAGRAPHS)remaining.push(p);
     if(previous)toNative.push([p,previous]);skipped++;continue;
    }
    // Already prepared paragraphs have proven eligible. Re-running DOM-based
@@ -1048,7 +1133,9 @@
    if(!previous && !eligibleWithCache(p,win,preparationKey,available)){skipped++;continue;}
    const result=fitParagraph(p,available,doc,preparationKey,previous);
    if(!result){if(previous)toNative.push([p,previous]);skipped++;continue;}
+   if(result.restoredLayout)restoredLayouts++;
    if(result.keptBreakPlan)stabilizedParagraphs++;
+   if(result.retainedOpticalFit)retainedOpticalFits++;
    if(result.fastSafe)fastSafe++;
    if(result.cachedPreparation)reusedPreparations++;else newPreparations++;
    processed++;chars+=result.chars;lines+=result.lines;
@@ -1068,6 +1155,7 @@
    state.entries.delete(p);restoredParagraphs++;
   }
   for(const [p,result,previous] of toRetarget){
+   snapshotDepartingLayout(p,previous,preparationKey);
    if(retargetLineSpacing(p,previous,result)){
     spacingUpdates+=result.spacingUpdates||0;
     state.entries.set(p,{...previous,...result,original:previous.original,fragments:previous.fragments});
@@ -1080,11 +1168,13 @@
    }
   }
   for(const [p,result,previous] of pending){
+   snapshotDepartingLayout(p,previous,preparationKey);
    const original=previous?.original||doc.createElement(p.localName);
    if(!previous)while(p.firstChild)original.appendChild(p.firstChild);
    p.replaceChildren(...result.fragments);
    p.setAttribute('data-folio-kp','');
-   state.entries.set(p,{...result,original,prepKey:preparationKey});
+   state.entries.set(p,{...result,original,prepKey:preparationKey,
+    layoutCache:previous?.layoutCache||new Map()});
   }
   // A previously validated paragraph whose line breaks are unchanged does
   // not require another expensive multicolumn scrollWidth/layout pass for a
@@ -1092,7 +1182,12 @@
   // mixed Han/Latin geometry and changes beyond that narrow stable window.
   const validation=[];
   let trustedSpacingUpdates=0;
-  for(const [p,result] of pending)validation.push([p,result]);
+  for(const [p,result] of pending){
+   if(result.restoredLayout){
+    const saved=state.entries.get(p);
+    if(saved){saved.validatedSafe=true;saved.validatedWidth=result.fitWidth;}
+   }else validation.push([p,result]);
+  }
   for(const [p,result,previous] of toRetarget){
    const hasMixed=!!p.querySelector('.folio-kp-mixed-fit');
    const smallDelta=Math.abs((result.fitWidth||0)-(previous.validatedWidth||0))<=2;
@@ -1104,14 +1199,91 @@
    }else validation.push([p,result]);
   }
   state.deferredPending=validation;
+  state.refinement=remaining.length?{
+   key,preparationKey,available,remaining,cursor:0,results:[],
+   elapsedMs:0,attempted:0,eligible:0,startedAt:Date.now()
+  }:null;
   state.key=key;state.invalid=false;state.preparationKey=preparationKey;
   state.stats={enabled:true,processed,skipped,lines,chars,fastSafe,
    reusedPreparations,newPreparations,unchangedParagraphs,updatedParagraphs,
-   reusedLineNodes,restoredParagraphs,retargetedParagraphs,spacingUpdates,stabilizedParagraphs,trustedSpacingUpdates,
-   elapsedMs:(win.performance?.now?.()||Date.now())-start,timestamps};
+   reusedLineNodes,restoredParagraphs,retargetedParagraphs,spacingUpdates,stabilizedParagraphs,trustedSpacingUpdates,retainedOpticalFits,restoredLayouts,
+   elapsedMs:(win.performance?.now?.()||Date.now())-start,timestamps,
+   progressiveRemaining:remaining.length,progressivePrepared:0,
+   progressiveCommitted:0,progressiveElapsedMs:0};
   if(!config.deferValidation)validate(doc);
   const remapped=anchorMemory?restoreAnchor(anchorMemory):null;
   return {...state.stats,anchor:remapped||anchor};
+ }
+ // Idle preparation does not mutate active EPUB DOM. Every slice checks the
+ // exact document/layout generation; font and width changes invalidate the
+ // pending job. The final commit happens once, after ALL candidates have been
+ // processed, avoiding a repagination per paragraph (and visible flicker).
+ function refine(doc,config={}){
+  const state=cacheByDoc.get(doc),job=state?.refinement;
+  if(!job || state.invalid || job.key!==state.key ||
+     job.preparationKey!==state.preparationKey)
+   return {done:true,stale:true,ready:false};
+  const win=doc.defaultView,now=()=>win.performance?.now?.()||Date.now();
+  const start=now(),limit=Math.max(1,Math.min(35,Number(config.budgetMs)||12));
+  let attempted=0,eligible=0;
+  while(job.cursor<job.remaining.length && (attempted===0 || now()-start<limit)){
+   if((state.stats?.processed||0)+job.results.length>=MAX_PARAGRAPHS){
+    job.cursor=job.remaining.length;break;
+   }
+   const p=job.remaining[job.cursor++];
+   if(!p.isConnected||!doc.body.contains(p)||state.entries.has(p))continue;
+   attempted++;job.attempted++;
+   if(!eligibleWithCache(p,win,job.preparationKey,job.available))continue;
+   const result=fitParagraph(p,job.available,doc,job.preparationKey);
+   if(!result || result.reuse || result.retarget || !result.fragments)continue;
+   // An EPUB's author content must remain unchanged throughout the operation.
+   if(result.fragments.map(n=>n.textContent).join('')!==p.textContent)continue;
+   job.results.push([p,result]);eligible++;job.eligible++;
+  }
+  job.elapsedMs+=now()-start;
+  const ready=job.cursor>=job.remaining.length;
+  if(state.stats){
+   state.stats.progressiveRemaining=job.remaining.length-job.cursor;
+   state.stats.progressivePrepared=job.results.length;
+   state.stats.progressiveElapsedMs=job.elapsedMs;
+  }
+  return {done:ready,ready,stale:false,attempted,eligible,
+   remaining:job.remaining.length-job.cursor,prepared:job.results.length,
+   elapsedMs:now()-start};
+ }
+ function commitRefinement(doc,anchor=null){
+  const state=cacheByDoc.get(doc),job=state?.refinement;
+  if(!job||job.cursor<job.remaining.length||state.invalid||
+     job.key!==state.key||job.preparationKey!==state.preparationKey)
+   return {committed:0,stale:true,anchor};
+  let remembered=null,committed=0,lines=0,chars=0;
+  const validation=[];
+  for(const [p,result] of job.results){
+   if(!p.isConnected||state.entries.has(p)||!doc.body.contains(p)||
+      result.fragments.map(n=>n.textContent).join('')!==p.textContent)continue;
+   if(anchor?.node&&p.contains(anchor.node))remembered=anchorInfo(anchor,p);
+   const original=doc.createElement(p.localName);
+   while(p.firstChild)original.appendChild(p.firstChild);
+   p.replaceChildren(...result.fragments);
+   p.setAttribute('data-folio-kp','');
+   state.entries.set(p,{...result,original,prepKey:job.preparationKey,
+    layoutCache:new Map()});
+   validation.push([p,result]);committed++;lines+=result.lines;chars+=result.chars;
+  }
+  if(state.stats){
+   state.stats.processed+=committed;
+   state.stats.newPreparations+=committed;
+   state.stats.updatedParagraphs+=committed;
+   state.stats.skipped=Math.max(0,state.stats.skipped-committed);
+   state.stats.lines+=lines;state.stats.chars+=chars;
+   state.stats.progressivePrepared=job.results.length;
+   state.stats.progressiveCommitted=committed;
+   state.stats.progressiveElapsedMs=job.elapsedMs;
+   state.stats.progressiveRemaining=0;
+  }
+  if(validation.length)state.deferredPending.push(...validation);
+  state.refinement=null;
+  return {committed,stale:false,anchor:remembered?restoreAnchor(remembered)||anchor:anchor};
  }
  // Call after the pagination engine has already measured the column spread.
  // Otherwise scrollWidth on each paragraph forces an early whole-chapter layout.
@@ -1191,7 +1363,7 @@
   state.stats.validationFallbacks=removed;
   return {changed,checked,removed};
  }
- function invalidate(doc){const s=cacheByDoc.get(doc);if(s)s.invalid=true;measuredParagraphCache=new WeakMap();eligibilityCache=new WeakMap();metricsCache.clear();planCache.clear();}
+ function invalidate(doc){const s=cacheByDoc.get(doc);if(s){s.invalid=true;s.refinement=null;}measuredParagraphCache=new WeakMap();eligibilityCache=new WeakMap();metricsCache.clear();planCache.clear();}
  function stats(doc){return cacheByDoc.get(doc)?.stats||null;}
- return {typeset,validate,restore,invalidate,stats,tokenize,discretionaryTokens,breakAfter,optimize,nodesFor,populateWidths,version:'1.17.0'};
+ return {typeset,refine,commitRefinement,validate,restore,invalidate,stats,tokenize,discretionaryTokens,breakAfter,optimize,nodesFor,populateWidths,version:'1.20.0'};
 });

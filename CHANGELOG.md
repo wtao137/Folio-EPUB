@@ -1,3 +1,56 @@
+## v93.3 — Complete typesetting in idle slices after first page
+
+- Keep the 300 ms initial Knuth–Plass cold/first reflow budget for first-page responsiveness.
+- If that budget expires, retain the EPUB's native justified paragraphs initially, then prepare the remainder using interruptible Canvas-based idle slices. No live paragraph DOM is mutated per slice.
+- Commit completed paragraphs in a single DOM batch, validate the result during one anchor-preserving repagination, and avoid repeated full-chapter relayout between slices.
+- Cancel stale jobs after chapter, typography, font, or viewport changes; defer while speech playback, held/wheel navigation, settings, or book popups are active.
+- Preserve exact original text, footnote links and display MathML. Enforce the existing paragraph cap, native fallback, and overflow validation.
+- Focused forced-budget real-book tests: SICP at 390 px progressed from 1 to 67 optimized blocks; the Chinese first chapter progressed from 1 to 63. These figures demonstrate resumed coverage, **not** a cold-load time speedup.
+- Existing normal-budget tests at 390 and 1000 px for SICP remained within budget without running progressive work, preserving ordinary typography and timing.
+
+## v93.2 — Remove redundant cold layout; preserve exact final measurement
+
+- Offscreen staging iframe uses `content-visibility: hidden` until committed,
+  reducing unnecessary initial layout while keeping source/content and normal
+  font-readiness handling intact.
+- Select the preliminary column count algebraically using the controlled
+  desktop/mobile reader side-margin CSS, instead of triggering a full layout
+  before column count changes. The resulting actual column width is still read
+  from Chromium once, **before Knuth–Plass typesetting**.
+- Added real-EPUB geometry tests for mobile/desktop, 1–3 columns and custom
+  reading widths; measured cold-load benchmark and unchanged-pixels screenshots.
+- Local Chromium two-trial medians (chapter click-to-ready): SICP 3.92 → 3.41 s,
+  Chinese 1.62 → 1.45 s. Results are hardware- and book-dependent.
+
+## v93.1 — Cold chapter preparation and first-time reflow (2026-11-18)
+
+- Identify at-risk paragraph/list/quotation indentation from **publisher CSSOM rules and inline styles** before asking the browser for each computed style. Handle nested `@media` rules, descendants inheriting negative text indentation, and negative inline margins. If a stylesheet cannot be examined or uses unsafe/unparseable selectors, retain the previous full style scan. Never bypass code-block, exceptional list-marker or figure protections.
+- Move the content-length and unsupported-script eligibility tests ahead of the expensive DOM/style tests in the Knuth–Plass engine, without changing the set of eligible prose blocks or chosen line breaks.
+- Avoid a premature text-anchor hit test when a *new chapter* has never been paginated; the chapter's explicit bookmark or fraction is still handled after the first layout. Existing-chapter resizes continue to preserve the visible text anchor.
+- Trigger the **first** Knuth–Plass on/off pagination on the next animation frame without the old 65 ms debounce. Ordinary window resizes and typography sliders keep their coalescing delay.
+- Real SICP and Chinese EPUB screenshots at the same viewport are pixel-identical to v93.0. SICP retains 90 optimized prose blocks, 25 footnote links and 26 MathML elements; the Chinese test retains 63 optimized blocks and its seven protected note paragraphs. No overflow or missing original text in these completed tests.
+- The cold-load timing improvement is **book-dependent**. In separate instrumented Chromium runs, Chinese staged edge-safety preparation fell from hundreds of milliseconds to as low as ~120 ms, but the complete chapter still incurs font and multicolumn layout costs. Some SICP runs show little improvement because it has numerous preformatted blocks that must be protected. No general cold-loading speedup is claimed.
+- Added `tests/cold_path_v931.py`, plus the existing real EPUB and PWA regression checks.
+
+## v93.0 — Validated layout snapshots for exact-width returns
+
+- Keep at most three previous **validated line DOM compositions** per optimized paragraph, indexed by actual measured text width and font/style profile. Snapshots are taken **only when leaving** a checked width; cold chapter loading has no snapshot cost.
+- Returning to an existing layout restores its detached lines directly, preserving the exact justified word/CJK spacing, dictionary-approved hyphenation, optical punctuation, note links and MathML. Skip repeated Knuth–Plass optimization, inline source reconstruction, and repeated geometry validation for these validated exact-width returns.
+- Consume a cached layout when restored, instead of leaving mutable live DOM elements in the cache; re-snapshot upon departure. Bound entries (three widths, paragraphs at most 2400 characters) and invalidate on font/source changes.
+- Fixed an actual repeated-resize correctness issue: cached/incrementally reused prefix/suffix lines can accidentally yield duplicated text in marked-up list items. Now verify the rebuilt line collection against the detached original text, and reject an unsafe partial reuse. The actual SICP repeated-width test is text-identical after eight changes.
+- Added `tests/saved_width_layout_v930.py` using real SICP and Chinese EPUBs. SICP restores up to 85 optimized paragraph layouts in the test; Chinese up to 63, without duplicate text, missing MathML, missing footnote anchors, or overflow.
+- Real reader snapshots are unchanged after returning to a previous viewport, apart from transient unrelated UI notifications. This update targets repeated substantial width changes; cold loads and new widths still require normal work. No unsupported claim of proportional whole-reader speedup.
+
+## v92.9 — Stable Canvas reflow and efficient page scanning
+
+- Keep previously validated justified line nodes unchanged when available text width increases by at most 0.35% (maximum 2.05 CSS px), measured relative to the **original fitted width**, never cumulatively. Width reductions beyond the validated measure and larger changes still require normal Knuth–Plass calculation and overflow validation.
+- Bypass paragraph DOM reconstruction, CSS spacing writes and browser overflow probes for that safe path. SICP (91 optimized blocks in a controlled 610→611/612 px text-width test): ~1–2 ms instead of ~120–200 ms for the entire focused typeset/validate pass. This is *not* total chapter load latency.
+- Use a single content Range for safe rich inline prose during page-occupancy scanning, rather than independent Range reads for every nested text node. Retain per-text fallback for mathematics, figures, tables, nested lists, hidden and complex content. Actual SICP page count remains 63, Chinese test chapter 16.
+- Correct reflow when CJK inter-character spacing drops to zero, so the previous adjustment does not remain on existing line nodes.
+- Reduce Canvas string-measurement overhead for zero letter/word spacing, and resolve the styled run for a punctuation/hyphen glyph in logarithmic time.
+- Keep true Knuth–Plass paragraph justification, TeX-pattern hyphenation and conservative optical margin alignment; unchanged screenshots of SICP and Chinese EPUB at fixed reading widths.
+- Regression: new `tests/canvas_reflow_v929.py` plus real EPUB typography, pagination, library/navigation and offline checks. ZIP archive contains fewer than 100 entries.
+
 ## v92.8 — Paragraph line choices and conservative optical punctuation (2026-11-17)
 
 - Add paragraph-level penalties for repeated discretionary hyphens, especially three or more hyphenated lines in succession. Increase the basic cost of dictionary hyphenation so intact words win when the paragraph can still be justified.

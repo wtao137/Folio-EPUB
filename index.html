@@ -1883,7 +1883,7 @@ function initSettings(){const saved=safeParse(STORAGE.settings,{});delete saved.
   state.settings.qualityWrap=$('qualityWrap').checked;
   safeSave(STORAGE.settings,state.settings);
   // Switching typesetters must preserve the current reading location.
-  if(state.book)updateReaderTheme();
+  if(state.book)updateReaderTheme(true);
  });
  for(const id of ['enFont','zhFont','fontSize','lineHeight','paragraphSpace','pageWidth'])bindSetting(id,id,el=>['fontSize','lineHeight','paragraphSpace','pageWidth'].includes(id)?Number(el):el,true);
  for(const id of ['zhVoice','enVoice','quickVoice','speechFocus'])bindSetting(id,id);$('quickVoice').addEventListener('change',()=>{$('quickVoice').title=$('quickVoice').selectedOptions[0]?.textContent||'Reading voice'});$('speechFocus').addEventListener('change',()=>{folioClearSpeechPaint();});
@@ -2249,7 +2249,24 @@ function occupiedReaderSpreads(doc,body,step){
     // all CJK tracked text and inline links. Line rectangles are marked
     // separately below, without expensive Range geometry per text node.
     if(node.nodeType===Node.ELEMENT_NODE){
-     return node.classList?.contains('folio-kp-line')?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_SKIP;
+     if(node.classList?.contains('folio-kp-line'))return NodeFilter.FILTER_REJECT;
+     // A publisher paragraph with dozens of nested <em>/<a>/<span> runs
+     // previously incurred one Range.getClientRects() per TEXT NODE. A
+     // single paragraph-content Range reports the same glyph rectangles
+     // and saves repeated browser traversal and JS-to-layout calls.
+     // Avoid complex/hidden/non-text subtrees, where the exact per-text
+     // scan remains the conservative and compatible fallback.
+     if(/^(P|LI|DD|BLOCKQUOTE|FIGCAPTION)$/u.test(node.tagName) &&
+        node.childElementCount>=2 && node.childElementCount<=65 &&
+        !node.hasAttribute('data-folio-kp') &&
+        !node.closest('[hidden],[aria-hidden="true"],[data-folio-popup-note="true"]') &&
+        !node.querySelector('p,li,dd,blockquote,figcaption,ol,ul,dl,pre,table,math,svg,img,video,canvas,iframe,ruby,[data-folio-kp],[hidden],[aria-hidden="true"],[style*="visibility"]') &&
+        view.getComputedStyle(node).visibility!=='hidden'){
+       range.selectNodeContents(node);
+       for(const rect of range.getClientRects())mark(rect);
+       return NodeFilter.FILTER_REJECT;
+     }
+     return NodeFilter.FILTER_SKIP;
     }
     return NodeFilter.FILTER_ACCEPT;
    }
@@ -2571,6 +2588,79 @@ function folioFitFixedPage(doc){
  body.style.transform=`translate3d(${left}px,${top}px,0) scale(${scale})`;
  return {scale,left,top};
 }
+// Knuth–Plass progressive idle refinement: first paginate with a bounded
+// initial budget, then prepare remaining paragraphs in interruption-friendly
+// Canvas batches. No page geometry or active text nodes change between slices.
+// Commit just once (never while TTS is reading), then repaginate with the
+// previous visible reading anchor. Old work is cancelled on every chapter,
+// width, typography, or font change via the document/layout generation.
+let folioProgressiveWrapJob=null;
+function folioCancelProgressiveWrap(){
+ const job=folioProgressiveWrapJob;
+ if(!job)return;
+ job.cancelled=true;
+ if(job.idleId!==null){
+  if(typeof cancelIdleCallback==='function')cancelIdleCallback(job.idleId);
+  else clearTimeout(job.idleId);
+ }
+ folioProgressiveWrapJob=null;
+}
+function folioScheduleProgressiveWrap(doc,token){
+ const kp=window.FolioKnuthPlass,frame=$('readerFrame');
+ const progress=kp?.stats?.(doc);
+ if(!state.settings.qualityWrap || !progress?.progressiveRemaining ||
+    doc!==frame.contentDocument || token!==state.renderToken){
+  if(folioProgressiveWrapJob?.doc===doc)folioCancelProgressiveWrap();
+  return;
+ }
+ const layoutKey=folioPageLayoutKey(frame);
+ if(folioProgressiveWrapJob && !folioProgressiveWrapJob.cancelled &&
+    folioProgressiveWrapJob.doc===doc && folioProgressiveWrapJob.token===token &&
+    folioProgressiveWrapJob.layoutKey===layoutKey)return;
+ folioCancelProgressiveWrap();
+ const job={doc,token,layoutKey,cancelled:false,idleId:null};
+ folioProgressiveWrapJob=job;
+ const valid=()=>!job.cancelled&&job===folioProgressiveWrapJob&&
+  state.settings.qualityWrap&&state.renderToken===token&&
+  $('readerFrame').contentDocument===doc&&
+  layoutKey===folioPageLayoutKey($('readerFrame'));
+ const next=()=>{
+  if(!valid()){if(job===folioProgressiveWrapJob)folioCancelProgressiveWrap();return;}
+  const step=deadline=>{
+   job.idleId=null;
+   if(!valid())return;
+   // A speech range can reference a text node in the current paragraph.
+   const selection=doc.getSelection?.();
+   const focused=doc.activeElement;
+   if(state.tts.mode!=='stopped'||folioReaderNavigationBlocked()||
+      folioHeldNav.key||readerWheel.pending||readerWheel.timer||
+      !!selection?.toString()?.trim()||
+      (focused && focused!==doc.body && focused!==doc.documentElement)){
+    next();return;
+   }
+   const remaining=deadline?.timeRemaining?.()??12;
+   const result=kp.refine(doc,{budgetMs:Math.max(3,Math.min(12,remaining))});
+   if(!valid())return;
+   if(result.stale){folioCancelProgressiveWrap();return;}
+   if(!result.ready){next();return;}
+   // Reflow at most once after the idle preparation completes. Capture a
+   // stable in-document anchor BEFORE modifying any visible EPUB elements.
+   flushFolioAnchor();
+   const anchor=visibleReadingAnchor()||state.readingAnchor;
+   const done=kp.commitRefinement(doc,anchor);
+   if(done.anchor)state.readingAnchor=done.anchor;
+   folioCancelProgressiveWrap();
+   if(done.committed>0){
+    invalidateFolioPageLayout(doc);
+    schedulePagination(pageFraction(),token,0);
+   }
+  };
+  if(typeof requestIdleCallback==='function')job.idleId=requestIdleCallback(step,{timeout:1200});
+  else job.idleId=setTimeout(()=>step(null),24);
+ };
+ // The first frame and page controls are ready before any idle refinement.
+ next();
+}
 function paginateChapter(fraction=pageFraction(),token=state.renderToken){
  if(token!==state.renderToken||!state.book)return;
  const frame=$('readerFrame'),doc=frame.contentDocument,body=doc?.body;
@@ -2596,8 +2686,11 @@ function paginateChapter(fraction=pageFraction(),token=state.renderToken){
  // resets. The page count and chapter fraction can shift after late images,
  // fonts or a window resize, but this in-document anchor remains meaningful.
  flushFolioAnchor();
- if(!state.readingAnchor||state.readingAnchor.doc!==doc||
-    !state.readingAnchor.node?.isConnected||state.readingAnchor.folioPage!==state.paging.page){
+ // A newly committed chapter has no previous readable page to anchor.
+ // Avoid a premature elementFromPoint()/Range layout pass before its first
+ // Knuth–Plass composition. Existing chapters still capture their anchor.
+ if(state.paging.step>0 && (!state.readingAnchor||state.readingAnchor.doc!==doc||
+    !state.readingAnchor.node?.isConnected||state.readingAnchor.folioPage!==state.paging.page)){
   state.readingAnchor=visibleReadingAnchor();
   if(state.readingAnchor){
    state.readingAnchor.folioPage=state.paging.page;
@@ -2619,7 +2712,13 @@ function paginateChapter(fraction=pageFraction(),token=state.renderToken){
  const root=doc.documentElement;
  root.style.removeProperty('--folio-max');
  const frameWidth=frame.clientWidth;
- const baseWidth=body.getBoundingClientRect().width;
+ // Resolve the pre-column width algebraically from the reader CSS, avoiding
+ // a separate full multicolumn layout before changing the column count.
+ // Mirror the mobile @media(max-width:920px) side inset; the exact
+ // browser body width is still measured after selecting the columns.
+ const side=frameWidth<=920?Math.min(64,Math.max(40,frameWidth*.07)):
+  Math.min(112,Math.max(76,frameWidth*.055));
+ const baseWidth=Math.min(state.settings.pageWidth,Math.max(0,frameWidth-2*side));
  const candidateGap=parseFloat(doc.defaultView.getComputedStyle(body).columnGap)||0;
  const minColumnWidth=Math.max(440,Math.ceil(state.settings.fontSize*22));
  // The user's reading-width preference remains the normal limit. On a very
@@ -2754,6 +2853,55 @@ function paginateChapter(fraction=pageFraction(),token=state.renderToken){
  // An anchor-preserving resize need not schedule a new anchor probe; refresh
  // the current section label after the new column geometry is finalized.
  syncTocHighlight();
+ folioScheduleProgressiveWrap(doc,token);
+}
+// Cold-load edge safety: resolve only publisher rules which can actually
+// produce a negative indentation or inline margin. The previous implementation
+// queried getComputedStyle for every paragraph, even though ordinary books
+// contain no such rules; in a staged multicolumn iframe this triggered a very
+// expensive first style/layout calculation. CSSOM matching happens before any
+// geometry reads and never changes the source markup.
+function folioEdgeSensitiveBlocks(doc){
+ const selector='p,li,blockquote,dd,dt,h1,h2,h3,h4,h5,h6';
+ const chosen=new Set();let broad=false;
+ const risky=value=>/^-\s*(?:\d|\.\d)/.test(value)||/\b(?:calc|min|max|clamp|var)\s*\(/i.test(value);
+ const visit=rules=>{
+  for(const rule of rules){
+   // CSSStyleRule.cssRules exists in modern Chromium even when empty.
+   // Inspect the rule itself before visiting nested CSS rules.
+   if(!rule.selectorText||!rule.style){if(rule.cssRules)visit(rule.cssRules);continue;}
+   const st=rule.style;
+   const indent=risky(st.getPropertyValue('text-indent'));
+   const margin=['margin','margin-left','margin-right','margin-inline','margin-inline-start','margin-inline-end'].some(k=>risky(st.getPropertyValue(k)));
+   if(!indent&&!margin)continue;
+   let elements;
+   try{elements=doc.querySelectorAll(rule.selectorText)}catch{broad=true;return;}
+   for(const el of elements){
+    if(el===doc.body||el===doc.documentElement){if(indent)broad=true;continue;}
+    if(el.matches?.(selector))chosen.add(el);
+    if(indent&&el.querySelectorAll){
+     for(const item of el.querySelectorAll(selector))chosen.add(item);
+    }
+   }
+   if(rule.cssRules?.length)visit(rule.cssRules);
+  }
+ };
+ for(const sheet of doc.styleSheets){
+  // Folio's CSS has its own fixed protection rules. Inspect only EPUB CSS.
+  if(sheet.ownerNode?.id?.startsWith('folio'))continue;
+  try{visit(sheet.cssRules)}catch{broad=true;break;}
+ }
+ for(const el of doc.body.querySelectorAll('[style]')){
+  const st=el.style;if(!st)continue;
+  const indent=risky(st.getPropertyValue('text-indent'));
+  const margin=['margin','margin-left','margin-right','margin-inline','margin-inline-start','margin-inline-end'].some(k=>risky(st.getPropertyValue(k)));
+  if(!indent&&!margin)continue;
+  if(el.matches(selector))chosen.add(el);
+  if(indent)for(const child of el.querySelectorAll(selector))chosen.add(child);
+ }
+ // When an imported stylesheet cannot be examined, use the original safe
+ // path rather than assuming its negative-indentation rules are absent.
+ return broad?doc.body.querySelectorAll(selector):chosen;
 }
 // EPUB styles can indent the first line negatively or use three- and
 // four-digit ordered-list markers. Both can extend outside a CSS column and
@@ -2787,7 +2935,7 @@ function protectColumnEdges(doc){
  }
  // Read computed values first, then write once. This avoids repeated forced
  // layout on large EPUB chapters with thousands of paragraphs.
- for(const el of doc.body.querySelectorAll('p,li,blockquote,dd,dt,h1,h2,h3,h4,h5,h6')){
+ for(const el of folioEdgeSensitiveBlocks(doc)){
   const st=win.getComputedStyle(el),indent=parseFloat(st.textIndent)||0;
   const padding=parseFloat(st.paddingInlineStart)||0;
   if(indent < -0.5 && padding+indent < 6){
@@ -2845,7 +2993,7 @@ function goToElement(el){
 // A late font/image/resize event must not override a newer page turn with the
 // page fraction it captured when the work was first scheduled.
 let folioPaginationSequence=0;
-function schedulePagination(frac=pageFraction(),token=state.renderToken){
+function schedulePagination(frac=pageFraction(),token=state.renderToken,delayMs=65){
  const sequence=++folioPaginationSequence;
  clearTimeout(state.resizeTimer);
  state.resizeTimer=setTimeout(()=>{
@@ -2854,7 +3002,7 @@ function schedulePagination(frac=pageFraction(),token=state.renderToken){
    if(token!==state.renderToken||sequence!==folioPaginationSequence)return;
    paginateChapter(state.paging.step>0?pageFraction():frac,token);
   });
- },65);
+ },delayMs);
 }
 // A bookmark belongs to one logical page, not to an arbitrary 2.5% of a
 // chapter (which can cover several pages in long books). Compare within half
@@ -4369,13 +4517,13 @@ function repairReaderBlockContrast(doc){
  for(const el of fixes)el.setAttribute('data-folio-tone-surface','');
 }
 
-function updateReaderTheme(){if(!state.book)return;const doc=$('readerFrame').contentDocument;if(!doc)return;
+function updateReaderTheme(immediate=false){if(!state.book)return;const doc=$('readerFrame').contentDocument;if(!doc)return;
  if(folioIsFixedPage(doc)){
   const tone=folioEffectiveTheme();
   const paper=tone==='dark'?'#242b29':tone==='sepia'?'#f1e7d4':'#fbfaf7';
   doc.documentElement.style.background=paper;
   invalidateFolioPageLayout(doc);schedulePagination(0,state.renderToken);return;
- }flushFolioAnchor();if(window.FolioKnuthPlass&&!state.settings.qualityWrap)state.readingAnchor=window.FolioKnuthPlass.restore(doc,state.readingAnchor);invalidateFolioPageLayout(doc);const oldFrac=pageFraction(),token=state.renderToken;const styles=readerStyleParts(),fontStyle=doc.getElementById('folioFontStyle'),style=doc.getElementById('folioReaderStyle');if(fontStyle)fontStyle.textContent=compactReaderFontRules(styles.fonts);if(style)style.textContent=styles.layout;repairReaderBlockContrast(doc);void loadRemoteReaderFonts(doc,token);schedulePagination(oldFrac,token);if(doc.fonts?.status==='loading')doc.fonts.ready.then(()=>{if(token===state.renderToken){invalidateFolioPageLayout(doc);schedulePagination(pageFraction(),token)}}).catch(()=>{})}
+ }flushFolioAnchor();if(window.FolioKnuthPlass&&!state.settings.qualityWrap)state.readingAnchor=window.FolioKnuthPlass.restore(doc,state.readingAnchor);invalidateFolioPageLayout(doc);const oldFrac=pageFraction(),token=state.renderToken;const styles=readerStyleParts(),fontStyle=doc.getElementById('folioFontStyle'),style=doc.getElementById('folioReaderStyle');if(fontStyle)fontStyle.textContent=compactReaderFontRules(styles.fonts);if(style)style.textContent=styles.layout;repairReaderBlockContrast(doc);void loadRemoteReaderFonts(doc,token);schedulePagination(oldFrac,token,immediate?0:65);if(doc.fonts?.status==='loading')doc.fonts.ready.then(()=>{if(token===state.renderToken){invalidateFolioPageLayout(doc);schedulePagination(pageFraction(),token)}}).catch(()=>{})}
 // EPUB 2/3 notes: standard noteref, ARIA doc-noteref and common superscript links.
 const notePreview={request:0,timer:0,closeTimer:0,link:null};
 function isSemanticNote(el){return /(?:^|\s)(?:footnote|endnote)(?:\s|$)/i.test(folioEpubType(el))||/^(?:doc-footnote|doc-endnote)$/i.test(el?.getAttribute?.('role')||'')}
@@ -4602,6 +4750,7 @@ function prepareChapterStage(html){
  cancelPendingChapterStage();
  const frame=document.createElement('iframe');
  frame.className='reader-frame folio-staging-frame';
+ frame.style.contentVisibility='hidden';
  frame.setAttribute('sandbox','allow-same-origin');
  frame.setAttribute('aria-hidden','true');
  frame.title='Preparing EPUB chapter';
@@ -4637,6 +4786,7 @@ function commitChapterStage(frame){
  frame.title='EPUB chapter';
  frame.removeAttribute('aria-hidden');
  frame.classList.remove('folio-staging-frame');
+ frame.style.removeProperty('content-visibility');
  pendingChapterStage=null;
  prior.remove();
  if(restoreKeyFocus)frame.focus({preventScroll:true});
@@ -4715,6 +4865,7 @@ async function renderChapter(index,fraction=0,opts={}){
  // Stop scheduling superseded speculative work before the requested load.
  // Any existing promise for this chapter is still reused by renderContent.
  cancelNeighborPreparation();
+ folioCancelProgressiveWrap();
  const token=++state.renderToken;
  // The old chapter stays visible during preparation. Give subtle feedback
  // only when the new chapter is actually taking a while to load.
