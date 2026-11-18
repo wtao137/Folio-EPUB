@@ -2710,7 +2710,8 @@ function paginateChapter(fraction=pageFraction(),token=state.renderToken){
  // At 20px text the minimum is 440px; larger text requires proportionally
  // wider columns. When this is impossible, a single column is preferable.
  const root=doc.documentElement;
- root.style.removeProperty('--folio-max');
+ // Do not invalidate the staged CSS column topology just to read column-gap.
+ // Both baseWidth and the gap are independent of the expanded --folio-max.
  const frameWidth=frame.clientWidth;
  // Resolve the pre-column width algebraically from the reader CSS, avoiding
  // a separate full multicolumn layout before changing the column count.
@@ -2731,8 +2732,12 @@ function paginateChapter(fraction=pageFraction(),token=state.renderToken){
  const fitsThree=expandedWidth>=3*minColumnWidth+2*candidateGap;
  const fitsTwo=baseWidth>=2*minColumnWidth+candidateGap;
  const wantedColumns=fitsThree?3:fitsTwo?2:1;
- if(fitsThree)root.style.setProperty('--folio-max',expandedMax+'px');
- body.style.setProperty('--folio-columns',String(wantedColumns));
+ if(fitsThree){
+  const max=expandedMax+'px';
+  if(root.style.getPropertyValue('--folio-max')!==max)root.style.setProperty('--folio-max',max);
+ }else if(root.style.getPropertyValue('--folio-max'))root.style.removeProperty('--folio-max');
+ if(body.style.getPropertyValue('--folio-columns')!==String(wantedColumns))
+  body.style.setProperty('--folio-columns',String(wantedColumns));
  // clientWidth rounds to integer pixels, but multicol layout retains 1/64 px
  // precision. Rounding the spread width here drifts by several pixels over a
  // long chapter and can hide the first digit behind the margin mask.
@@ -2823,12 +2828,20 @@ function paginateChapter(fraction=pageFraction(),token=state.renderToken){
  const shell=$('readingShell');
  shell.style.setProperty('--folio-divider-one',(leftMargin+colWidth+gap/2)+'px');
  shell.style.setProperty('--folio-divider-two',(leftMargin+2*colWidth+1.5*gap)+'px');
- // Mask exactly to the text-box bounds. Any exposed portion of the next
- // multicolumn fragment causes a distracting ghost of the next page.
- // Instead of exposing the margins, protect hanging indents *inside* the
- // column with the normalized EPUB list/paragraph styles.
- $('folioLeftMask').style.width=Math.max(0,leftMargin+.5)+'px';
- $('folioRightMask').style.width=Math.max(0,rightMargin+.5)+'px';
+ // Keep the *ink* of optically hung punctuation visible outside the text
+ // alignment edge. The opaque outer page masks formerly ended 0.5px inside
+ // the text box and painted over every hanging comma/stop/dunhao, even when
+ // Knuth-Plass had proven the glyph safe in the available margin. Reserve a
+ // bounded optical gutter within the real outer page margins. It is smaller
+ // than the quiet navigation safety band and never uncovers a next-page text
+ // column; the column gutter and text measure are unchanged.
+ // A margin too thin for both a quiet hit target and glyph ink gets no extra
+ // gutter: the quality engine can fall back rather than draw outside frame.
+ const opticalGutter=state.settings.qualityWrap&&Math.min(leftMargin,rightMargin)>=16
+  ?Math.max(0,Math.min(8,state.settings.fontSize*.32,leftMargin-10,rightMargin-10)) : 0;
+ $('folioLeftMask').style.width=Math.max(0,leftMargin-opticalGutter+(opticalGutter?0:.5))+'px';
+ $('folioRightMask').style.width=Math.max(0,rightMargin-opticalGutter+(opticalGutter?0:.5))+'px';
+ $('readingShell').style.setProperty('--folio-optical-gutter',opticalGutter+'px');
  // All blank margin except the final 10 px is a quiet hit target.
  // Do not extend over EPUB glyphs, links, notes or the text-selection region.
  const marginSafety=10;
@@ -4172,11 +4185,11 @@ function readerCSS(){const s=state.settings,tone=folioEffectiveTheme(),night=ton
  ${s.qualityWrap?`body :is(p,li,dd,blockquote,figcaption){text-wrap:pretty;line-break:strict;hyphens:auto;text-autospace:normal;}
  body :is(p,li,dd,blockquote,figcaption):not(.poem):not(.verse):not(.code):not(.source-code):not(.math):not(.displaymath):not(.equation){text-align:justify!important;text-align-last:start!important;}
  body :is(p,li,dd,blockquote,figcaption)[data-folio-kp]{text-indent:0!important;text-align:start!important;text-wrap:wrap!important;hyphens:none!important;}
- body :is(p,li,dd,blockquote,figcaption)[data-folio-kp]>span.folio-kp-line{display:block!important;box-sizing:border-box!important;inline-size:100%!important;white-space:nowrap!important;
+ body :is(p,li,dd,blockquote,figcaption)[data-folio-kp]>span.folio-kp-line{display:block!important;box-sizing:border-box!important;inline-size:100%!important;white-space:nowrap!important;text-spacing-trim:space-all!important;
    overflow-wrap:normal!important;word-break:normal!important;text-align:start!important;text-align-last:start!important;line-break:strict!important;}
  body :is(p,li,dd,blockquote,figcaption)[data-folio-kp]>span.folio-kp-line .folio-kp-ideograph-glue{display:inline-block!important;vertical-align:baseline!important;height:0!important;min-width:0!important;max-width:none!important;line-height:0!important;overflow:hidden!important;pointer-events:none!important;font-size:0!important;}
  body :is(p,li,dd,blockquote,figcaption)[data-folio-kp]>.folio-kp-line :is(code,kbd,samp,math){word-spacing:normal!important;letter-spacing:normal!important;}
- body :is(p,li,dd,blockquote,figcaption)[data-folio-kp] .folio-kp-optical-end{display:inline!important;padding:0!important;border:0!important;letter-spacing:inherit!important;white-space:inherit!important;}
+ body :is(p,li,dd,blockquote,figcaption)[data-folio-kp] .folio-kp-punct-kern{display:inline-block!important;width:0!important;min-width:0!important;max-width:none!important;height:0!important;line-height:0!important;font-size:0!important;pointer-events:none!important;overflow:hidden!important;}\n body :is(p,li,dd,blockquote,figcaption)[data-folio-kp] .folio-kp-punct-start{display:inline!important;padding:0!important;border:0!important;}\n body :is(p,li,dd,blockquote,figcaption)[data-folio-kp] .folio-kp-optical-end{display:inline!important;padding:0!important;border:0!important;letter-spacing:inherit!important;white-space:inherit!important;}
  body :is(p,li,dd,blockquote,figcaption)[data-folio-kp]>span.folio-kp-hyphenated::after{content:'‐';display:inline;font-variant-ligatures:none;}
  body :is(p,li,dd,blockquote,figcaption)[data-folio-kp]>span.folio-kp-line:first-child{break-after:avoid;}
  body :is(p,li,dd,blockquote,figcaption)[data-folio-kp]>span.folio-kp-line:nth-last-child(2){break-after:avoid;}`:''}
@@ -4802,6 +4815,26 @@ function commitChapterStage(frame){
 // This runs on the invisible staged iframe while font readiness is pending:
 // decoding never becomes a mandatory dependency of chapter navigation.
 // A DOM-order cap avoids decoding distant/huge illustrations in long books.
+// Choose the same column topology as paginateChapter *before* the first
+// expensive getComputedStyle call on the hidden staging iframe. On large
+// displays, the default two columns caused an unnecessary full multicolumn
+// layout before the real three-column measurement. This is only a hint;
+// paginateChapter still measures authoritative widths and may override it.
+function folioPrimeStagedColumns(doc,frameWidth){
+ if(!doc?.body||folioIsFixedPage(doc)||!(frameWidth>0))return;
+ const gap=frameWidth<=920?0:Math.min(82,Math.max(32,frameWidth*.05));
+ const side=frameWidth<=920?Math.min(64,Math.max(40,frameWidth*.07)):
+  Math.min(112,Math.max(76,frameWidth*.055));
+ const baseWidth=Math.min(state.settings.pageWidth,Math.max(0,frameWidth-2*side));
+ const minColumnWidth=Math.max(440,Math.ceil(state.settings.fontSize*22));
+ const expandedMax=Math.min(2400,Math.round(state.settings.pageWidth*1.43));
+ const sideGutter=Math.max(70,Math.min(104,frameWidth*.05));
+ const expandedWidth=Math.min(expandedMax,Math.max(0,frameWidth-2*sideGutter));
+ const three=expandedWidth>=3*minColumnWidth+2*gap;
+ const two=baseWidth>=2*minColumnWidth+gap;
+ if(three)doc.documentElement.style.setProperty('--folio-max',expandedMax+'px');
+ doc.body.style.setProperty('--folio-columns',String(three?3:two?2:1));
+}
 function folioWarmEarlyChapterImages(doc,token){
  if(token!==state.renderToken||!doc?.body)return 0;
  const walker=doc.createTreeWalker(doc.body,NodeFilter.SHOW_ELEMENT|NodeFilter.SHOW_TEXT);
@@ -4885,7 +4918,13 @@ async function renderChapter(index,fraction=0,opts={}){
   if(!stagedDoc?.body)throw new Error('Browser blocked book rendering');
   // Do potentially expensive font wrapping and publisher-style corrections
   // before the new page becomes visible.
-   if(!folioIsFixedPage(stagedDoc)){applyScriptFonts(stagedDoc);window.FolioMathSpacing?.repair(stagedDoc);protectColumnEdges(stagedDoc);repairReaderBlockContrast(stagedDoc);}
+   if(!folioIsFixedPage(stagedDoc)){
+    applyScriptFonts(stagedDoc);
+    folioPrimeStagedColumns(stagedDoc,frame.clientWidth);
+    window.FolioMathSpacing?.repair(stagedDoc);
+    protectColumnEdges(stagedDoc);
+    repairReaderBlockContrast(stagedDoc);
+   }
    // Start decoding likely first-spread images while waiting for fonts; never
    // hold up the chapter swap for image decoding.
    folioWarmEarlyChapterImages(stagedDoc,token);

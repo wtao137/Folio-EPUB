@@ -1,3 +1,198 @@
+## v95.4 — real optical ink gutter + staged multicolumn layout preparation
+
+- Fix a paint-layer clipping cause that independent Knuth–Plass line width / Canvas ink checks could not see: the opaque reader paper masks overlaid the outer edge of safely hung glyphs. In quality mode, reserve a font-sized, margin-bounded 0–8px corridor inside the external gutter, keeping navigation touch targets safely outside.
+- Choose staged chapter column count before the first forced publisher-style calculation; avoid unnecessary CSS reset/reassignment when pagination finds the staged choice is already correct. Final layout is still verified by real CSS geometry, not the initial estimate.
+- Preserve v95.3 Knuth–Plass 1.39.0 exact line breaks, punctuation spacing, existing in-document clipping fallback, original font loading deadlines and EPUB text/link nodes.
+- Chromium regression: real literary EPUB six viewport/font scenarios (390–1360px), 2100px 3-column check, mixed English/Han/MathML/code footnotes, repeated resizing and ink corridor geometry.
+- Cold-chapter profiling finds the browser's initial multicolumn style/layout calculation can cost hundreds of milliseconds; disabling protective style checks simply moves that cost to pagination. Overall speed remains variable; no fabricated or extrapolated speedup.
+- See `UPGRADE_FROM_v95.3.md` for exact regression and limitations.
+
+## v95.3 — memory-lean solver and reusable optical ink verification (Knuth–Plass 1.39.0)
+
+- Store Knuth–Plass width, punctuation contraction and glue prefix sums in contiguous Float64Array columns and token/glyph counts in Uint32Array columns. Preserve IEEE-754 subpixel precision and the exact summation order, without repeated array growth and `.at(-1)` access.
+- Avoid constructing a temporary `Set` and iterator for every candidate line containing both Western word spaces and Chinese ideographic glue. A fixed 14-position candidate scan retains the exact candidate order and first-minimum tie-breaking.
+- Cache the Canvas ink bounds of the same `(computed font, punctuation glyph)` within the current EPUB document across optical safety checks. The cache is document-scoped, capped at 4096 entries and discarded when the document's font/style measurements are invalidated. Added `validationInkMeasurements` and `validationInkCacheHits` statistics; retain conservative fallback on invalid bounds.
+- Deliberately leave all line-breaking penalties, punctuation side bearings, U+3001 spacing, font rendering, content and native fallback rules unchanged: **this is a performance/safety maintenance release, not a new aggressive typographic style**.
+- Regression: identical line plans and demerits on 180 deterministic, seeded synthetic DP cases; 6 configurations of a real Chinese literary EPUB; 3 synthetic mixed Chinese/English/MathML/inline code/footnote configurations; CJK punctuation, CSS paint-clipping, and ink-boundary tests.
+- Isolated Node 22/V8 solver benchmark (100 synthetic paragraphs; seven alternating runs, medians): 44.24ms → 41.06ms, **7.2% lower**. Real Chromium solve/validation timings remain variable and do not demonstrate a consistent whole-chapter gain. Do not extrapolate the microbenchmark percentage to cold book loading.
+- Source EPUBs used for real-book tests are not distributed. Old engine is configurable through `FOLIO_BASELINE_ENGINE`. New tests: `tests/engine_equivalence_v953.cjs`, `tests/engine_benchmark_v953.cjs`, `tests/mixed_script_v953.py`, and `tests/paragraph_rhythm_v953.py`.
+
+## v95.2 — paragraph-level spacing rhythm (Knuth–Plass 1.38.0)
+
+- Quality-mode-only soft line-breaking demerits for abrupt changes in **measured inter-ideograph tracking** between consecutive *justified* lines; the old ratio-only fitness comparison is retained unchanged.
+- A separate bounded penalty discourages large jumps in word-space adjustment between two English/mixed lines when both actually contain at least three word spaces. We do not compare unrelated Han and Latin glue measures.
+- Only enable these additional across-line terms when the available **line measure is at least 400 CSS px**. The 390px phone viewport preserves the v95.1 algorithm and its font-specific safe layout behavior.
+- Normalization uses the actual line font size; ignore differences below 0.033em. The extra penalty is at most 320 demerits for Han spacing and 180 for word spacing, never a hard line-break prohibition.
+- Preserve source text, ruby/math/native fallbacks, footnote references, visual ink safety and publisher styles. No extra Canvas measurement, DOM node, network resource, or DP candidate state.
+- Real Chromium/real literary EPUB (not bundled): mean adjacent Han tracking change across eligible paired lines: **1130px/20px Serif 0.021327→0.018567em; 830px/16px Serif 0.015647→0.013499em; 1360px/26px Serif 0.015667→0.013535em**. For 390px/24px Sans, **0.024754→0.024754em** and quality line metrics unchanged. These figures describe this particular book and environment, not a guaranteed percent improvement for all EPUBs.
+- Known pre-existing issue: `tests/kp_quality_math_v913.py` treats the deliberate optical hanging ink as a width overflow and reports the same failure at 390px with both v95.1 and v95.2. It is not counted as a passing regression.
+- Performance: one score operation per eligible candidate; observed solve times fluctuate under Chromium. No end-to-end speedup is asserted.
+
+## v95.1 — more comfortable paired punctuation and paragraph endings
+
+- Reduce maximum measured contraction for a Chinese pause/stop mark followed by an opening quotation/bracket from **0.75em to 0.63em**. The fixed (first-pass) portion is now capped at 0.50em, closer to the principle in CLReq §6.3.2.2. Actual shrink always remains limited by Canvas-measured empty bearings and a glyph-ink clearance.
+- Raise measured ink separation for adjacent CJK mark categories: STOP→OPEN and CLOSE→OPEN now retain at least **0.115em**; other categories retain 0.085–0.10em instead of as little as 0.055em. Do not enlarge gaps when the measured glyph bearings cannot support the rule.
+- For a **non-justified paragraph last line**, try a looser elastic compression ratio (0.28) before a stronger punctuation fit; the optimizer retains strong contraction when the line cannot otherwise fit. Ordinary justified lines retain their width and eligibility constraints.
+- Keep v95.0's conservative U+3001 visual overhang and all v94.8 paint-boundary checks. No glyph substitutions, ink scaling, removal of punctuation, or changes to EPUB source.
+- Measured real-book results: 390px/24px Noto Sans SC: 64 optimized paragraphs, 2 safe fallbacks (same as v95.0). 1130px/20px Noto Serif SC: 69 optimized, no fallbacks. Regression also includes links, forbidden line-start marks, and 6 width/font combinations.
+- Synthetic paired-punctuation visual regression: at 390px worst negative punctuation margin changed from -15.40px to -12.42px; at 830px from -15.26px to -11.96px. These reflect specific glyphs/fonts, not a universal pixel target.
+- Performance: this retunes four existing DP candidates but does not add candidates, DOM nodes, or Canvas glyph measurements. No statistically significant speed improvement is claimed.
+
+Reference: W3C [Requirements for Chinese Text Layout](https://www.w3.org/TR/clreq/), sections 6.1.3 and 6.3.2.2. The style is a Folio preference rather than a W3C-prescribed ratio.
+
+## v95.0 — Balanced glyph spacing for Chinese pause mark U+3001
+
+# Folio v95.0 — balanced dunhao optical spacing
+
+The previous v94.9 U+3001 adjustment moved a small glyph **toward the previous Han character** with CSS relative positioning. This gave the appearance of cramped punctuation and was not needed for line layout.
+
+- Remove the extra *paint-only* inward offset. Do not change or substitute the font's original U+3001 glyph.
+- Reduce the maximum *visible* ink projection of U+3001 at a non-final line end from 0.13em to 0.08em, while preserving the existing measured right-bearing trim. The precise total trim is still determined by the font's Canvas ink metrics and safe margins.
+- Leave Chinese comma/full stop, colon, opening punctuation, consecutive punctuation and traditional-Chinese rules unchanged.
+- Preserve glyph-visible boundary checks and fallback to publisher/native layout when unsafe.
+- No new per-line DOM nodes, Canvas measurement calls, caches or source EPUB changes.
+
+The 390px/20px Noto Sans SC synthetic example has 11 lines before and after. In this font the last U+3001 ink extends approximately 1.3px beyond the Han alignment line, instead of being shifted 3.4px toward the text. The exact value is font-dependent; not a typographic standard.
+
+Reference: W3C *Requirements for Chinese Text Layout* (CLReq), punctuation width adjustment and optional hanging. These guides do not mandate a single fixed hanging fraction for all fonts.
+
+Tests: `tests/dunhao_balance_v950.py`, `tests/real_literature_v942.py` (with a user-provided EPUB). Screenshots and metric reports generated outside the distribution ZIP.
+
+## v94.9 — conservative U+3001 optical inset; compare native glyph before asserting clipping
+
+# Folio v94.9 — visual dunhao legibility without changing line breaks
+
+- Chromium pixel comparison: the short slash shape of U+3001 in the selected Noto Sans CJK face is exactly the glyph as rendered natively. Font glyphs and document text are not partially missing in this 390 px fixture, contrary to earlier assumptions.
+- The apparent clipping comes from the short glyph being pushed too close to the Han text measure. Give *only its paint* a bounded 22% of the optical-hang discount (up to 4.8 px) inward, with CSS position:relative; keep existing line width and original text intact. This avoids invalidating a good K-P break plan.
+- Normal Chromium line endings at 390 px / 20 px Noto Sans SC maintain 11 lines. At larger sizes, the same visual-only nudge does not alter Knuth–Plass layout choices or increase safety fallbacks.
+- The existing page-edge clipping guard remains active. No char replacements, scaling, fake glyph strokes, script reflow, new DOM elements or Canvas measurements.
+- A full viewport test and same-font native glyph reference are used instead of only a cropped line. Source EPUB books are not packaged.
+- No statistically demonstrated performance improvement is claimed.
+
+## v94.8 — actual punctuation ink clipping guard
+
+- Reproduced a real clipped hanging U+3001 ideographic comma in Chromium when a 310px column is flush with the edge of a 390px iframe: v94.7 put painted ink at x=392.27px.
+- Add post-layout Canvas-ink visibility verification for optical start/end marks using physical multi-column boundaries, safe page margins and current viewport. If the overhang is unsafe, restore the original native paragraph instead of letting the iframe truncate punctuation.
+- Keep normal optical hanging: with the usual 40px mobile page margin, no synthetic optimized paragraphs are lost. Six real Chinese literary EPUB combinations preserve all text and footnote links; no additional fallbacks over v94.7.
+- Add a reproducible flush-right clipping test and a full-viewport screenshot regression. No claim of overall speedup; validation performs extra measurements only for optical marks.
+
+## v94.7 — safe ink visibility and repeatable performance measurements
+
+- Protect text from *reader-introduced* clipping in the presence of CSS `clip-path`, `mask-image`, `contain:paint/content/strict`, legacy `clip`, and masking on inline or ancestor elements. Folio no longer applies optical hanging to such source paragraphs; Chromium's native rendering preserves the author's intended clipping without introducing extra protrusion.
+- Keep all previous optical-ink cap rules for ordinary text, including quotation marks, commas, stops and hanging colons. No arbitrary font scaling or glyph deletion.
+- Replace repeated token `slice(...).filter(...)` on line-fitting and DOM-reconstruction paths with existing immutable prefix counts, and scan inline tokens without allocating arrays.
+- Preserve CSS multi-column pagination, footnote links, mathematical content, images, source text, progress and existing settings.
+- Add Chromium regressions for source clipping/masking and a rerunnable real-EPUB performance benchmark. Results are machine-dependent and not a guarantee of universally faster loading.
+- Tested six real literary EPUB scenarios (390–1360px, 16–26px, serif/sans). Validated optical punctuation on three widths, masks on two widths, and image viewer's page/width/actual fit behavior.
+
+Folio v94.6 — clipping-safe optical punctuation and improved browser evidence. See UPGRADE_FROM_v94.5.md.
+
+## v94.5 — Optical margins for appropriate CJK punctuation
+
+- Extend v94.4 colon-only ink hang to eligible fullwidth pauses/stops, with category-specific small optical projections.
+- Adjust opening quotes and brackets at the line start from measured font ink; keep CLReq prohibition and cluster rules.
+- Preserve source text and geometrical safety under six real-literature EPUB scenarios.
+- Add Chromium browser edge-geometry regression tests.
+
+# v94.4 — Optical colon hanging without cramped Han spacing (2026-11-18)
+
+- A near-full horizontal Simplified Chinese line ending in a standalone U+FF1A FULLWIDTH COLON may use a small **visible-ink** margin hang (at most 0.17em), only after Canvas measures sufficient safe glyph bearings. Total trim is bounded to 0.74em and at most 86% of advance. Repeated punctuation and loose lines retain the previous behavior.
+- The same trim is represented in Knuth–Plass line widths and rendered by the existing `folio-kp-optical-end` wrapper. All other punctuation preferences, source nodes, fallback rules and the native reader mode remain unchanged. The additional near-fullness calculation is conditional on a colon, avoiding extra hot-path measurements or DP passes.
+- Real EPUB screenshot regression: 390px viewport / 24px Noto Sans SC, `快餐店和广告牌的路更好：` changes Han spacing from −0.6109px to +0.5411px, measured colon margin from −6.24px to −17.76px, with about 1.02px actual glyph ink overhang. The adjacent Han character's right edge advances ~12.7px toward the text alignment line.
+- Six font/size/viewport Chromium scenarios and 390→410→380→390px width round-trip retain original text and footnote links. Versioned PWA shell cache updated to v94.4. No claim of end-to-end speedup.
+- EPUB test book is not redistributed.
+
+# v94.3 — Browser-validated local CJK glue repair (18 November 2026)
+
+- Repair actual small per-line overflow in the DOM validation phase instead of discarding the entire paragraph. Measure browser `scrollWidth` on *only* candidate paragraphs and lines, adjust positive Han-to-Han glue by a bounded fraction (at most 78% of an existing gap) and keep negative spacing, punctuation and glyph advances intact.
+- Read the affected line geometry before writes, then perform one batch of DOM writes followed by the existing physical overflow validation. Real browser overflow always retains the native fallback if bounded correction cannot make a paragraph safe.
+- Synchronize retained line spacings with optimized line-layout caches; avoid stale values on repeated width changes. Expose accurate `validationRepairLines` and `validationRepairParagraphs` diagnostic counters for retained repairs.
+- Real literary EPUB regression: 390px / 24px Noto Sans SC improved from 47 optimized paragraphs and 18 safety fallbacks to 62 optimized paragraphs and 3 fallbacks in identical Chromium testing. Width round-trip 390→410→380→390 returned optimized counts 62→54→67→62, compared to 47→25→20→47 on v94.2. The other five covered font/width combinations retained exact original text, footnotes, forbidden-line-start and overflow safety.
+- Normal punctuation compression and optical hanging algorithms are unchanged; additional validator work may increase initial layout time. No claim of overall speedup is made.
+- No EPUB book redistributed in packages. PWA cache bumped to `folio-shell-v94.3`.
+
+# Folio v94.2 — Real Chinese literature review and paragraph cadence (2026-11-18)
+
+- Evaluate a real Chinese literary EPUB with chapter navigation, notes and link restoration at 390/830/1130/1360px, Noto Serif CJK and Noto Sans CJK, 16/20/24/26px using the **reader’s own typography controls**, not forced inline font overrides. The EPUB is **not** redistributed in the PWA or test package.
+- Add a modest paragraph-level preference against an underfilled **final line** for eligible wide CJK paragraphs. This is a soft demerit only (not a mandatory line length); leave narrow mobile layouts and short dialogues native, and keep all punctuation safety rules unchanged.
+- Optimize the Knuth–Plass active-node scan: use a compact Uint8Array reachability flag and calculate each candidate’s fitness class once, retaining width pruning ahead of reachability so overfull scans can terminate early.
+- Preserve v94.1 comma/opening-quote correction, category-specific punctuation compression, optical margins, native fallback, font and layout caching, and source-text semantics.
+- Do not apply automatic fixed quote-to-Han compression: real-book 390px/24px tests showed an unacceptable baseline/fallback risk. Keep optical boundary adjustments elastic and ink-bounded.
+- The legacy `knuth_plass_v912.py` and `cjk_mixed_v918.py` tests still flag valid optical hanging as overflow in **both v94.1 and v94.2**; they are not counted as passing. The new real-book test checks overflow using the allowed optical margin.
+- Current regressions passed for source restoration, inline footnotes, forbidden line-start punctuation and line-width safety. Do not infer a statistically significant end-to-end performance speedup from timing budget fluctuations.
+
+## v94.1 — 2026-11-18
+
+- Weighted, font-safe punctuation-pair target for CLReq optical contraction; distinct close/open, nested, repeated-stop and stop/open preferences.
+- Never line-end hang a contiguous punctuation cluster; avoid line-end hanging in traditional Chinese horizontal prose.
+- Fix mixed Han/Latin `text-autospace` estimate (1/8em vs 1/4em) and reuse a monotonic styled-run index.
+- Include punctuation/glue safe compression in early candidate pruning. No new DOM or canvas reads per dynamic-programming candidate.
+- Add Chromium v94.0/v94.1 comparison and font/language/viewports tests; preserve source and existing fallbacks.
+
+## v94.0 — Consistent punctuation-pair optical bases
+
+- Fixed bounded, Canvas-ink-safe base contraction for closing quotation + opening quotation, closing quotation + sentence stop, nested openings and nested closings. Existing strong contraction of comma + opening quote is preserved.
+- Distinguishes permanent optical spacing correction from the remaining elastic space that Knuth–Plass may use to fit the line. No explicit source whitespace is removed.
+- No extra Canvas calls, candidate-break passes, or DOM wrappers relative to v93.9: all base amounts reuse the previously measured pair and existing glyph-kern span.
+- Retains emphasis on double punctuation (`！？`, `！！`) without inappropriate mandatory compression.
+
+## v94.0 — Consistent punctuation-pair optical bases
+
+- Fixed bounded, Canvas-ink-safe base contraction for closing quotation + opening quotation, closing quotation + sentence stop, nested openings and nested closings. Existing strong contraction of comma + opening quote is preserved.
+- Distinguishes permanent optical spacing correction from the remaining elastic space that Knuth–Plass may use to fit the line. No explicit source whitespace is removed.
+- No extra Canvas calls, candidate-break passes, or DOM wrappers relative to v93.9: all base amounts reuse the previously measured pair and existing glyph-kern span.
+- Retains emphasis on double punctuation (`！？`, `！！`) without inappropriate mandatory compression.
+
+## v93.9 (2026-11-18) — Fullwidth comma + opening quotation spacing corrected
+
+- Fix a visual gap at `，“` and `，‘`. v93.8 capped adjacent STOP+OPEN at 0.34em and normally chose only 48% of it (0.163em), despite 20px Noto Serif CJK SC having ~26px of actual combined blank side bearings.
+- Following W3C CLReq §6.3.2.2, give directly adjacent Chinese STOP+OPEN pairs a **font-bounded baseline contraction** (up to 0.60em) plus optional adaptive contraction (up to 0.82em total). Never scale the glyph or erase EPUB text; do not cross spaces, links, lines or code boxes. Skip or bound contraction if the font has less safely removable whitespace.
+- Model the fixed and flexible contractions separately in the Knuth–Plass prefix sums, candidate line widths and rendered inline margins, avoiding inaccurate line-fit estimates and retaining previously optimized bracket-to-Han rules.
+- Chromium tests: same synthetic EPUB, v93.8 average `， “` contraction 4.22px vs v93.9 14.11px (20px Noto Serif CJK SC, 1130px viewport); also checked Noto Sans CJK SC and 390px, single-opening quotes, original text restoration, links, inline code, and line overflow.
+- Existing PWA, offline shell, reader settings and local library stay unchanged; Knuth–Plass remains opt-in. Do not interpret synthetic-fixture measurements as a universal speedup or guarantee for every EPUB/font.
+
+## v93.8 (2026-11-18) — Staged Chinese bracket-edge compression; safer Knuth–Plass pruning
+
+- Add font-ink-bounded, *optional* outer-side spacing relief for the `Han《` / `》Han` and related Chinese opening/closing bracket transitions. Keep at least 0.13em of ink separation and cap relief to 0.115em. Leave the **inside** of quoted/book-title text untouched. This is a low-priority reserve, only used in high-contraction candidate lines rather than inserted everywhere.
+- Distinguish regular adjacent-punctuation contraction from the bracket reserve in measured prefix sums, line-level decisions, layout fingerprints and DOM construction; prevent contractions crossing an actual line break.
+- Stop computing costly line fit candidates for unreachable DP break states. Prune provably overfull candidates only **after** accounting for legal Western-space and CJK-glue shrink, preserving narrow-screen layouts.
+- Reuse measured prefix sums for width-only refits; isolate language-specific punctuation plans in the cross-document cache to avoid accidental Chinese/Japanese cache matches.
+- Keep original DOM, hyphenation, inline links, noterefs, MathML, code, optical start/end trim and native fallback behavior. Quality typesetting remains opt-in.
+- New Chromium regression `tests/cjk_bracket_v938.py` compares actual v93.7 and v93.8 browser-rendered punctuation, resizing, and source restoration. Visual proof: `Folio-v93.8-CJK-before-after.png`. Measured performance is workload-dependent; do not claim universal speed gains.
+
+## v93.7 (2026-11-18) — True ink-bound CJK optical alignment / 中文标点挤压与悬挂修正
+
+- Fix the signed `actualBoundingBoxLeft` interpretation. Its negative value indicates leading blank space; the previous implementation mistakenly zeroed out this space for many opening quotation marks and brackets. Both line-start optical alignment and adjacent punctuation compression now use the correct ink geometry.
+- Increase bounded Chinese line-edge trim: opening marks up to 0.40 em; sentence punctuation at line ends up to 0.36 em, and closing quotation/bracket marks up to 0.27 em, always limited by real measured side bearings and 0.08–0.09 em reserved clearance. No glyph deformation, textual replacement, or unbounded ink extrusion.
+- Correct Chromium overflow validation for line-edge punctuation: negative margins may extend an invisible inline box without painting glyph ink outside the column. Accept only excess bounded by the per-line font-measured optical adjustment, and retain true-overflow native fallback.
+- Reuse a glyph's Canvas `TextMetrics.width` rather than measuring it twice when acquiring ink bounds. Avoid allocating and reevaluating duplicated Knuth–Plass punctuation compression candidates in its hot loop.
+- Keep line-level elastic pair compression, layout signature invalidation, native fallback, inline links/code/MathML, original EPUB source, and opt-in quality setting.
+- `tests/cjk_optical_v937.py` tests ink safety, narrow/desktop layout, text restoration, and optical start/end adjustments in Chromium. Visual `Folio-v93.7-CJK-before-after.png` produced by Chromium.
+
+## v93.6 (2026-11-18) — Elastic CJK punctuation and optical edges
+
+- Punctuation pair contraction is now an adjustable line-level quantity. The dynamic program compares a bounded set of compression allocations and passes the selected ratio to the rendered DOM. Canvas side bearings still determine hard maximums.
+- A small indented first-line opening-quote hang is permitted, and safe end punctuation bearing trim increases slightly. Unindented column edges cannot receive the synthetic left protrusion.
+- Cached plans include the chosen punctuation ratio, avoiding stale inline spacing after resize.
+- Added Chromium fixture regression for variable punctuation compression, visual edge alignment, 5 viewport widths, source text and link integrity.
+- Retained native fallback, math/inline-code exclusions, browser validation and progressive work budgets. No claimed full cold-load speed improvement.
+
+# v93.5 — 2026-11-18
+
+- Chinese punctuation combinations use category-specific, Canvas-ink-limited contraction (strong double stops retain more breathing room than adjacent nested brackets and quotes).
+- End-of-line Chinese punctuation trims available *empty* right-bearing space by a safe, glyph-dependent amount; no unbounded ink protrusion.
+- Correct caps for differently sized punctuation inside styled inline spans.
+- Add `tests/cjk_punctuation_v935.py`, improved documentation and visual regression captures. Keep original EPUB semantics, native fallback, progressive pagination and optional quality mode.
+
+## v93.4 — CLReq-inspired Chinese punctuation composition
+
+- Compute explicit adjacent Chinese punctuation compression from the source font’s Canvas ink bounds; cap at 0.34 em and avoid disallowed overlaps.
+- Include punctuation contraction in Knuth–Plass prefix widths and render the **same** contraction between source graphemes, with no change to source text, code, MathML or note references.
+- Conservatively trim measured leading whitespace around opening marks where the font permits, while retaining the browser-validated 0.055 em line-end optical hanging.
+- Prevent Chromium native `text-spacing-trim` from double-compressing already optimized lines; validate adjusted paragraphs on narrow resizes.
+- Cache glyph ink measurements and retain original fallback/progressive typesetting. Added real-book and synthetic Chromium tests.
+- Visual comparison images and precise scope described in `CJK_PUNCTUATION.md`; quality mode remains optional and disabled by default.
+
 ## v93.3 — Complete typesetting in idle slices after first page
 
 - Keep the 300 ms initial Knuth–Plass cold/first reflow budget for first-page responsiveness.

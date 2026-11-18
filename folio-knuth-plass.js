@@ -24,17 +24,106 @@
  // Fractions are of the actual Canvas-measured glyph advance, not of em.
  const OPTICAL_END=new Map([
   ['.',.42],[',',.38],[';',.24],[':',.22],['!',.18],['?',.20],
-  ['’',.24],['”',.27],['”',.27],
+  ['’',.24],['”',.27],
   ['。',.42],['，',.40],['、',.36],['！',.26],['？',.26],
   ['；',.26],['：',.26],['」',.25],['』',.25],['》',.22],['）',.20],
   ['】',.18],['〉',.22],['〕',.18]
  ]);
 
  const CJK_PUNCT = /[，。！？；：、（）［］｛｝【】〔〕〖〗〈〉《》「」『』“”‘’﹐﹑﹒]/u;
+
+ // v94.5: Optical *ink* alignment, separate from ordinary empty-bearing trim.
+ // CLReq §6.1.3 treats hanging as optional, mainly for simplified Chinese
+ // pause/stop marks. These limits are Folio's publication-style choice, NOT
+ // standard-mandated fixed fractions. Canvas metrics always bound the effect.
+ // Only a SINGLE mark at a non-final line end may use this extra projection.
+ const HANG_END_INK = new Map([
+  ['，',.13],['、',.08],['。',.13],['﹐',.11],['﹑',.11],['﹒',.11],
+  ['：',.17],['；',.12],['？',.10],['！',.10],
+  ['”',.07],['’',.07],['」',.055],['』',.055],
+  ['）',.055],['》',.055],['〉',.055],['】',.045],['〕',.045],
+  ['］',.045],['｝',.045],['〗',.045]
+ ]);
+ // Open punctuation belongs at line start, never at line end. Follow CLReq
+ // §6.3.2.3's half-em leading space trim, plus a tiny measured ink overhang.
+ // Actual visible projection is strictly capped (not a full-width hang).
+ const HANG_START_INK = new Map([
+  ['“',.075],['‘',.075],['「',.060],['『',.060],
+  ['（',.060],['《',.065],['〈',.065],['【',.050],
+  ['〔',.050],['［',.050],['｛',.050],['〖',.050]
+ ]);
+
+ // CLReq-inspired horizontal Chinese punctuation composition. A paired
+ // punctuation reduction is deterministic and measured from actual Canvas
+ // glyph ink boxes. No letter is scaled or transformed; the ink itself is
+ // never allowed to overlap, and the DOM representation uses the same amount.
+ const PUNCT_OPEN = new Set(Array.from('（［｛【〔〖〈《「『“‘'));
+ const PUNCT_CLOSE = new Set(Array.from('）］｝】〕〗〉》」』”’'));
+ const PUNCT_STOP = new Set(Array.from('，。！？；：、﹐﹑﹒'));
+ const isZhPunctuation=ch=>PUNCT_OPEN.has(ch)||PUNCT_CLOSE.has(ch)||PUNCT_STOP.has(ch);
+ // Ink clearance is categorical: an open bracket following a close bracket
+ // needs slightly more breathing room than a comma followed by an opening
+ // quotation mark. Caps remain measured from the actual font's side bearings.
+ const PUNCT_INK_SAFETY=.085;
+ function punctuationClearance(a,b){
+  if(PUNCT_CLOSE.has(a)&&PUNCT_OPEN.has(b))return .115;
+  if(PUNCT_OPEN.has(a)&&PUNCT_OPEN.has(b))return .10;
+  if(PUNCT_CLOSE.has(a)&&PUNCT_CLOSE.has(b))return .10;
+  if(PUNCT_STOP.has(a)&&PUNCT_OPEN.has(b))return .115;
+  return PUNCT_INK_SAFETY;
+ }
+ // Keep measured empty-side-bearing clearance: v95.1 retains more visible
+ // white space around paired punctuation instead of pushing both ink shapes
+ // to within a single pixel. CLReq uses roughly 0.5em as a conventional
+ // reduction for two adjacent fullwidth marks, not an obligation to squeeze.
+ // Desired contraction is a soft line-breaking cost, NEVER a mandatory trim.
+ // In a paragraph containing multiple punctuation categories, the average
+ // of their measured elastic capacities guides the candidate line geometry.
+ // This avoids both overcompressing repeated strong stops and leaving a
+ // close/open quote pair visibly loose on a comfortably fitting line.
+ function punctuationPreference(a,b){
+  if(PUNCT_STOP.has(a)&&PUNCT_STOP.has(b))return .52;
+  if(PUNCT_CLOSE.has(a)&&PUNCT_OPEN.has(b))return .88;
+  if(PUNCT_OPEN.has(a)&&PUNCT_OPEN.has(b))return .79;
+  if(PUNCT_CLOSE.has(a)&&PUNCT_CLOSE.has(b))return .74;
+  if(PUNCT_CLOSE.has(a)&&PUNCT_STOP.has(b))return .70;
+  if(PUNCT_STOP.has(a)&&PUNCT_OPEN.has(b))return .74;
+  return .70;
+ }
+ // Outside brackets are not as tight as two punctuation marks. Trim only
+ // clearly empty ink-side bearings *before opening* / *after closing* marks,
+ // retaining a larger, 0.13em clearance next to full-sized Han glyphs.
+ const BRACKET_TEXT_CAP=.115, BRACKET_TEXT_CLEARANCE=.13;
+ // A STOP→OPEN pair must be compact even on a loose line. CLReq's normal
+ // reduction is about half an ideograph; v93.8 sometimes used just .16em.
+ // The fixed portion is bounded by the REAL pair's whitespace and never
+ // touches non-punctuation text or spaces explicitly present in the EPUB.
+ const STOP_OPEN_BASE=.50; // em; CLReq-inspired reduction of 2em punctuation toward 1.5em
+
+ // Not every run of punctuation should be compressed equally: nested quotation
+ // or bracket edges have large blank bearings, while two strong sentence marks
+ // should retain enough air to express their emphasis. CLReq permits several
+ // composition styles; Folio uses bounded, font-specific optical contraction.
+ function punctuationPairCap(a,b){
+  const ao=PUNCT_OPEN.has(a),ac=PUNCT_CLOSE.has(a),as=PUNCT_STOP.has(a);
+  const bo=PUNCT_OPEN.has(b),bc=PUNCT_CLOSE.has(b),bs=PUNCT_STOP.has(b);
+  if(as&&bs)return .19;       // !! / ？！: don't blur a double pause into one.
+  if(ac&&bo)return .42;       // Closing quote followed by an opening quote.
+  if(ao&&bo)return .40;       // Nested opening quotes or brackets.
+  if(ac&&bc)return .32;       // Nested closing punctuation.
+  if(as&&bo)return .63;       // Stop + opening quote: limit total contraction to a readable ~0.63em.
+  if(ac&&bs)return .35;       // Closing quote and trailing comma/period.
+  if(ao&&bc)return .34;       // Empty quoted pair, keep ink separated.
+  if(ao&&bs)return .23;       // Unusual mark sequence: avoid over-tightening.
+  return .30;
+ }
+
+
  const WS = /^[ \t\n\r\f\u2000-\u200a\u202f\u205f\u3000]+$/u;
  const ATOM='\uFFFC'; // One native MathML box.
  const CODE_ATOM='\uFFF8'; // Inline code/keyboard/samp is an indivisible native-styled box.
  const NOTE_ATOM='\uFFF9'; // One intact superscript noteref, attached to its preceding word.
+ const MIXED_CJK_RATIOS=[.15,.3,.45,.6,.75,.9,1];
  const MAX_PARAGRAPH = 2500, MAX_TOKENS = 2100, MAX_PARAGRAPHS = 800, MAX_CJK_SPACERS = 850;
  // Keep at most three previously validated line compositions per paragraph.
  // Snapshots are created *on departure* from a width, so a cold chapter load
@@ -42,7 +131,12 @@
  const MAX_SAVED_LAYOUTS=3, MAX_SAVED_LAYOUT_CHARS=2400;
  const cacheByDoc = new WeakMap();
  const metricsCache = new Map();
+ const inkMetricsCache = new Map();
  const measureContexts = new WeakMap();
+ // Reuse font-ink measurement across validated resizes of one EPUB document.
+ // A WeakMap prevents retaining closed chapters, and invalidate() drops the
+ // entries when the font/publisher styling changes.
+ const paintMeasureByDoc = new WeakMap();
  const planCache = new Map();
  // Pretext-inspired two-stage pipeline: tokenize / locate legal word breaks
  // once per *text*, independently of fonts and column widths. All actual glyph
@@ -125,7 +219,7 @@
    preparedTextCache.set(key,prepared);
   }
   // Reflow can mutate computed widths and glue; never mutate cached tokens.
-  return prepared.map(t=>({...t,width:0,stretch:0,shrink:0,afterStretch:0,afterShrink:0,afterAuto:0,hyphenWidth:0}));
+  return prepared.map(t=>({...t,width:0,stretch:0,shrink:0,afterStretch:0,afterShrink:0,afterAuto:0,punctKern:0,punctBase:0,edgeKern:0,punctStart:0,hyphenWidth:0}));
  }
  function discretionaryTokens(tokens,hyphenator){
   if(!hyphenator?.points)return tokens;
@@ -194,20 +288,33 @@
   breaks.push({i:tokens.length,pos:tokens.at(-1)?.end||0,penalty:-10000,flagged:false,kind:'end'});
   return {nodes,breaks};
  }
+ // Allocate contiguous, numerically typed prefix columns. The DP performs
+ // random prefix subtraction repeatedly; Float64 preserves subpixel math,
+ // while UInt32 is sufficient for token/glyph counts (< 2500 per paragraph).
+ // This avoids array growth, .at(-1) lookup and short-lived number boxing.
  function summarize(tokens){
-  // Prefix sums make evaluation of a break O(1) instead of remeasuring it.
-  const w=[0],st=[0],sh=[0],spaces=[0],spaceWidth=[0],cjkGaps=[0],cjkCap=[0],letters=[0];
-  for(const t of tokens){
-   w.push(w.at(-1)+t.width+(t.afterAuto||0));
-   st.push(st.at(-1)+(t.stretch||0)+(t.afterStretch||0));
-   sh.push(sh.at(-1)+(t.shrink||0)+(t.afterShrink||0));
-   spaces.push(spaces.at(-1)+(t.kind==='space'?1:0));
-   spaceWidth.push(spaceWidth.at(-1)+(t.kind==='space'?t.width:0));
-   cjkGaps.push(cjkGaps.at(-1)+(t.afterStretch>0?1:0));
-   cjkCap.push(cjkCap.at(-1)+(t.afterStretch||0));
-   letters.push(letters.at(-1)+(t.kind==='space'?1:glyphLength(t.text)));
+  const n=tokens.length,size=n+1;
+  const w=new Float64Array(size),st=new Float64Array(size),sh=new Float64Array(size);
+  const spaces=new Uint32Array(size),spaceWidth=new Float64Array(size);
+  const cjkGaps=new Uint32Array(size),cjkCap=new Float64Array(size);
+  const letters=new Uint32Array(size),punctCap=new Float64Array(size);
+  const punctFixed=new Float64Array(size),punctAim=new Float64Array(size),edgeCap=new Float64Array(size);
+  for(let i=0;i<n;i++){
+   const t=tokens[i],k=i+1,space=t.kind==='space';
+   w[k]=w[i]+t.width+(t.afterAuto||0);
+   punctCap[k]=punctCap[i]+Math.max(0,(t.punctKern||0)-(t.punctBase||0));
+   punctFixed[k]=punctFixed[i]+(t.punctBase||0);
+   punctAim[k]=punctAim[i]+(t.punctAim||0);
+   edgeCap[k]=edgeCap[i]+(t.edgeKern||0);
+   st[k]=st[i]+(t.stretch||0)+(t.afterStretch||0);
+   sh[k]=sh[i]+(t.shrink||0)+(t.afterShrink||0);
+   spaces[k]=spaces[i]+(space?1:0);
+   spaceWidth[k]=spaceWidth[i]+(space?t.width:0);
+   cjkGaps[k]=cjkGaps[i]+(t.afterStretch>0?1:0);
+   cjkCap[k]=cjkCap[i]+(t.afterStretch||0);
+   letters[k]=letters[i]+(space?1:glyphLength(t.text));
   }
-  return {w,st,sh,spaces,spaceWidth,cjkGaps,cjkCap,letters};
+  return {w,st,sh,spaces,spaceWidth,cjkGaps,cjkCap,letters,punctCap,punctFixed,punctAim,edgeCap};
  }
  // Use one coherent physical glue model in the DP and in the renderer.
  // Western spaces may shrink/stretch; Han--Han gaps may only expand. Compare
@@ -244,88 +351,174 @@
    return {justify:true,justifyMode:'spaces',wordSpacing:missing/spaces,
     cjkSpacing:0,ratio:abs,badness:cost};
   }
-  const candidates=new Set([0,Math.max(-maxCJKCompress,Math.min(maxCJK,missing))]);
-  if(missing<0)for(const fraction of [.25,.5,.75,1])candidates.add(-maxCJKCompress*fraction);
-  if(cjkGaps){
-   for(const r of [.15,.3,.45,.6,.75,.9,1]){
-    candidates.add(Math.min(maxCJK,cjkGaps*fontEm*.145*r));
-   }
-   // Prefer the mild character spacing that is typical of polished Chinese.
-   candidates.add(Math.min(maxCJK,Math.max(0,missing-spaces*naturalSpace*.16)));
-  }
+  // The candidates are a fixed handful of optical CJK glue ratios. Avoid
+  // creating a Set and its iterator in every (break-start, break-end) DP
+  // candidate. Duplicate ratios are harmless because a strict < chooses the
+  // first minimum, exactly as Set's insertion order did.
+  const clamped=Math.max(-maxCJKCompress,Math.min(maxCJK,missing));
+  const preferred=Math.min(maxCJK,Math.max(0,missing-spaces*naturalSpace*.16));
   let best=null;
-  for(const stretch of candidates){
+  for(let i=0;i<14;i++){
+   let stretch;
+   if(i===0)stretch=0;
+   else if(i===1)stretch=clamped;
+   else if(i>=2 && i<=5){
+    if(missing>=0)continue;
+    stretch=-maxCJKCompress*(i-1)*.25;
+   }else if(i>=6 && i<=12){
+    stretch=Math.min(maxCJK,cjkGaps*fontEm*.145*MIXED_CJK_RATIOS[i-6]);
+   }else stretch=preferred;
    const western=missing-stretch;
-   if(!spaces && Math.abs(western)>.4)continue;
-   const perSpace=spaces?western/spaces:0;
+   const perSpace=western/spaces;
    const wr=naturalSpace>0?perSpace/naturalSpace:0;
    if(wr<-.23-.001 || wr>.92+.001)continue;
    const cr=stretch>=0 ? (cjkCapacity>0?stretch/cjkCapacity:0) :
     (maxCJKCompress>0?Math.abs(stretch)/maxCJKCompress:0);
    const abs=Math.abs(wr);
-   const westBad=spaces?960*abs**3*(wr<0?1.6:1):0;
+   const westBad=960*abs**3*(wr<0?1.6:1);
    const river=wr>.42?260+9500*(wr-.42)**2:0;
    const squeezed=wr<-.16?100+6000*(Math.abs(wr)-.16)**2:0;
-   const cjkBad=cjkGaps?(stretch<0?300:165)*cr**3:0;
+   const cjkBad=(stretch<0?300:165)*cr**3;
    const cost=westBad+river+squeezed+cjkBad;
    if(best===null||cost<best.badness){
-    best={justify:true,justifyMode:Math.abs(stretch)>.035?'mixed':(spaces?'spaces':'none'),
-     wordSpacing:perSpace,cjkSpacing:cjkGaps?stretch/cjkGaps:0,
+    best={justify:true,justifyMode:Math.abs(stretch)>.035?'mixed':'spaces',
+     wordSpacing:perSpace,cjkSpacing:stretch/cjkGaps,
      ratio:Math.max(abs,cr),badness:cost};
    }
   }
   return best;
  }
- function lineMetrics(tokens,prefix,from,to,goal,final,alignment,fontSize=20,allowTracking=true){
+ // The same safe punctuation capacities participate in both the dynamic
+ // program and the DOM renderer. Only the selected fraction of each pair is
+ // applied; mark shapes and semantic text are never scaled or substituted.
+ function lineMetrics(tokens,prefix,from,to,goal,final,alignment,fontSize=20,allowTracking=true,paragraphIndent=0){
   let start=from,end=to;
   while(start<end&&tokens[start].kind==='space')start++;
   while(end>start&&tokens[end-1].kind==='space')end--;
   if(start>=end)return null;
   const tail=tokens[end-1];
-  const opticalEnd=!final && !tail.hyphenBreak?(tail.opticalEnd||0):0;
+  const leadingOpen=PUNCT_OPEN.has(first(tokens[start]?.text||''));
+  // When the EPUB indents the first line, a small optical hang can sit
+  // safely *inside that indent* even when the chosen font has almost no
+  // empty leading side-bearing. Ordinary unindented column starts never
+  // receive this synthetic protrusion.
+  const punctStart=(tokens[start]?.punctStart||0) ||
+   (paragraphIndent>8 && start===0 && leadingOpen?Math.min(fontSize*.055,paragraphIndent*.09):0);
+  // CLReq §6.1.3: do not apply line-end hanging to punctuation that
+  // immediately follows another punctuation mark. A run such as 。” or ？！”
+  // should be composed as one cluster, not protrude its final closing mark.
+  const previousToken=tokens[end-2];
+  const adjacentPunctuation=!!(previousToken && previousToken.end===tail.start &&
+    isZhPunctuation(last(previousToken.text)) && isZhPunctuation(last(tail.text)));
+  // An optical ink hang is allowed only for a single mark on a sufficiently
+  // full, non-final line. It is not a second punctuation-pair compression;
+  // tight quote clusters and ragged paragraph ends remain untouched.
+  const basicEnd=!final&&!tail.hyphenBreak&&!adjacentPunctuation?(tail.opticalEnd||0):0;
+  // Do not compress a punctuation pair across a chosen line break: the
+  // trailing token's capacity belongs exclusively to the next line.
+  const punctCapacity=Math.max(0,prefix.punctCap[end]-prefix.punctCap[start]-Math.max(0,(tail.punctKern||0)-(tail.punctBase||0)));
+  const punctFixed=Math.max(0,prefix.punctFixed[end]-prefix.punctFixed[start]-(tail.punctBase||0));
+  const punctAim=Math.max(0,prefix.punctAim[end]-prefix.punctAim[start]-(tail.punctAim||0));
+  const preferredRatio=punctCapacity>.001?Math.max(.48,Math.min(.90,punctAim/punctCapacity)):.70;
+  const bracketCapacity=Math.max(0,prefix.edgeCap[end]-prefix.edgeCap[start]-(tail.edgeKern||0));
+  const coreWidth=prefix.w[end]-prefix.w[start]-(tail.afterAuto||0)-punctStart-punctFixed+
+    (!final&&tail.hyphenBreak?(tail.hyphenWidth||0):0)-basicEnd;
+  const additionalInkHang=basicEnd>0 && tail.opticalExtra>0 && coreWidth>=goal-fontSize*.34
+    ?tail.opticalExtra:0;
+  const opticalEnd=basicEnd+additionalInkHang;
   const opticalChar=opticalEnd>.02?(tail.opticalChar||''):'';
-  const width=prefix.w[end]-prefix.w[start]-(tail.afterAuto||0)+
-    (!final&&tail.hyphenBreak?(tail.hyphenWidth||0):0)-opticalEnd;
-  const missing=goal-width;
+  const naturalWidth=coreWidth-additionalInkHang;
+  // Even maximum measured punctuation contraction cannot make this line fit.
+  // Reject it BEFORE trying up to four expensive glue distributions. The
+  // .35px tolerance matches the final candidate admission below.
+  // Western word spaces and (bounded) Han glue can still shrink to fit a
+  // natural line that would otherwise be slightly too long. Do not prune
+  // until those legal shrink budgets are accounted for.
+  const shrinkAllowance=prefix.sh[end]-prefix.sh[start]-(tail.afterShrink||0);
+  if(naturalWidth-punctCapacity-bracketCapacity-shrinkAllowance>goal+.35)return null;
   const spaces=prefix.spaces[end]-prefix.spaces[start];
   const gapWidth=prefix.spaceWidth[end]-prefix.spaceWidth[start];
   const naturalSpace=gapWidth/Math.max(1,spaces);
   const cjkGaps=prefix.cjkGaps[end]-prefix.cjkGaps[start]-(tail.afterStretch>0?1:0);
   const cjkCapacity=prefix.cjkCap[end]-prefix.cjkCap[start]-(tail.afterStretch||0);
-  const relativeShortfall=Math.max(0,missing)/Math.max(1,goal);
   const glyphCount=prefix.letters[end]-prefix.letters[start];
-  let tracking=0;
-  let properties={justify:false,justifyMode:'none',wordSpacing:0,cjkSpacing:0,
-   ratio:relativeShortfall,badness:0};
-  if(final){
-   if(missing<-.35)return null;
-   properties.badness=width<goal*.16?17000:width<goal*.30?6500:width<goal*.44?1100:0;
-  }else if(alignment!=='justify'){
-   if(missing<-.35)return null;
-   properties.badness=2300*relativeShortfall**2;
-  }else if(cjkGaps>0){
-   const fit=fitMixedGlue(missing,spaces,naturalSpace,cjkGaps,cjkCapacity);
-   if(fit)properties=fit;
-   else if(missing>=-.35 && spaces>0){const ratio=missing/(spaces*naturalSpace);properties={justify:true,justifyMode:'spaces',wordSpacing:missing/spaces,cjkSpacing:0,ratio,badness:3800+6000*Math.max(0,ratio-.92)**2};}
-   else if(missing>=-.35 && cjkGaps>0){const ratio=missing/Math.max(1,cjkCapacity);properties={justify:true,justifyMode:'mixed',wordSpacing:0,cjkSpacing:missing/cjkGaps,ratio,badness:3800+2000*Math.max(0,ratio-.985)**2};}
+  const propose=(ratio)=>{
+   // Han-to-bracket empty bearings are a *reserve*, not normal punctuation
+   // spacing. Use them only when the high-contraction candidates win.
+   const edgeRatio=Math.max(0,Math.min(1,(ratio-.80)/.20));
+   const compression=punctCapacity*ratio+bracketCapacity*edgeRatio;
+   const width=naturalWidth-compression;
+   const missing=goal-width;
+   const relativeShortfall=Math.max(0,missing)/Math.max(1,goal);
+   let tracking=0;
+   let properties={justify:false,justifyMode:'none',wordSpacing:0,cjkSpacing:0,
+    ratio:relativeShortfall,badness:0};
+   if(final){
+    if(missing<-.35)return null;
+    properties.badness=width<goal*.16?17000:width<goal*.30?6500:width<goal*.44?1100:0;
+   }else if(alignment!=='justify'){
+    if(missing<-.35)return null;
+    properties.badness=2300*relativeShortfall**2;
+   }else if(cjkGaps>0){
+    const fit=fitMixedGlue(missing,spaces,naturalSpace,cjkGaps,cjkCapacity);
+    if(fit)properties=fit;
+    else if(missing>=-.35 && spaces>0){const q=missing/(spaces*naturalSpace);properties={justify:true,justifyMode:'spaces',wordSpacing:missing/spaces,cjkSpacing:0,ratio:q,badness:3800+6000*Math.max(0,q-.92)**2};}
+    else if(missing>=-.35 && cjkGaps>0){const q=missing/Math.max(1,cjkCapacity);properties={justify:true,justifyMode:'mixed',wordSpacing:0,cjkSpacing:missing/cjkGaps,ratio:q,badness:3800+2000*Math.max(0,q-.985)**2};}
+    else return null;
+   }else if(spaces>0 && naturalSpace>0){
+    if(allowTracking && glyphCount>=28 && missing>spaces*naturalSpace*.24)
+     tracking=Math.min(fontSize*.014,(missing-spaces*naturalSpace*.24)/glyphCount);
+    const fit=fitMixedGlue(missing-tracking*glyphCount,spaces,naturalSpace,0,0);
+    if(fit)properties={...fit,badness:fit.badness+3500*(tracking/fontSize)**2};
+    else if(missing>=-.35){tracking=0;const q=missing/(spaces*naturalSpace);properties={justify:true,justifyMode:'spaces',wordSpacing:missing/spaces,cjkSpacing:0,ratio:q,badness:3800+6000*Math.max(0,q-.92)**2};}
+    else return null;
+   }else if(missing>=-.35){properties.badness=50000+20000*relativeShortfall**2;}
    else return null;
-  }else if(spaces>0 && naturalSpace>0){
-   // Microtracking distributes a *tiny* amount of surplus over glyphs,
-   // preventing rivers without noticeably distorting individual words.
-   // TeX uses font expansion; CSS variable-font widths aren't universal, so
-   // a rigorously bounded letter-spacing is the cross-font fallback here.
-   // Never apply tracking inside inline mathematical constructs.
-   if(allowTracking && glyphCount>=28 && missing>spaces*naturalSpace*.24){
-    tracking=Math.min(fontSize*.014, (missing-spaces*naturalSpace*.24)/glyphCount);
+   // Mild optical contraction is preferable to leaving two enormous side
+   // bearings, but strongly compressed pairs should not distort the rhythm
+   // merely to accommodate a poorly chosen line break. A sentence's paired
+   // marks share a proportional factor while retaining category caps.
+   if(bracketCapacity>.03 && edgeRatio>0)
+    properties.badness+=Math.min(420,260+bracketCapacity*5)*edgeRatio*edgeRatio;
+   if(punctCapacity>.03){
+    const target=preferredRatio;
+    properties.badness+=Math.min(155,24+punctCapacity*7)*Math.pow(ratio-target,2);
+    if(ratio>.77)properties.badness+=125*Math.pow((ratio-.77)/.23,2);
    }
-   const fit=fitMixedGlue(missing-tracking*glyphCount,spaces,naturalSpace,0,0);
-   if(fit)properties={...fit,badness:fit.badness+3500*(tracking/fontSize)**2};
-   else if(missing>=-.35){tracking=0;const ratio=missing/(spaces*naturalSpace);properties={justify:true,justifyMode:'spaces',wordSpacing:missing/spaces,cjkSpacing:0,ratio,badness:3800+6000*Math.max(0,ratio-.92)**2};}
-   else return null;
-  }else if(missing>=-.35){
-   properties.badness=50000+20000*relativeShortfall**2;
-  }else return null;
-  return {...properties,tracking,glyphCount,width,missing,spaces,naturalSpace,cjkGaps,goal,opticalEnd,opticalChar};
+   return {...properties,tracking,glyphCount,width,missing,spaces,naturalSpace,
+    cjkGaps,goal,opticalEnd,opticalChar,punctStart,
+    punctStartChar:punctStart>0?first(tokens[start].text):'',fontSize,
+    punctRatio:ratio,punctCompression:punctFixed+punctCapacity*ratio,punctCapacity,
+    bracketRatio:edgeRatio,bracketCompression:bracketCapacity*edgeRatio,bracketCapacity};
+  };
+  if(punctCapacity+bracketCapacity<.035)return propose(0);
+  // A tiny bounded candidate set avoids introducing any browser measurements
+  // or another optimization pass. The minimum-fit candidate permits the
+  // punctuation to save a near-overfull line only when needed.
+  const needed=Math.max(0,naturalWidth-goal-.35);
+  const required=needed<=.80*punctCapacity
+   ?needed/Math.max(.001,punctCapacity)
+   :(needed+4*bracketCapacity)/Math.max(.001,punctCapacity+5*bracketCapacity);
+  const boundedRequired=Math.max(0,Math.min(1,required));
+  // Retain a modest baseline contraction for typographic rhythm. Letting
+  // every pair reach zero in this multi-column browser layout can expose
+  // inaccurate advance predictions for styled links and inline atoms.
+  // From that baseline to the measured maximum, each line is elastic.
+  const requiredRatio=Math.max(.48,boundedRequired);
+  // Avoid allocating candidates and evaluating the same ratio twice. This
+  // is a hot path: KP explores many candidate breaks per long Han paragraph.
+  let best=null;
+  for(let i=0;i<4;i++){
+   // A ragged final line has no obligation to pack punctuation tightly.
+   // Try an airy setting before the normal pair compression; retain the
+   // tighter option only if the natural ink widths cannot fit the column.
+   const loose=final?.28:.48, preferred=final?Math.max(.32,preferredRatio*.75):preferredRatio;
+   const r=i===0?loose:i===1?preferred:i===2?1:requiredRatio;
+   if(i===3 && (Math.abs(r-loose)<.0001 || Math.abs(r-preferred)<.0001 || Math.abs(r-1)<.0001))continue;
+   const chosen=propose(r);
+   if(chosen && (!best||chosen.badness<best.badness))best=chosen;
+  }
+  return best;
  }
  function fitness(line){
   if(!line.justify)return line.missing>line.goal*.2?3:1;
@@ -347,10 +540,42 @@
   const hyphenStreak=entry.flagged?(prev.hyphenStreak||0)+1:0;
   if(hyphenStreak>=3)cost+=270*(hyphenStreak-1)**2;
   if(final && prev.flagged)cost+=145;
-  // Avoid alternation between very stretched and very tight lines.
-  if(!final&&prev.metrics&&prev.metrics.justify&&line.justify){
-   const delta=Math.abs((prev.metrics.ratio||0)-(line.ratio||0));
+  // Gentle final-line cadence for long CJK paragraphs. An isolated short
+  // ending should be discouraged without forcing new lines or harming short
+  // dialogue. The hard fitting and safety rules remain completely unchanged.
+  if(final && prev.metrics?.cjkGaps>0 && line.goal>320 && line.width>0){
+   const fill=line.width/line.goal;
+   if(fill<.68 && fill>.29)cost+=Math.min(820,4300*(.68-fill)**2);
+  }
+  // Cross-line optical rhythm: the old ratio compares unlike elastic models
+  // (Latin word spaces against Han tracking) and loses the *direction* of a
+  // correction. The ink-safe physical spacing already solved for each line
+  // makes a better, bounded tie-breaker. This is only a soft demerit: it must
+  // never invalidate a legal line or force extra letter-spacing.
+  if(!final && prev.metrics && prev.metrics.justify && line.justify){
+   const prior=prev.metrics;
+   const delta=Math.abs((prior.ratio||0)-(line.ratio||0));
    if(delta>.42)cost+=140*(delta-.42)**2;
+   if(line.goal>=400){
+   // Compare adjacent Han runs only when both lines contain enough gaps to
+   // represent prose rather than a single punctuation cluster. The floor
+   // ignores normal antialiasing / rounding noise below ~0.6px at 20px.
+   if(prior.cjkGaps>=4 && line.cjkGaps>=4){
+    const em=Math.max(12,line.fontSize||20);
+    const shift=Math.abs(prior.cjkSpacing-line.cjkSpacing)/em;
+    if(shift>.033)cost+=Math.min(240,42000*(shift-.033)**2);
+    if(prior.cjkSpacing*line.cjkSpacing<-.00016*em*em && shift>.045)
+     cost+=Math.min(80,1900*(shift-.045));
+   }
+   // English/mixed prose: suppress isolated large word-space jumps, but do
+   // not punish genuine Han/Latin transitions with different glue types.
+   if(prior.spaces>=3 && line.spaces>=3 && prior.naturalSpace>0 && line.naturalSpace>0){
+    const a=prior.wordSpacing/prior.naturalSpace;
+    const b=line.wordSpacing/line.naturalSpace;
+    const variation=Math.abs(a-b);
+    if(variation>.32)cost+=Math.min(180,430*(variation-.32)**2);
+   }
+   }
   }
   if(!final&&prev.metrics&&!prev.metrics.justify&&!line.justify){
    const delta=Math.abs((prev.metrics.missing||0)-line.missing)/Math.max(1,line.goal);
@@ -375,6 +600,7 @@
   const attempts=[3];
   for(const tolerance of attempts){
    const dp=Array.from({length:breaks.length},()=>[null,null,null,null]);
+   const live=new Uint8Array(breaks.length);live[0]=1;
    dp[0][1]={cost:0,prev:-1,fit:1,flagged:false,target:width};
    for(let k=1;k<breaks.length;k++){
     if((k&7)===0 && clock()>deadline)return null;
@@ -383,17 +609,32 @@
      const left=breaks[j];
      // Width is pruned using the actual trimmed line metrics below. A
      // pre-trim calculation incorrectly rejected a valid break after spaces.
-     if(prefix.w[b.i]-prefix.w[left.i] > width*1.22+35 && j<k-1)break;
+     const rawWidth=prefix.w[b.i]-prefix.w[left.i];
+     if(rawWidth>width*1.22+35 && j<k-1){
+      const contraction=(prefix.punctCap[b.i]-prefix.punctCap[left.i])+
+       (prefix.punctFixed[b.i]-prefix.punctFixed[left.i])+
+       (prefix.edgeCap[b.i]-prefix.edgeCap[left.i])+
+       (prefix.sh[b.i]-prefix.sh[left.i]);
+      if(rawWidth-contraction>width*1.22+35)break;
+     }
+     // Keep width pruning ahead of reachability: if an overfull candidate
+     // proves no earlier break can fit, we can stop the backwards scan.
+     // A Uint8Array is cheaper than probing four dynamic-program states.
+     if(!live[j])continue;
+     const reachable=dp[j];
      const goal=width-(j===0?firstIndent:0);
-     const line=lineMetrics(tokens,prefix,left.i,b.i,goal,final,options.align||'start',options.fontSize||20,options.allowTracking!==false);
+     const line=lineMetrics(tokens,prefix,left.i,b.i,goal,final,options.align||'start',options.fontSize||20,options.allowTracking!==false,j===0?firstIndent:0);
      if(!line || !Number.isFinite(line.badness))continue;
      if(!final && line.justify && line.ratio>tolerance)continue;
+     const nextFit=fitness(line);
      for(let f=0;f<fitGroups;f++){
-      const previous=dp[j][f];if(!previous)continue;
+      const previous=reachable[f];if(!previous)continue;
       const cost=score(previous,line,b,final);
-      const nextFit=fitness(line);
       const existing=dp[k][nextFit];
-      if(!existing || cost<existing.cost)dp[k][nextFit]={cost,prev:j,prevFit:f,fit:nextFit,flagged:b.flagged,hyphenStreak:b.flagged?(previous.hyphenStreak||0)+1:0,target:width,ratio:line.ratio,metrics:line};
+      if(!existing || cost<existing.cost){
+       dp[k][nextFit]={cost,prev:j,prevFit:f,fit:nextFit,flagged:b.flagged,hyphenStreak:b.flagged?(previous.hyphenStreak||0)+1:0,target:width,ratio:line.ratio,metrics:line};
+       live[k]=1;
+      }
      }
     }
    }
@@ -408,7 +649,7 @@
      end:tokens[breaks[index].i-1]?.end||0,ratio:node.ratio,justify:node.metrics?.justify||false,
      width:node.metrics?.width,goal:node.metrics?.goal,spaceCount:node.metrics?.spaces||0,naturalSpace:node.metrics?.naturalSpace||0,badness:node.metrics?.badness,cost:node.cost,
      justifyMode:node.metrics?.justifyMode||'none',wordSpacing:node.metrics?.wordSpacing||0,
-     cjkSpacing:node.metrics?.cjkSpacing||0,tracking:node.metrics?.tracking||0,glyphCount:node.metrics?.glyphCount||0,opticalEnd:node.metrics?.opticalEnd||0,opticalChar:node.metrics?.opticalChar||'',
+     cjkSpacing:node.metrics?.cjkSpacing||0,tracking:node.metrics?.tracking||0,glyphCount:node.metrics?.glyphCount||0,opticalEnd:node.metrics?.opticalEnd||0,opticalChar:node.metrics?.opticalChar||'',punctStart:node.metrics?.punctStart||0,punctStartChar:node.metrics?.punctStartChar||'',punctRatio:node.metrics?.punctRatio||0,punctCompression:node.metrics?.punctCompression||0,bracketRatio:node.metrics?.bracketRatio||0,bracketCompression:node.metrics?.bracketCompression||0,
      hyphenate:index!==finalIndex && !!tokens[breaks[index].i-1]?.hyphenBreak});
     const prevIndex=node.prev;
     node=dp[prevIndex][node.prevFit];index=prevIndex;
@@ -429,13 +670,15 @@
   // Wider changes still run the full DP.
   if(!previous?.optimizedLines?.length ||
      Math.abs(width-(previous.planOriginWidth??previous.fitWidth??0))>6)return null;
-  const prefix=summarize(tokens),old=previous.optimizedLines;
+  // Width-only resizing retains the exact same measured glyph/token prefix.
+  // This avoids O(paragraph length) reconstruction on every minor resize.
+  const prefix=options.geometry?.prefix||summarize(tokens),old=previous.optimizedLines;
   const lines=[];
   for(let i=0;i<old.length;i++){
    const prior=old[i],final=i===old.length-1;
    const goal=width-(i===0?indent:0);
    const metrics=lineMetrics(tokens,prefix,prior.from,prior.to,goal,final,'justify',
-    options.fontSize,options.allowTracking);
+    options.fontSize,options.allowTracking,i===0?indent:0);
    const rendered=metrics&&(metrics.width + (metrics.spaces||0)*(metrics.wordSpacing||0) +
     (metrics.glyphCount||0)*(metrics.tracking||0) + (metrics.cjkGaps||0)*(metrics.cjkSpacing||0));
    if(!metrics || (i<old.length-1 && !metrics.justify) ||
@@ -443,11 +686,19 @@
    lines.push({...prior,ratio:metrics.ratio,justify:metrics.justify,width:metrics.width,goal,
     spaceCount:metrics.spaces,naturalSpace:metrics.naturalSpace,badness:metrics.badness,
     justifyMode:metrics.justifyMode,wordSpacing:metrics.wordSpacing,
-    cjkSpacing:metrics.cjkSpacing,tracking:metrics.tracking,glyphCount:metrics.glyphCount,opticalEnd:metrics.opticalEnd||0,opticalChar:metrics.opticalChar||''});
+    cjkSpacing:metrics.cjkSpacing,tracking:metrics.tracking,glyphCount:metrics.glyphCount,opticalEnd:metrics.opticalEnd||0,opticalChar:metrics.opticalChar||'',punctStart:metrics.punctStart||0,punctStartChar:metrics.punctStartChar||'',punctRatio:metrics.punctRatio||0,punctCompression:metrics.punctCompression||0,bracketRatio:metrics.bracketRatio||0,bracketCompression:metrics.bracketCompression||0});
   }
   return {lines,breakpoints:previous.breakpoints||0,tolerance:3,
    _tokens:tokens,stable:true};
  }
+  function clipsPaint(style){
+   return style.overflowX!=='visible'||style.overflowY!=='visible'||
+    (style.clipPath&&style.clipPath!=='none')||
+    (style.maskImage&&style.maskImage!=='none')||
+    (style.webkitMaskImage&&style.webkitMaskImage!=='none')||
+    (style.clip&&style.clip!=='auto')||
+    /\b(?:paint|content|strict)\b/u.test(style.contain||'');
+  }
  function selectEligible(p,win){
   const tag=p.localName;
   const isProseBlock=tag==='p'||tag==='li'||tag==='dd'||tag==='blockquote'||tag==='figcaption';
@@ -474,10 +725,23 @@
   for(const el of textOnly?[]:p.querySelectorAll('*')){
    if(el.closest('math') || (el.matches('sup,sub')&&el.closest('a[data-folio-note-ref]')))continue;
    if(!el.matches('a,em,i,strong,b,small,span,cite,abbr,dfn,q,u,s,mark,time,font,var,code,kbd,samp'))return false;
-   if(el.matches('code,kbd,samp') && (el.querySelector('math,svg,img,br') || win.getComputedStyle(el).display!=='inline'))return false;
+   const inlineStyle=win.getComputedStyle(el);
+   if(clipsPaint(inlineStyle))return false;
+   if(el.matches('code,kbd,samp') && (el.querySelector('math,svg,img,br') || inlineStyle.display!=='inline'))return false;
   }
   const cs=win.getComputedStyle(p);
   if(cs.display==='none'||cs.visibility==='hidden'||cs.direction!=='ltr'||cs.writingMode!=='horizontal-tb'||cs.whiteSpace!=='normal'||cs.float!=='none'||cs.position==='absolute'||cs.position==='fixed')return false;
+  // Optical margins are only valid when *painted ink*, not merely the
+  // layout box, can escape. overflow:visible is insufficient when the source
+  // uses clip-path, CSS masking or paint containment. Preserve publisher
+  // content by using Chromium's native layout instead of defeating masks.
+  if(clipsPaint(cs))return false;
+  // Only examine ancestors inside BODY; BODY/HTML clip whole page spreads
+  // intentionally. A paint mask or clipping on a containing section is
+  // dangerous even when the paragraph itself reports overflow:visible.
+  for(let parent=p.parentElement;parent&&parent!==p.ownerDocument.body;parent=parent.parentElement){
+   if(clipsPaint(win.getComputedStyle(parent)))return false;
+  }
   if(tag==='li' && (cs.display!=='list-item'||cs.listStylePosition==='inside'))return false;
   if(tag==='figcaption' && cs.display!=='block')return false;
   if(!['start','left','justify','-webkit-auto'].includes(cs.textAlign))return false;
@@ -579,6 +843,33 @@
    }
    return width;
   };
+  get.ink=(offset,letter)=>{
+   let lo=0,hi=runs.length;
+   while(lo<hi){const mid=(lo+hi)>>1;if(runs[mid].end<=offset)lo=mid+1;else hi=mid;}
+   const run=runs[Math.min(lo,runs.length-1)];
+   if(run?.type!=='text')return null;
+   const inkKey=run.font+'|'+run.kerning+'|'+run.letterSpacing+'|'+letter;
+   if(inkMetricsCache.has(inkKey))return inkMetricsCache.get(inkKey);
+   if(lastFont!==run.font){ctx.font=run.font;lastFont=run.font;}
+   if(lastKerning!==run.kerning){try{ctx.fontKerning=run.kerning}catch{}lastKerning=run.kerning;}
+   const m=ctx.measureText(letter);
+   if(!Number.isFinite(m.actualBoundingBoxRight)||!Number.isFinite(m.actualBoundingBoxLeft))return null;
+   // Canvas TextMetrics.actualBoundingBoxLeft is a *signed distance* from
+   // the alignment point to the ink's left edge, not the glyph's leading
+   // whitespace. A negative value (common for “ and 《) means the ink begins
+   // to the RIGHT of the origin. Previously treating positive values as the
+   // leading bearing silently disabled correct opening-quote alignment.
+   // Reuse the width already returned by this Canvas call; punctuation is
+   // a single grapheme, so letter/word spacing does not change its advance.
+   const advance=m.width;
+   const ink={advance,
+    left:Math.max(0,Math.min(advance,-m.actualBoundingBoxLeft)),
+    right:Math.max(0,Math.min(advance,advance-m.actualBoundingBoxRight)),
+    fontSize:run.fontSize||20};
+   if(inkMetricsCache.size>4096)inkMetricsCache.clear();
+   inkMetricsCache.set(inkKey,ink);
+   return ink;
+  };
   get.glyph=(offset,letter)=>{
    // Thousands of hyphenation and punctuation measurements may occur in
    // heavily marked-up books. Resolve the styled run in O(log n), with no
@@ -589,11 +880,16 @@
   };
   return get;
  }
- function populateWidths(tokens,text,runs,doc,autoSpace=false){
+ function populateWidths(tokens,text,runs,doc,autoSpace=false,language=''){
   const measure=makeMeasurer(doc,runs);if(!measure)return false;
   const fontSize=runs[0]?.fontSize||20;
+  const traditionalChinese=/^zh[-_]?(?:Hant|TW|HK|MO)(?:[-_]|$)/i.test(language);
+  const chinesePunctuation=!/^(?:ja|ko)(?:[-_]|$)/i.test(language) &&
+   (/^zh(?:[-_]|$)/i.test(language)||/\p{Script=Han}/u.test(text));
+  let activeFontRun=0;
   for(let i=0;i<tokens.length;i++){
    const t=tokens[i];
+   while(activeFontRun<runs.length-1 && runs[activeFontRun].end<=t.start)activeFontRun++;
    // A source sequence of spaces/tabs/newlines is one rendered space in
    // white-space:normal, not the sum of its original character advances.
    t.width=measure(t.start,t.end,t.kind==='space' && /^[ \t\n\r\f]+$/u.test(t.text));
@@ -602,23 +898,89 @@
    // A chosen line-ending punctuation is wrapped *once* at rendering time;
    // Canvas supplies the width discount already here, without DOM reads.
    const edge=last(t.text),fraction=OPTICAL_END.get(edge)||0;
-   if(fraction && !t.hyphenBreak && (t.kind==='western'||t.kind==='cjk')){
-    t.opticalEnd=Math.min(fontSize*.055,measure.glyph(t.end-edge.length,edge)*fraction);
+   if(fraction && !t.hyphenBreak && !(traditionalChinese && isZhPunctuation(edge)) && (t.kind==='western'||t.kind==='cjk')){
+    // Optical alignment removes only provable *empty* trailing advance,
+    // never the ink itself. Halfwidth ASCII punctuation retains the earlier
+    // tiny trim. A fullwidth Chinese stop/comma typically contains ~0.5em
+    // of blank right bearing; allowing a bounded fraction of that space
+    // brings the visible mark substantially closer to the column edge.
+    // Reserve at least 0.09em of whitespace to absorb Canvas/DOM variation.
+    const ink=chinesePunctuation && isZhPunctuation(edge)?measure.ink(t.end-edge.length,edge):null;
+    const localEm=ink?.fontSize||fontSize;
+    const outerLimit=ink ? localEm*(PUNCT_STOP.has(edge)?.36:.27) : fontSize*.055;
+    const emptyBearing=ink?Math.max(0,ink.right-localEm*.09):outerLimit;
+    t.opticalEnd=Math.max(0,Math.min(outerLimit,emptyBearing,
+     (ink?.advance||measure.glyph(t.end-edge.length,edge))*fraction));
     t.opticalChar=edge;
-   }else t.opticalEnd=0;
+    // Move the margin *past* otherwise unused glyph bearings so the final
+    // Han character can approach the common text edge. Only a small, capped
+    // part of actual punctuation ink may project outside the measure. Closing
+    // brackets/quotes get much less allowance than commas and periods.
+    // Do not scale/reposition glyphs or apply this to Western punctuation.
+    const inkHang=ink&&!traditionalChinese?HANG_END_INK.get(edge)||0:0;
+    const maxTotal=inkHang>0?Math.min(ink.advance*.92,
+      ink.right+localEm*inkHang,localEm*.91):t.opticalEnd;
+    t.opticalExtra=Math.max(0,maxTotal-t.opticalEnd);
+   }else {t.opticalEnd=0;t.opticalExtra=0;}
 
    if(t.kind==='space'){
     t.stretch=Math.max(1,t.width*.65);
     t.shrink=Math.max(.4,t.width*.32);
    }
+   // Opening marks may have leading side bearings. Trim those from a line
+   // start only; the same source mark retains its normal advance internally.
+   const opening=first(t.text);
+   if(chinesePunctuation && t.kind==='cjk' && t.text===opening && PUNCT_OPEN.has(opening)){
+    const ink=measure.ink(t.start,opening);
+    // Trim leading empty side-bearing, allowing only a tiny optically useful
+    // projection of actual ink. The paragraph's first-line indent is kept;
+    // on continuation lines the projection is limited to a few CSS pixels.
+    // Traditional Chinese horizontal glyphs retain a conservative ink limit.
+    const protrusion=(HANG_START_INK.get(opening)||0)*(traditionalChinese?.45:1);
+    t.punctStart=ink?Math.max(0,Math.min(ink.advance*.68,
+      ink.left+ink.fontSize*protrusion,ink.fontSize*.62)):0;
+   }
    const next=tokens[i+1];if(!next)continue;
-   // Chromium text-autospace:normal inserts optical spacing between Han
-   // and adjacent Latin/digit runs, even without an explicit space node.
-   // Canvas.measureText() cannot account for this cross-token spacing.
+   if(chinesePunctuation && t.kind==='cjk' && next.kind==='cjk' &&
+      t.text===edge && next.text===first(next.text) && t.end===next.start){
+    const punctPair=isZhPunctuation(edge)&&isZhPunctuation(next.text);
+    const hanToOpen=isIdeographToken(t)&&PUNCT_OPEN.has(next.text);
+    const closeToHan=PUNCT_CLOSE.has(edge)&&isIdeographToken(next);
+    if(punctPair||hanToOpen||closeToHan){
+     const a=measure.ink(t.start,edge),b=measure.ink(next.start,next.text);
+     if(a&&b){
+      const localEm=Math.min(a.fontSize,b.fontSize);
+      if(punctPair){
+       // Two punctuation marks: move unused ink-side bearings together,
+       // within a category-sensitive cap. Neither glyph is distorted.
+       const safe=a.right+b.left-localEm*punctuationClearance(edge,next.text);
+       t.punctKern=Math.max(0,Math.min(localEm*punctuationPairCap(edge,next.text),safe));
+       // An opening quote after ，/。/、 should never retain its full
+       // double side-bearing merely because the line has room to spare.
+       // Keep the rest of the compression elastic and font-sensitive.
+       if(PUNCT_STOP.has(edge)&&PUNCT_OPEN.has(next.text))
+        t.punctBase=Math.min(t.punctKern,localEm*STOP_OPEN_BASE);
+       t.punctAim=Math.max(0,t.punctKern-(t.punctBase||0))*punctuationPreference(edge,next.text);
+      }else{
+       // Han《book》Han: very lightly shorten the outer *empty* bracket
+       // side-bearing, not the mark's inner side beside its quoted content.
+       // These boundaries are optional and cheaper than changing Han spacing.
+       const emptySide=hanToOpen?b.left:a.right;
+       const hanSide=hanToOpen?a.right:b.left;
+       const safe=emptySide+hanSide-localEm*BRACKET_TEXT_CLEARANCE;
+       t.edgeKern=Math.max(0,Math.min(localEm*BRACKET_TEXT_CAP,safe));
+      }
+     }
+    }
+   }
+   // CSS Text 4 text-autospace:normal inserts 1/8-em inter-script spacing
+   // between Han and adjacent Latin/digit runs. This is visible in Chromium
+   // Range geometry but absent from Canvas per-token advances. The older
+   // 1/4-em estimate systematically over-counted mixed-script line widths.
    if(autoSpace && t.kind!=='space' && next.kind!=='space' &&
       ((HAN.test(last(t.text)) && /^[A-Za-z0-9]/u.test(first(next.text))) ||
        (/^[A-Za-z0-9]$/u.test(last(t.text)) && HAN.test(first(next.text))))){
-    t.afterAuto=fontSize*.25;
+    t.afterAuto=(runs[activeFontRun]?.fontSize||fontSize)*.125;
    }
    const opp=breakAfter(t,next);
    if(opp?.kind==='ideographic' && isIdeographToken(t) && isIdeographToken(next)){
@@ -644,7 +1006,7 @@
    // Native inline box: geometry is exact, no visible or textual Unicode
    // space is introduced. Selection, textContent and dict lookup survive.
    const spacer=doc.createElement('span');
-   spacer.className='folio-kp-ideograph-glue';
+   spacer.className=gap.kind==='punct'?'folio-kp-punct-kern':gap.kind==='edge'?'folio-kp-punct-kern folio-kp-bracket-edge':'folio-kp-ideograph-glue';
    spacer.setAttribute('aria-hidden','true');
    spacer.style.width=Math.max(0,gap.width).toFixed(4)+'px';
    if(gap.width<0)spacer.style.marginInlineStart=gap.width.toFixed(4)+'px';
@@ -691,7 +1053,7 @@
     // emphasis, supplementary graphemes and punctuation keep atomic spans.
     let count=0;
     const width=gaps[gapIndex].width;
-    if(local>at && local<to && local>=1 &&
+    if(gaps[gapIndex].kind!=='punct' && local>at && local<to && local>=1 &&
        IDEOGRAPH.test(source[local-1]) && IDEOGRAPH.test(source[local])){
      let boundary=local, idx=gapIndex;
      while(idx<gaps.length && boundary<to &&
@@ -777,8 +1139,10 @@
   const hyphenator=englishPatterns && typeof window!=='undefined'?window.FolioHyphenation:null;
   const tokens=preparedTokens(text,hyphenator);
   if(tokens.length<3||tokens.length>MAX_TOKENS)return null;
-  if(!populateWidths(tokens,text,runs,doc,autoSpace))return null;
-  const signature=runs.map(r=>r.start+','+r.end+','+r.font+','+
+  if(!populateWidths(tokens,text,runs,doc,autoSpace,language))return null;
+  // The same glyphs have different legal trims in zh and ja/ko books.
+  // A global plan-cache entry must never cross language-specific rules.
+  const signature=language+'|'+runs.map(r=>r.start+','+r.end+','+r.font+','+
    r.letterSpacing+','+r.wordSpacing+','+(r.type!=='text'?r.width:'')).join(';');
   // Break opportunities and width prefix sums depend on font/style and text,
   // not the current column width. Cache them alongside Canvas metrics.
@@ -805,8 +1169,31 @@
   const wrapper=doc.createElement('span');
   wrapper.className='folio-kp-optical-end';
   wrapper.style.setProperty('margin-inline-end',(-amount).toFixed(4)+'px','important');
+  // Keep the original glyph's painted position. In v94.9, an additional
+  // left paint-offset crowded the pause mark into the preceding Han text.
+  // Its measured line-end bearing already provides a clean optical margin;
+  // a restrained (~0.08 em) ink projection is sufficient without paint nudges.
   glyph.replaceWith(wrapper);wrapper.appendChild(glyph);
   return true;
+ }
+ function trimFirstGlyph(doc,line,ch,amount){
+  if(!amount)return true;
+  const walker=doc.createTreeWalker(line,4);
+  let node;
+  while((node=walker.nextNode())){
+   const src=node.nodeValue||'';
+   const offset=src.search(/\S/u);
+   if(offset<0)continue;
+   if(src.slice(offset,offset+ch.length)!==ch)return false;
+   if(offset>0)node=node.splitText(offset);
+   if(ch.length<node.nodeValue.length)node.splitText(ch.length);
+   const marked=node;
+   const wrapper=doc.createElement('span');wrapper.className='folio-kp-punct-start';
+   wrapper.style.setProperty('margin-inline-start',(-amount).toFixed(4)+'px','important');
+   marked.replaceWith(wrapper);wrapper.appendChild(marked);
+   return true;
+  }
+  return false;
  }
  function fitParagraph(p,available,doc,preparationKey,previous=null){
   const win=doc.defaultView,style=eligibilityCache.get(p)?.measure;
@@ -834,7 +1221,8 @@
      Number.isFinite(previous.fitWidth) &&
      optimizeWidth>=previous.fitWidth-0.03 &&
      optimizeWidth-previous.fitWidth<=Math.min(2.05,previous.fitWidth*.0035) &&
-     previous.optimizedLines?.length>=2 && previous.layoutSignature){
+     previous.optimizedLines?.length>=2 && previous.layoutSignature &&
+     !previous.optimizedLines.some(l=>l.punctCapacity>.02)){
     return {reuse:true,cachedPreparation:true,retainedOpticalFit:true,
      layoutSignature:previous.layoutSignature,lines:previous.lines,chars:previous.chars,
      optimizedLines:previous.optimizedLines,breakpoints:previous.breakpoints,
@@ -885,8 +1273,12 @@
     planCache.set(planKey,choice);
    }
   }
+  // The prefix sum was already built for the DP. Reuse it here instead
+  // of allocating a fresh token slice and filter for every candidate line.
+  const gapPrefix=geometry.prefix.cjkGaps;
+  const lineGlueCount=line=>gapPrefix[Math.max(line.from,line.to-1)]-gapPrefix[line.from];
   const overfull=plan=>plan?.lines.some(line=>line.width+(line.spaceCount||0)*(line.wordSpacing||0)+(line.glyphCount||0)*(line.tracking||0)+
-   (plan._tokens.slice(line.from,line.to-1).filter(t=>t.afterStretch>0).length)*(line.cjkSpacing||0)>line.goal+.8);
+   lineGlueCount(line)*(line.cjkSpacing||0)>line.goal+.8);
   if(!choice?.best||overfull(choice.best)){return null;}
   // An optimized paragraph must never contain mid-paragraph ragged lines.
   // If its natural glue cannot be fitted attractively, Chromium's native
@@ -903,12 +1295,12 @@
   // DOM-last optimization; resizing may leave most paragraphs untouched.
   const lineSignatures=choice.best.lines.map(l=>[
    l.start,l.end,l.hyphenate?1:0,l.justify?1:0,
-   l.wordSpacing.toFixed(3),l.cjkSpacing.toFixed(3),l.tracking.toFixed(4),Number(l.opticalEnd||0).toFixed(3)
+   l.wordSpacing.toFixed(3),l.cjkSpacing.toFixed(3),l.tracking.toFixed(4),Number(l.opticalEnd||0).toFixed(3),Number(l.punctStart||0).toFixed(3),Number(l.punctRatio||0).toFixed(3),Number(l.bracketRatio||0).toFixed(3)
   ].join(':'));
   const layoutSignature=lineSignatures.join('|');
   const lineLayout=choice.best.lines.map(l=>({start:l.start,end:l.end,
    hyphenate:l.hyphenate,justify:l.justify,justifyMode:l.justifyMode,
-   wordSpacing:l.wordSpacing,cjkSpacing:l.cjkSpacing,tracking:l.tracking,opticalEnd:l.opticalEnd||0,opticalChar:l.opticalChar||''}));
+   wordSpacing:l.wordSpacing,cjkSpacing:l.cjkSpacing,tracking:l.tracking,opticalEnd:l.opticalEnd||0,opticalChar:l.opticalChar||'',punctStart:l.punctStart||0,punctStartChar:l.punctStartChar||'',punctRatio:l.punctRatio||0,punctCompression:l.punctCompression||0,bracketRatio:l.bracketRatio||0,bracketCompression:l.bracketCompression||0}));
   if(previous && previous.layoutSignature===layoutSignature){
    return {reuse:true,cachedPreparation:prepared.cached,layoutSignature,lineSignatures,lineLayout,
     optimizedLines:choice.best.lines,fitWidth:optimizeWidth,
@@ -924,6 +1316,9 @@
    return old.start===l.start && old.end===l.end && old.hyphenate===l.hyphenate &&
     old.justify===l.justify && old.justifyMode===l.justifyMode &&
     Math.abs((old.opticalEnd||0)-(l.opticalEnd||0))<.002 &&
+    Math.abs((old.punctStart||0)-(l.punctStart||0))<.002 &&
+    Math.abs((old.punctRatio||0)-(l.punctRatio||0))<.002 &&
+    Math.abs((old.bracketRatio||0)-(l.bracketRatio||0))<.002 &&
     (Math.abs(old.cjkSpacing)>.035)===(Math.abs(l.cjkSpacing)>.035) &&
     Math.sign(old.cjkSpacing)===Math.sign(l.cjkSpacing);
   })){
@@ -937,7 +1332,7 @@
    if(!plan||overfull(plan))return null;
    const fragments=[];
    const spacerBudget=plan.lines.reduce((sum,line)=>sum+(Math.abs(line.cjkSpacing)>.035?
-    plan._tokens.slice(line.from,line.to-1).filter(t=>t.afterStretch>0).length:0),0);
+    lineGlueCount(line):0),0);
    if(spacerBudget>MAX_CJK_SPACERS)return null;
    for(let i=0;i<plan.lines.length;i++){
     const line=plan.lines[i];
@@ -945,18 +1340,26 @@
     // independent text-align:justify algorithm. This is essential for mixed
     // Chinese-English lines: Latin words retain their own natural kerning.
     const gaps=[];
-    if(Math.abs(line.cjkSpacing)>.035){
-     const tok=plan._tokens;
-     for(let k=line.from;k<line.to-1;k++){
-      const t=tok[k];
-      if(t.afterStretch>0 && t.end>line.start && t.end<line.end)
-       gaps.push({pos:t.end,width:line.cjkSpacing});
-     }
+    const tok=plan._tokens;
+    for(let k=line.from;k<line.to-1;k++){
+     const t=tok[k];
+     if(t.end<=line.start || t.end>=line.end)continue;
+     const pairedTrim=(t.punctBase||0)+Math.max(0,t.punctKern-(t.punctBase||0))*(line.punctRatio||0);
+     if(pairedTrim>.025)
+      gaps.push({pos:t.end,width:-pairedTrim,kind:'punct'});
+     else if(t.edgeKern*(line.bracketRatio||0)>.025)
+      gaps.push({pos:t.end,width:-t.edgeKern*line.bracketRatio,kind:'edge'});
+     else if(Math.abs(line.cjkSpacing)>.035 && t.afterStretch>0)
+      gaps.push({pos:t.end,width:line.cjkSpacing,kind:'cjk'});
     }
     const content=cloneInlineRange(doc,previous?.original||p,runs,line.start,line.end,gaps);
     if(!content)return null;
     const span=doc.createElement('span');span.className='folio-kp-line';
     span.append(content);
+    if(line.punctStart>.02){
+     if(!trimFirstGlyph(doc,span,line.punctStartChar,line.punctStart))return null;
+     span.classList.add('folio-kp-punct-start-line');
+    }
     if(line.opticalEnd>.02){
      // A margin on the *last glyph*, not a negative margin on the whole
      // block: preserves the publisher's nested italic/bold elements and
@@ -983,8 +1386,10 @@
       span.classList.add('folio-kp-cjk-fit');
       // Pure Han widths are already reliable; only cross-script lines need
       // an extra browser geometry read to reconcile text-autospace.
-      if(plan._tokens.slice(line.from,line.to).some(t=>t.kind==='western'))
-       span.classList.add('folio-kp-mixed-fit');
+      // A bounded index walk avoids another copied token array per line.
+      for(let k=line.from;k<line.to;k++)if(plan._tokens[k].kind==='western'){
+       span.classList.add('folio-kp-mixed-fit');break;
+      }
      }
      if(line.justifyMode==='none')span.classList.add('folio-kp-natural-fit');
     }else span.classList.add('folio-kp-ragged');
@@ -1087,6 +1492,19 @@
   cache.set(key,{prepKey,data,fragments:lines.map(n=>n.cloneNode(true))});
   while(cache.size>MAX_SAVED_LAYOUTS)cache.delete(cache.keys().next().value);
  }
+ // This visibility rule is owned by the opt-in quality engine rather than
+ // the 2MB reader shell. One tiny stylesheet is installed per EPUB document;
+ // an ordinary chapter never enters the optical path or changes its CSS.
+ function ensureOpticalVisibilityStyle(doc){
+  const id='folio-kp-optical-visibility';
+  if(doc.getElementById(id))return;
+  const css=doc.createElement('style');css.id=id;
+  css.textContent='body :is(p,li,dd,blockquote,figcaption)[data-folio-kp],'+
+   'body :is(p,li,dd,blockquote,figcaption)[data-folio-kp]>span.folio-kp-line,'+
+   'body :is(p,li,dd,blockquote,figcaption)[data-folio-kp] .folio-kp-optical-end'+
+   '{overflow:visible!important}';
+  (doc.head||doc.documentElement).appendChild(css);
+ }
  // The initial ~300ms budget is a FIRST-PAINT budget, not a permanent limit.
  // Prepare the remaining paragraphs in idle slices, without mutating the
  // active chapter on every slice. A final batched commit avoids repeated
@@ -1096,6 +1514,7 @@
   let state=cacheByDoc.get(doc);
   if(!state){state={entries:new Map(),key:'',invalid:true,stats:null,preparationKey:''};cacheByDoc.set(doc,state);}
   if(!config.enabled){const anchor=restore(doc,config.anchor);return {enabled:false,processed:0,anchor};}
+  ensureOpticalVisibilityStyle(doc);
   const key=[Math.round(available*64)/64,config.key||'',doc.fonts?.status||''].join('|');
   if(state.key===key&&!state.invalid)return {...state.stats,anchor:config.anchor,unchanged:true};
   const preparationKey=(config.prepKey||config.key||'')+'|'+(doc.fonts?.status||'');
@@ -1190,8 +1609,9 @@
   }
   for(const [p,result,previous] of toRetarget){
    const hasMixed=!!p.querySelector('.folio-kp-mixed-fit');
+   const hasPunctAdjustment=!!p.querySelector('.folio-kp-punct-kern,.folio-kp-punct-start');
    const smallDelta=Math.abs((result.fitWidth||0)-(previous.validatedWidth||0))<=2;
-   if(previous.validatedSafe && smallDelta && !hasMixed &&
+   if(previous.validatedSafe && smallDelta && !hasMixed && !hasPunctAdjustment &&
       result.keptBreakPlan && result.lines===previous.lines){
     const saved=state.entries.get(p);
     if(saved){saved.validatedSafe=true;saved.validatedWidth=result.fitWidth;}
@@ -1285,6 +1705,80 @@
   state.refinement=null;
   return {committed,stale:false,anchor:remembered?restoreAnchor(remembered)||anchor:anchor};
  }
+ // v94.8: Glyph ink, rather than scrollWidth, determines whether an optical
+ // mark can be painted. The reader deliberately clips off-page columns and
+ // publishers can add masks. If the whole mark cannot be painted inside its
+ // own column's safe ink gutter, the entire optimized paragraph is restored.
+ // This pass runs ONLY after a real composition, never inside Knuth-Plass DP.
+ function opticalPaintBoundaries(doc,pending){
+  const win=doc.defaultView,body=doc.body,br=body.getBoundingClientRect();
+  const style=win.getComputedStyle(body),columns=Math.max(1,parseInt(style.columnCount,10)||1);
+  const gap=Math.max(0,parseFloat(style.columnGap)||0);
+  const colWidth=(br.width-gap*(columns-1))/columns;
+  if(!(colWidth>80))return {checked:0,unsafe:new Set()};
+  const step=colWidth+gap;
+  // Each spread has real external page margins; its inner columns have a
+  // separate inter-column gutter. Do not mistake a zero column-gap in the
+  // single-column reading mode for zero *paintable* page margin.
+  const viewportWidth=doc.documentElement.clientWidth||win.innerWidth;
+  const outerLeft=Math.max(0,br.left),outerRight=Math.max(0,viewportWidth-br.right);
+  const innerGutter=Math.min(12,Math.max(0,gap*.38));
+  const outerLeftGutter=Math.min(16,outerLeft),outerRightGutter=Math.min(16,outerRight);
+  let record=paintMeasureByDoc.get(doc);
+  if(!record){
+   const canvas=doc.createElement('canvas'),ctx=canvas.getContext('2d');
+   if(!ctx)return {checked:0,unsafe:new Set(),measurements:0,cacheHits:0};
+   record={ctx,inkCache:new Map()};paintMeasureByDoc.set(doc,record);
+  }
+  const {ctx,inkCache}=record;
+  const unsafe=new Set();let checked=0,measurements=0,cacheHits=0;
+  for(const [p] of pending){
+   if(!p.isConnected)continue;
+   for(const line of p.children){
+    if(!line.classList.contains('folio-kp-line'))continue;
+    const marks=line.querySelectorAll('.folio-kp-optical-end,.folio-kp-punct-start');
+    if(!marks.length)continue;
+    const lr=line.getBoundingClientRect();
+    const idx=Math.max(0,Math.floor((lr.left-br.left+Math.min(colWidth*.10,12))/step));
+    const left=br.left+idx*step,right=left+colWidth;
+    const slot=idx%columns;
+    const safeColumnLeft=left-(slot===0?outerLeftGutter:innerGutter);
+    const safeColumnRight=right+(slot===columns-1?outerRightGutter:innerGutter);
+    for(const mark of marks){
+     const opening=mark.classList.contains('folio-kp-punct-start');
+     const content=mark.textContent.trim(),ch=opening?first(content):last(content);
+     if(!ch)continue;
+     const cs=win.getComputedStyle(mark),r=mark.getBoundingClientRect();
+     const font=cs.font||`${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+     let box=inkCache.get(font+'\0'+ch);
+     if(!box){ctx.font=font;try{ctx.fontKerning='auto'}catch{}const m=ctx.measureText(ch);measurements++;
+      // Canvas metrics must be finite; otherwise conservatively retain the
+      // original browser line breaking instead of guessing an ink boundary.
+      box={left:m.actualBoundingBoxLeft,right:m.actualBoundingBoxRight};
+      if(inkCache.size>4096)inkCache.clear();
+      inkCache.set(font+'\0'+ch,box);}
+     else cacheHits++;
+     checked++;
+     if(!Number.isFinite(box.left)||!Number.isFinite(box.right)){
+      unsafe.add(p);break;
+     }
+     const inkLeft=r.left-box.left,inkRight=r.left+box.right;
+     // The viewport hides inactive page columns. Enforce viewport clipping
+     // only when this line is actually in view; future columns are validated
+     // against their own physical column, not the current page viewport.
+     const inView=lr.left>=-0.5&&lr.right<=viewportWidth+0.5&&
+      lr.top<win.innerHeight&&lr.bottom>0;
+     const safeLeft=Math.max(safeColumnLeft,inView?1.5:-Infinity);
+     const safeRight=Math.min(safeColumnRight,inView?viewportWidth-1.5:Infinity);
+     // Full ink + 1px AA safety must fit. No exceptions for a hanging glyph:
+     // this is deliberately stricter than a line scrollWidth test.
+     if(inkLeft<safeLeft-0.01||inkRight>safeRight-0.01){unsafe.add(p);break;}
+    }
+    if(unsafe.has(p))break;
+   }
+  }
+  return {checked,unsafe,measurements,cacheHits};
+ }
  // Call after the pagination engine has already measured the column spread.
  // Otherwise scrollWidth on each paragraph forces an early whole-chapter layout.
  // Native fallback is still retained for any actual browser overflow.
@@ -1318,9 +1812,57 @@
   }
   for(const [gap,width] of calibration)gap.style.width=width.toFixed(4)+'px';
   let checked=0,removed=0,changed=calibration.length>0;
+  let keptRepairLines=0,keptRepairParagraphs=0;
+  // A font's ink-side bearing, fractional CJK glue, and Chromium's rounded
+  // scrollWidth sometimes disagree by a few pixels on narrow columns. Avoid
+  // discarding a whole carefully composed paragraph when a tiny, legal local
+  // reduction of *positive* Han glue is enough to make the physical line fit.
+  // The correction is deliberately bounded: no punctuation or actual glyph
+  // advances are altered, negative glue is never made more negative, and each
+  // repaired paragraph undergoes a fresh browser overflow read below.
+  const repairs=[];
+  const repairsByParagraph=new Map();
+  for(const [p,result] of pending){
+   if(!p.isConnected || result.fastSafe || p.scrollWidth<=p.clientWidth+2)continue;
+   const children=p.children,lines=result.optimizedLines||[];
+   for(let i=0;i<lines.length&&i<children.length;i++){
+    const line=children[i],metric=lines[i];
+    if(!line.classList.contains('folio-kp-line') || !(metric.cjkSpacing>.15))continue;
+    const optical=Math.max(0,metric.opticalEnd||0,metric.punctStart||0);
+    const excess=line.scrollWidth-line.clientWidth-optical;
+    if(!(excess>1.5))continue;
+    const glues=[];
+    let count=0;
+    for(const el of line.querySelectorAll('.folio-kp-cjk-track,.folio-kp-ideograph-glue')){
+     if(el.classList.contains('folio-kp-cjk-track')){
+      const n=Math.max(0,el.textContent.length-1);
+      if(n){glues.push([el,n,true]);count+=n;}
+     }else{
+      glues.push([el,1,false]);count++;
+     }
+    }
+    if(!count)continue;
+    const step=Math.min(metric.cjkSpacing*.78,(excess+.45)/count);
+    if(step<.035)continue;
+    const correction={p,line,index:i,newValue:metric.cjkSpacing-step,glues};
+    repairs.push(correction);
+    if(!repairsByParagraph.has(p))repairsByParagraph.set(p,[]);
+    repairsByParagraph.get(p).push(correction);
+   }
+  }
+  // Do all writes together. Reading the corrected geometry afterward is one
+  // layout flush, not an O(paragraphs) sequence of forced synchronous reflows.
+  for(const repair of repairs){
+   const spacing=repair.newValue;
+   for(const [node,,track] of repair.glues){
+    if(track){node.style.letterSpacing=spacing.toFixed(4)+'px';node.style.marginInlineEnd=(-spacing).toFixed(4)+'px';}
+    else{node.style.width=Math.max(0,spacing).toFixed(4)+'px';node.style.marginInlineStart=Math.min(0,spacing).toFixed(4)+'px';}
+   }
+  }
   // Read all overflow geometry together, BEFORE restoring any paragraph.
   // A write/read cycle for each failing paragraph forces repeated whole-
   // chapter multicolumn layout, even if there are only a few failures.
+  const paint=opticalPaintBoundaries(doc,pending);
   const overflow=[];
   for(const [p,result] of pending){
    if(!p.isConnected)continue;
@@ -1330,13 +1872,47 @@
     continue;
    }
    checked++;
-   if(p.scrollWidth<=p.clientWidth+2){
+   const excess=p.scrollWidth-p.clientWidth;
+   let safe=excess<=2 && !paint.unsafe.has(p);
+   if(!safe && !paint.unsafe.has(p)){
+    // A negative start margin exposes the *empty* left bearing of an
+    // opening punctuation outside the inline box. Chromium counts that
+    // invisible margin in the parent's scrollWidth even when the glyph's
+    // ink is safely inside the text edge. Validate the actual individual
+    // line boxes before calling this a genuine overflow; permit only the
+    // precise measured leading trim plus a 2px browser rounding margin.
+    let edgeAllowance=0;
+    for(const line of result.optimizedLines||[])edgeAllowance=Math.max(edgeAllowance,line.punctStart||0,line.opticalEnd||0);
+    if(edgeAllowance>.02 && excess<=edgeAllowance+2.1){
+     safe=true;
+     let i=0;
+     for(const line of p.children){
+      const measured=result.optimizedLines[i++];
+      // The line scroll rect still includes the *empty* glyph advance
+      // eliminated by a negative end margin. We only disregard an excess
+      // bounded by that exact glyph's font-ink-limited optical trim.
+      if(line.scrollWidth-line.clientWidth>(measured?.opticalEnd||0)+2.1){safe=false;break;}
+     }
+    }
+   }
+   if(safe){
     if(saved){saved.validatedSafe=true;saved.validatedWidth=result.fitWidth;}
+    // Keep the optimizer's retained plan synchronized with the actually
+    // rendered spacing; otherwise an incremental reflow could compare against
+    // stale CJK glue values and reintroduce the same overflow.
+    const retainedCorrections=repairsByParagraph.get(p)||[];
+    if(retainedCorrections.length){keptRepairParagraphs++;keptRepairLines+=retainedCorrections.length;}
+    for(const repair of retainedCorrections){
+     if(result.optimizedLines?.[repair.index])result.optimizedLines[repair.index].cjkSpacing=repair.newValue;
+     if(result.lineLayout?.[repair.index])result.lineLayout[repair.index].cjkSpacing=repair.newValue;
+     if(saved?.optimizedLines?.[repair.index])saved.optimizedLines[repair.index].cjkSpacing=repair.newValue;
+     if(saved?.lineLayout?.[repair.index])saved.lineLayout[repair.index].cjkSpacing=repair.newValue;
+    }
    }else overflow.push([p,result,saved]);
   }
   const baseline=[];
   for(const [p,result,saved] of overflow){
-   if(result.baselineFragments){
+   if(result.baselineFragments && !paint.unsafe.has(p)){
     p.replaceChildren(...result.baselineFragments);
     baseline.push([p,result,saved]);
    }
@@ -1358,12 +1934,19 @@
    state.stats.processed--;state.stats.skipped++;state.stats.lines-=result.lines;state.stats.chars-=result.chars;
    removed++;changed=true;
   }
+  changed=changed||keptRepairLines>0;
   state.stats.validationMs=(win.performance?.now?.()||Date.now())-started;
   state.stats.validationChecked=checked;
+  state.stats.validationInkChecked=paint.checked;
+  state.stats.validationInkMeasurements=paint.measurements;
+  state.stats.validationInkCacheHits=paint.cacheHits;
+  state.stats.validationInkFallbacks=paint.unsafe.size;
   state.stats.validationFallbacks=removed;
+  state.stats.validationRepairLines=keptRepairLines;
+  state.stats.validationRepairParagraphs=keptRepairParagraphs;
   return {changed,checked,removed};
  }
- function invalidate(doc){const s=cacheByDoc.get(doc);if(s){s.invalid=true;s.refinement=null;}measuredParagraphCache=new WeakMap();eligibilityCache=new WeakMap();metricsCache.clear();planCache.clear();}
+ function invalidate(doc){const s=cacheByDoc.get(doc);if(s){s.invalid=true;s.refinement=null;}measuredParagraphCache=new WeakMap();eligibilityCache=new WeakMap();metricsCache.clear();inkMetricsCache.clear();paintMeasureByDoc.delete(doc);planCache.clear();}
  function stats(doc){return cacheByDoc.get(doc)?.stats||null;}
- return {typeset,refine,commitRefinement,validate,restore,invalidate,stats,tokenize,discretionaryTokens,breakAfter,optimize,nodesFor,populateWidths,version:'1.20.0'};
+ return {typeset,refine,commitRefinement,validate,restore,invalidate,stats,tokenize,discretionaryTokens,breakAfter,optimize,nodesFor,populateWidths,version:'1.39.0'};
 });
