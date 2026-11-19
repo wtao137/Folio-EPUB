@@ -5,6 +5,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <meta name="description" content="Folio, a single-file EPUB reader with browser speech, local books and optional online dictionaries.">
+<meta name="folio-version" content="v95.27">
 <title>Folio · EPUB Reader</title>
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#f6f5f1">
@@ -1398,7 +1399,7 @@
      <label for="zhFont" class="setting-label" style="margin-top:22px">Chinese font</label><span class="folio-select-wrap"><select id="zhFont" class="select"><option value="Noto Serif SC">思源宋体 / Noto Serif CJK · local first</option><option value="Noto Sans SC">思源黑体 / Noto Sans CJK · local first</option><option value="LXGW WenKai">霞鹜文楷 · LXGW WenKai</option><option value="Microsoft YaHei">微软雅黑 · Microsoft YaHei</option><option value="Microsoft YaHei UI">微软雅黑 UI · Microsoft YaHei UI</option><option value="DengXian">等线 · DengXian</option><option value="SimHei">黑体 · SimHei</option><option value="SimSun">宋体 · SimSun</option><option value="NSimSun">新宋体 · NSimSun</option><option value="KaiTi">楷体 · KaiTi</option><option value="FangSong">仿宋 · FangSong</option><option value="Microsoft JhengHei">微軟正黑體 · Microsoft JhengHei</option><option value="PingFang SC">苹方 · PingFang SC</option><option value="Songti SC">华文宋体 · Songti SC</option><option value="STKaiti">华文楷体 · STKaiti</option></select></span>
      <div id="folioChineseFontStatus" class="muted small" role="status" aria-live="polite" style="margin-top:8px;line-height:1.45">Installed Source Han/Noto fonts are preferred; Google Fonts loads only when needed.</div>
      <div class="switch-row"><label for="forceBookFonts">Override book fonts</label><input type="checkbox" id="forceBookFonts"></div>
-     <div class="switch-row"><label for="qualityWrap">Knuth–Plass typesetting <span class="folio-experimental">Optional</span></label><input type="checkbox" id="qualityWrap" aria-label="Optimize paragraph line breaks with Knuth–Plass"></div>
+     <div class="switch-row"><label for="qualityWrap">Knuth–Plass typesetting <span class="folio-experimental">Optional</span></label><input type="checkbox" id="qualityWrap" checked aria-label="Optimize paragraph line breaks with Knuth–Plass"></div>
 
       <div style="margin-top:23px"><label class="setting-label" for="fontSize">Text size <span id="fontSizeVal" class="muted">20 px</span></label><input class="range" type="range" id="fontSize" min="14" max="32" step="1"></div>
      <div style="margin-top:23px"><label class="setting-label" for="lineHeight">Line spacing <span id="lineHeightVal" class="muted">1.8</span></label><input class="range" type="range" id="lineHeight" min="1.3" max="2.4" step="0.05"></div>
@@ -1472,7 +1473,7 @@
  <div class="folio-note-head"><span id="folioNoteLabel">Footnote</span><button type="button" id="folioNoteClose" title="Close note" aria-label="Close footnote">&times;</button></div>
  <div id="folioNoteText" class="folio-note-text"></div>
 </aside>
-<script id="folio-jszip">/*!
+<script id="folio-jszip" type="text/plain">/*!
 
 JSZip v3.10.1 - A JavaScript class for generating and reading zip files
 <http://stuartk.com/jszip>
@@ -1489,13 +1490,33 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 <script src="./folio-knuth-plass.js"></script>
 <script src="./folio-math-spacing.js"></script>
 <script>(()=>{'use strict';
+// JSZip is needed for EPUB import, backup and recovery, not to paint the
+// library's initial screen. Keep the bundled source in a non-executing data
+// script until an archive operation starts. The same text also initializes
+// the EPUB search worker; no network fetch, CDN, or unsafe EPUB-supplied code.
+let folioZipLibraryPromise=null;
+function folioEnsureZipLibrary(){
+ if(window.JSZip)return Promise.resolve(window.JSZip);
+ if(folioZipLibraryPromise)return folioZipLibraryPromise;
+ folioZipLibraryPromise=Promise.resolve().then(()=>{
+  const source=document.getElementById('folio-jszip')?.textContent;
+  if(!source)throw new Error('Bundled archive engine is missing');
+  const script=document.createElement('script');
+  script.textContent=source;
+  document.head.appendChild(script);
+  script.remove();
+  if(!window.JSZip)throw new Error('Could not initialize the archive engine');
+  return window.JSZip;
+ }).catch(error=>{folioZipLibraryPromise=null;throw error});
+ return folioZipLibraryPromise;
+}
 const $=id=>document.getElementById(id);
 const ICON=(name,cls='')=>`<svg class="icon ${cls}"><use href="#i-${name}"/></svg>`;
 const STORAGE={settings:'folio.settings.v1',progress:'folio.progress.v1',bookmarks:'folio.bookmarks.v1'};
-const DEFAULTS={theme:'light',enFont:'Georgia',zhFont:'Noto Serif SC',forceBookFonts:false,qualityWrap:false,fontSize:20,lineHeight:1.8,paragraphSpace:1.0,pageWidth:1280,rate:1,zhVoice:'',enVoice:'',quickVoice:'auto',librarySort:'recent',libraryStatus:'all',libraryView:'grid',libraryFavorites:[],libraryCollections:[],lastVoiceByLang:{},autoAdvance:true,autoScroll:true,speechFocus:'word-line'};
+const DEFAULTS={theme:'light',enFont:'Georgia',zhFont:'Noto Serif SC',forceBookFonts:false,qualityWrap:true,fontSize:20,lineHeight:1.8,paragraphSpace:1.0,pageWidth:1280,rate:1,zhVoice:'',enVoice:'',quickVoice:'auto',librarySort:'recent',libraryStatus:'all',libraryView:'grid',libraryFavorites:[],libraryCollections:[],lastVoiceByLang:{},autoAdvance:true,autoScroll:true,speechFocus:'word-line'};
 const PALETTE=['#6f847d','#8b766c','#697e91','#86856d','#986c66','#736c85','#53776d','#87735e'];
 const MIME={svg:'image/svg+xml',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',webp:'image/webp',avif:'image/avif',bmp:'image/bmp',css:'text/css',woff:'font/woff',woff2:'font/woff2',ttf:'font/ttf',otf:'font/otf',mp3:'audio/mpeg',mp4:'video/mp4',m4a:'audio/mp4',ogg:'audio/ogg'};
-const state={db:null,library:[],temporary:new Map(),book:null,zip:null,meta:null,manifest:new Map(),spine:[],toc:[],chapter:-1,urls:new Map(),chapterCache:new Map(),preparePromises:new Map(),styleCache:new Map(),noteDocCache:new Map(),noteReturn:null,coverUrls:new Map(),loadToken:0,renderToken:0,settings:{...DEFAULTS},progress:{},bookmarks:{},railOpen:false,drawer:null,tocTab:'toc',voices:[],synth:window.speechSynthesis||null,tts:{mode:'stopped',token:0,segments:[],index:0,activeEl:null,selectedEl:null,utterance:null,focusRange:null,focusLine:null,boundarySeen:false},paging:{page:0,pages:1,columns:2,step:0,gap:0,restore:0},resizeTimer:0,toastTimer:0,readingAnchor:null};
+const state={db:null,library:[],temporary:new Map(),book:null,zip:null,meta:null,manifest:new Map(),svgResourcePaths:new Set(),spine:[],toc:[],chapter:-1,urls:new Map(),chapterCache:new Map(),preparePromises:new Map(),styleCache:new Map(),noteDocCache:new Map(),noteReturn:null,coverUrls:new Map(),loadToken:0,renderToken:0,settings:{...DEFAULTS},progress:{},bookmarks:{},railOpen:false,drawer:null,tocTab:'toc',voices:[],synth:window.speechSynthesis||null,tts:{mode:'stopped',token:0,segments:[],index:0,activeEl:null,selectedEl:null,utterance:null,focusRange:null,focusLine:null,boundarySeen:false},paging:{page:0,pages:1,columns:2,step:0,gap:0,restore:0},resizeTimer:0,toastTimer:0,readingAnchor:null};
 const safeParse=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}};
 const safeSave=(key,v)=>{try{localStorage.setItem(key,JSON.stringify(v));return true}catch(e){console.warn('Storage error',e);return false}};
 const escapeHTML=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1649,7 +1670,7 @@ function folioSyncCollectionFilter(){
  for(const c of folioCollections())selector.add(new Option(c.name,c.id));
  selector.value=[...selector.options].some(o=>o.value===selected)?selected:'all';folioSyncLibraryPicker('libraryCollection');
 }
-function renderLibrary(){
+function renderLibrary(deferHiddenCards=false){
  const records=folioSortedLibrary();
  $('libraryView').value=state.settings.libraryView==='list'?'list':'grid';
  $('librarySort').value=FOLIO_SORT_CHOICES.includes(state.settings.librarySort)?state.settings.librarySort:'recent';
@@ -1663,7 +1684,11 @@ function renderLibrary(){
  $('libraryFilterWrap').hidden=!records.length;
  folioSyncCollectionFilter();
  shelf.querySelectorAll('[data-open]').forEach(el=>el.addEventListener('click',()=>openBook(el.dataset.open)));
- folioRenderLibraryPage();folioSyncLibraryPickers();
+ // The reader hides the grid. Avoid destroying and recreating 36 cards and
+ // restarting their lazy cover images on every chapter/book open. The rail
+ // remains live; returning to the library always rebuilds the visible grid.
+ if(!deferHiddenCards)folioRenderLibraryPage();
+ folioSyncLibraryPickers();
 }
 function folioRenderLibraryPage(){
  folioSyncLibraryPickers();
@@ -1788,7 +1813,7 @@ function folioGlobalShortcuts(event){
   event.preventDefault();event.stopImmediatePropagation();showFolioShortcuts();
  }
 }
-function toLibrary(){folioCloseLibraryPicker();folioResetReadingHistory();folioCloseProgressNavigator();folioStopPointerNavigation(true);if(state.book)flushFolioAnchor();stopFolioHeldNavigation();cancelFolioWheelQueue();cancelFolioAnchorJob();closePageJump(false);state.loadToken++;loading(false);cancelPendingChapterStage();cancelNeighborPreparation();folioBoundaryNavigation=null;resetFolioSearch();hideNotePopup();state.noteReturn=null;$('noteBack').hidden=true;if(!$('folioWordCard').hidden)hideWordCard();if(state.book){saveProgress();flushFolioProgress();stopSpeech();state.renderToken++;folioCancelAssetSweep();if(state.zip){for(const url of state.urls.values())URL.revokeObjectURL(url)}state.urls.clear();folioAssetByteSizes.clear();state.chapterCache.clear();state.noteDocCache.clear();state.preparePromises.clear();state.styleCache.clear();state.book=null;state.meta=null;state.zip=null;state.chapter=-1;state.readingAnchor=null;state.spine=[];state.toc=[];$('readerFrame').srcdoc='';state.paging={page:0,pages:1,columns:2,step:0,gap:0,restore:0};}closeDrawer();$('readerView').hidden=true;$('emptyView').hidden=false;$('app').classList.remove('reader-active');$('topTitle').textContent='Folio';$('topSubtitle').textContent='Your library';$('ttsDock').hidden=true;setButtonState();renderLibrary();}
+function toLibrary(){folioCloseLibraryPicker();folioResetReadingHistory();folioCloseProgressNavigator();folioStopPointerNavigation(true);if(state.book)flushFolioAnchor();stopFolioHeldNavigation();cancelFolioWheelQueue();cancelFolioAnchorJob();closePageJump(false);state.loadToken++;loading(false);cancelPendingChapterStage();cancelNeighborPreparation();folioBoundaryNavigation=null;resetFolioSearch();hideNotePopup();state.noteReturn=null;$('noteBack').hidden=true;if(!$('folioWordCard').hidden)hideWordCard();if(state.book){saveProgress();flushFolioProgress();stopSpeech();state.renderToken++;folioCancelAssetSweep();const keepPrepared=folioStageHotReader();if(state.zip&&!keepPrepared){for(const url of state.urls.values())URL.revokeObjectURL(url)}state.urls.clear();folioAssetByteSizes.clear();state.chapterCache.clear();state.noteDocCache.clear();state.preparePromises.clear();state.styleCache.clear();state.book=null;state.meta=null;state.zip=null;state.chapter=-1;state.readingAnchor=null;state.spine=[];state.svgResourcePaths.clear();state.toc=[];$('readerFrame').srcdoc='';state.paging={page:0,pages:1,columns:2,step:0,gap:0,restore:0};}closeDrawer();$('readerView').hidden=true;$('emptyView').hidden=false;$('app').classList.remove('reader-active');$('topTitle').textContent='Folio';$('topSubtitle').textContent='Your library';$('ttsDock').hidden=true;setButtonState();renderLibrary();}
 function folioEffectiveTheme(theme=state.settings.theme){
  return theme==='system'?(window.matchMedia?.('(prefers-color-scheme: dark)').matches?'dark':'light'):theme;
 }
@@ -1876,7 +1901,7 @@ function folioNormalizeChineseFont(value){
 function bindSetting(id,key,convert=val=>val,render=false){const el=$(id);el.addEventListener('input',()=>{state.settings[key]=convert(el.type==='checkbox'?el.checked:el.value);safeSave(STORAGE.settings,state.settings);syncSettingsLabels();if(key==='theme')setTheme(state.settings.theme);if(key==='enFont'||key==='zhFont')syncLookupFonts();if(key==='zhFont')folioUpdateChineseFontStatus();if(render)updateReaderTheme()})}
 function initSettings(){const saved=safeParse(STORAGE.settings,{});delete saved.zhOnlineInk;saved.zhFont=folioNormalizeChineseFont(saved.zhFont);if(saved.layoutVersion!==2){if(Number.isFinite(saved.pageWidth))saved.pageWidth=clamp(Math.round(saved.pageWidth*1.65/20)*20,700,2200);saved.layoutVersion=2;}state.settings={...DEFAULTS,...saved};state.settings.libraryFavorites=folioFavoriteIds(state.settings.libraryFavorites);state.settings.libraryCollections=folioCleanCollections(state.settings.libraryCollections);safeSave(STORAGE.settings,state.settings);state.progress=safeParse(STORAGE.progress,{});state.bookmarks=safeParse(STORAGE.bookmarks,{});setTheme(state.settings.theme);syncLookupFonts();
  for(const id of ['enFont','zhFont','forceBookFonts','qualityWrap','fontSize','lineHeight','paragraphSpace','pageWidth','zhVoice','enVoice','quickRate','quickVoice','autoAdvance','autoScroll','speechFocus']){if(id==='quickRate')$('quickRate').value=state.settings.rate;else if(id==='quickVoice')$('quickVoice').value=state.settings.quickVoice;else {const field=state.settings[id];$(id).type==='checkbox'?$(id).checked=!!field:$(id).value=field}}
- for(const btn of document.querySelectorAll('[data-theme]'))btn.addEventListener('click',()=>{state.settings.theme=btn.dataset.theme;safeSave(STORAGE.settings,state.settings);setTheme(state.settings.theme);updateReaderTheme()});
+ for(const btn of document.querySelectorAll('[data-theme]'))btn.addEventListener('click',()=>{state.settings.theme=btn.dataset.theme;safeSave(STORAGE.settings,state.settings);setTheme(state.settings.theme);updateReaderTone()});
  $('forceBookFonts').addEventListener('change',()=>{state.settings.forceBookFonts=$('forceBookFonts').checked;safeSave(STORAGE.settings,state.settings);if(state.book)renderChapter(state.chapter,pageFraction());});
  $('qualityWrap').addEventListener('change',()=>{
   if(state.tts.mode!=='stopped')stopSpeech(); // Existing TTS ranges belong to the previous text nodes.
@@ -2154,6 +2179,52 @@ function folioRestoreSavedLocation(doc,location){
  goToPage(target,false,true);
  return true;
 }
+// An image-heavy EPUB (graphic novels, scanned books, scientific plates) can
+// contain hundreds of illustrations in one XHTML spine item. The reading
+// anchor is sampled after page turns, but a whole-chapter media walk on every
+// image-only page would force hundreds of geometry reads per turn.
+// Build the geometry index lazily, ONLY after the first page needs a media
+// anchor; ordinary prose and chapters with fewer than 28 media nodes retain
+// their original conservative scan without a second selector traversal. Coordinates are relative to the *untransformed*
+// reading body, so a GPU page translation never makes the index stale.
+const folioMediaAnchorIndex=new WeakMap();
+function folioMediaForReadingPage(doc,body,colWidth){
+ const p=state.paging,step=p.step;
+ if(!(step>0))return null;
+ let index=folioMediaAnchorIndex.get(doc);
+ if(index?.body===body&&index.step===step&&index.colWidth===colWidth)return index;
+ const nodes=body.querySelectorAll('img,svg,video,canvas,table,pre,hr');
+ if(nodes.length<28)return {smallNodes:nodes};
+ if(index?.body!==body||index.step!==step||index.colWidth!==colWidth){
+  const byPage=new Map(),overflow=[];
+  const origin=body.getBoundingClientRect().left,view=doc.defaultView;
+  const maxPage=(p.physicalPages?.at(-1)??Math.max(0,p.pages-1));
+  for(const el of nodes){
+   if(el.closest('[hidden],[aria-hidden="true"],[data-folio-popup-note="true"]'))continue;
+   const visibility=view.getComputedStyle(el);
+   if(visibility.visibility==='hidden'||visibility.display==='none')continue;
+   for(const rect of el.getClientRects()){
+    if(rect.width<1||rect.height<1)continue;
+    const item={el,left:rect.left-origin,right:rect.right-origin,top:rect.top,bottom:rect.bottom};
+    const first=Math.max(0,Math.floor((item.left-colWidth)/step));
+    const last=Math.min(maxPage,Math.floor((item.right-.01)/step));
+    if(last<first)continue;
+    // Extremely wide publisher artwork is rare; keep it out of a massive
+    // repeated per-page index while still checking it on every relevant page.
+    if(last-first>24){overflow.push(item);continue;}
+    for(let i=first;i<=last;i++){
+     if(item.right<=i*step+1||item.left>=i*step+colWidth-1)continue;
+     let group=byPage.get(i);
+     if(!group){group=[];byPage.set(i,group)}
+     group.push(item);
+    }
+   }
+  }
+  index={body,step,colWidth,byPage,overflow};
+  folioMediaAnchorIndex.set(doc,index);
+ }
+ return index;
+}
 function visibleReadingAnchor(){
  const frame=$('readerFrame'),doc=frame.contentDocument,body=doc?.body;
  if(!body||!state.book)return null;
@@ -2168,6 +2239,11 @@ function visibleReadingAnchor(){
   if(!p)return null;
   const r=doc.createRange();r.setStart(p.offsetNode,p.offset);r.collapse(true);return r;
  })();
+ // The complete page glyph scan says this spread contains no text.
+ // Avoid dozens of caret hit tests when choosing an anchor for an
+ // illustration-only page; retain probing for unscanned pages and prose.
+ const textPages=folioTextOccupiedSpreads.get(doc);
+ if(!textPages||textPages.has(folioPhysicalPage(state.paging)))
  for(let y=top+15;y<Math.min(bottom,top+250)&&!textAnchor;y+=19){
   for(const x of sampleX){
    const caret=caretAt(x,y),node=caret?.startContainer;
@@ -2185,15 +2261,29 @@ function visibleReadingAnchor(){
  if(textAnchor&&textTop<top+85)return textAnchor;
  let mediaNode=null,mediaTop=Infinity;
  const right=mask+Math.max(0,colWidth);
- for(const el of body.querySelectorAll('img,svg,video,canvas,table,pre,hr')){
-  if(el.closest('[hidden],[aria-hidden="true"],[data-folio-popup-note="true"]'))continue;
-  const visibility=doc.defaultView.getComputedStyle(el);
-  if(visibility.visibility==='hidden'||visibility.display==='none')continue;
-  for(const rect of el.getClientRects()){
-   if(rect.width<1||rect.height<1||rect.right<=mask+1||rect.left>=right-1)continue;
-   if(rect.bottom<=top+1||rect.top>=bottom-1)continue;
-   const vertical=Math.max(top,rect.top);
-   if(vertical<mediaTop){mediaTop=vertical;mediaNode=el}
+ const mediaIndex=folioMediaForReadingPage(doc,body,colWidth);
+ if(mediaIndex?.byPage){
+  const origin=body.getBoundingClientRect().left;
+  const candidates=mediaIndex.byPage.get(folioPhysicalPage(state.paging))||[];
+  for(const item of candidates.concat(mediaIndex.overflow)){
+   if(!item.el.isConnected || item.el.closest('[hidden],[aria-hidden="true"],[data-folio-popup-note="true"]'))continue;
+   if(item.right+origin<=mask+1||item.left+origin>=right-1)continue;
+   if(item.bottom<=top+1||item.top>=bottom-1)continue;
+   const vertical=Math.max(top,item.top);
+   if(vertical<mediaTop){mediaTop=vertical;mediaNode=item.el}
+  }
+ }else{
+  // Identical conservative behavior for ordinary chapters and short lists.
+  for(const el of mediaIndex?.smallNodes||body.querySelectorAll('img,svg,video,canvas,table,pre,hr')){
+   if(el.closest('[hidden],[aria-hidden="true"],[data-folio-popup-note="true"]'))continue;
+   const visibility=doc.defaultView.getComputedStyle(el);
+   if(visibility.visibility==='hidden'||visibility.display==='none')continue;
+   for(const rect of el.getClientRects()){
+    if(rect.width<1||rect.height<1||rect.right<=mask+1||rect.left>=right-1)continue;
+    if(rect.bottom<=top+1||rect.top>=bottom-1)continue;
+    const vertical=Math.max(top,rect.top);
+    if(vertical<mediaTop){mediaTop=vertical;mediaNode=el}
+   }
   }
  }
  // Prefer the earliest visible content. Preserve text if a media element
@@ -2205,12 +2295,15 @@ function visibleReadingAnchor(){
 // explicitly invalidate it; a viewport/reading-width change alters the key.
 // The WeakMap never retains documents from chapters that have been closed.
 const folioPageLayoutMemo=new WeakMap();
+const folioTextOccupiedSpreads=new WeakMap();
 function invalidateFolioPageLayout(doc=$('readerFrame').contentDocument){
- if(doc)folioPageLayoutMemo.delete(doc);
+ folioScrollGeometryEpoch++;
+ if(folioCodeFocusJob?.doc===doc)folioCancelCodeFocusJob();
+ if(doc){folioPageLayoutMemo.delete(doc);folioMediaAnchorIndex.delete(doc);folioTextOccupiedSpreads.delete(doc)}
 }
 function folioPageLayoutKey(frame){
  const s=state.settings;
- return [frame.clientWidth,frame.clientHeight,s.theme,s.fontSize,s.lineHeight,
+ return [frame.clientWidth,frame.clientHeight,s.fontSize,s.lineHeight,
    s.paragraphSpace,s.pageWidth,s.enFont,s.zhFont,+!!s.forceBookFonts,+!!s.qualityWrap].join('|');
 }
 // A chapter's scrollWidth includes publisher min-heights, padding, and empty
@@ -2235,12 +2328,15 @@ function folioPageFromRect(rect,p,left,offset=folioPhysicalPage(p)*p.step){
 // getClientRects() of a paragraph/container also includes its blank padding,
 // so we deliberately measure *text ranges* and media boxes instead.
 function occupiedReaderSpreads(doc,body,step){
- const filled=new Set(),view=doc.defaultView;
+ const filled=new Set(),textFilled=new Set(),view=doc.defaultView;
  const left=parseFloat(view.getComputedStyle(body).left)||0;
- const mark=rect=>{
+ const mark=(rect,isText=false)=>{
   if(rect.width<=.05||rect.height<=.05||!Number.isFinite(rect.left))return;
   const physical=Math.floor((rect.left-left+1)/step);
-  if(physical>=0&&physical<100000)filled.add(physical);
+  if(physical>=0&&physical<100000){
+   filled.add(physical);
+   if(isText)textFilled.add(physical);
+  }
  };
  // A single chapter-layout walk sees static computed visibility. Inline
  // mixed-script runs often share a parent element; caching only visibility
@@ -2267,13 +2363,13 @@ function occupiedReaderSpreads(doc,body,step){
      // Avoid complex/hidden/non-text subtrees, where the exact per-text
      // scan remains the conservative and compatible fallback.
      if(/^(P|LI|DD|BLOCKQUOTE|FIGCAPTION)$/u.test(node.tagName) &&
-        node.childElementCount>=2 && node.childElementCount<=65 &&
+        node.childElementCount<=65 &&
         !node.hasAttribute('data-folio-kp') &&
         !node.closest('[hidden],[aria-hidden="true"],[data-folio-popup-note="true"]') &&
-        !node.querySelector('p,li,dd,blockquote,figcaption,ol,ul,dl,pre,table,math,svg,img,video,canvas,iframe,ruby,[data-folio-kp],[hidden],[aria-hidden="true"],[style*="visibility"]') &&
+        (node.childElementCount===0 || !node.querySelector('p,li,dd,blockquote,figcaption,ol,ul,dl,pre,table,math,svg,img,video,canvas,iframe,ruby,br,[data-folio-kp],[hidden],[aria-hidden="true"],[style*="visibility"]')) &&
         visible(node)){
        range.selectNodeContents(node);
-       for(const rect of range.getClientRects())mark(rect);
+       for(const rect of range.getClientRects())mark(rect,true);
        return NodeFilter.FILTER_REJECT;
      }
      return NodeFilter.FILTER_SKIP;
@@ -2290,7 +2386,7 @@ function occupiedReaderSpreads(doc,body,step){
   // should not create a blank three-column spread.
   if(!visible(parent))continue;
   range.selectNodeContents(node);
-  for(const rect of range.getClientRects())mark(rect);
+  for(const rect of range.getClientRects())mark(rect,true);
  }
  // Every Knuth-Plass line is a single non-fragmented block with visible
  // text. Its rectangle covers exactly one occupied column without counting
@@ -2301,7 +2397,7 @@ function occupiedReaderSpreads(doc,body,step){
   // for every line, and checking its concatenated textContent would traverse
   // hundreds of inline tracking spans again. Keep publisher-hidden lines out.
   if(line.closest('[hidden],[aria-hidden="true"]'))continue;
-  mark(line.getBoundingClientRect());
+  mark(line.getBoundingClientRect(),true);
  }
  // Illustrated/diagram-only EPUB chapters may have no normal text nodes.
  for(const el of body.querySelectorAll('img,svg,video,canvas,hr')){
@@ -2310,6 +2406,9 @@ function occupiedReaderSpreads(doc,body,step){
   for(const rect of el.getClientRects())mark(rect);
  }
  range.detach?.();
+ // The glyph occupancy pass is already necessary for blank-spread detection.
+ // Preserve its text-only subset to skip unnecessary caret hit tests.
+ folioTextOccupiedSpreads.set(doc,textFilled);
  return filled.size?[...filled].sort((a,b)=>a-b):[0];
 }
 function pageForReadingAnchor(anchor,doc,body,step,pages){
@@ -2675,10 +2774,82 @@ function folioScheduleProgressiveWrap(doc,token){
  // The first frame and page controls are ready before any idle refinement.
  next();
 }
+// v95.26: progressively determine which code listings need a keyboard tab
+// stop. Only the first few blocks can delay the initial page. The remainder
+// are handled in bounded idle slices; data never leaves the EPUB iframe.
+// The job must not touch a detached chapter after a font/width/book change.
+let folioCodeFocusJob=null;
+const folioCodeAutoTabIndex=new WeakSet();
+const folioScrollGestureCache=new WeakMap();
+let folioScrollGeometryEpoch=0;
+function folioCancelCodeFocusJob(){
+ const job=folioCodeFocusJob;
+ if(!job)return;
+ job.cancelled=true;
+ if(job.timer!==null){
+  if(job.usesIdle&&typeof cancelIdleCallback==='function')cancelIdleCallback(job.timer);
+  else clearTimeout(job.timer);
+ }
+ folioCodeFocusJob=null;
+}
+function folioCodeScrollGeometry(el){
+ // Short-lived per-element geometry avoids repeated layout getters on every
+ // high-frequency touchpad/wheel tick; full reflow always bumps the epoch.
+ const now=performance.now(),cached=folioScrollGestureCache.get(el);
+ if(cached&&cached.epoch===folioScrollGeometryEpoch&&now-cached.time<160)return cached;
+ const g={time:now,epoch:folioScrollGeometryEpoch,
+  w:el.scrollWidth,cw:el.clientWidth,h:el.scrollHeight,ch:el.clientHeight};
+ folioScrollGestureCache.set(el,g);
+ return g;
+}
+function folioPrepareCodeScrollports(doc,token){
+ folioCancelCodeFocusJob();
+ folioScrollGeometryEpoch++;
+ const blocks=doc.body?.querySelectorAll('pre');
+ if(!blocks?.length)return;
+ const job={doc,token,blocks,index:0,timer:null,usesIdle:false,cancelled:false};
+ folioCodeFocusJob=job;
+ const valid=()=>!job.cancelled&&folioCodeFocusJob===job&&
+  state.renderToken===token&&$('readerFrame').contentDocument===doc;
+ const scan=(limit,deadline)=>{
+  let processed=0;
+  while(valid()&&job.index<blocks.length&&processed<limit){
+   if(deadline&&processed>=4&&deadline.timeRemaining()<1)break;
+   const el=blocks[job.index++];processed++;
+   if(!el.isConnected)continue;
+   const overflow=el.scrollWidth>el.clientWidth+2||el.scrollHeight>el.clientHeight+2;
+   if(overflow){
+    if(!el.hasAttribute('tabindex')){el.tabIndex=0;folioCodeAutoTabIndex.add(el)}
+   }else if(folioCodeAutoTabIndex.has(el)){
+    if(el.getAttribute('tabindex')==='0')el.removeAttribute('tabindex');
+    folioCodeAutoTabIndex.delete(el);
+   }
+  }
+  return processed;
+ };
+ const next=()=>{
+  if(!valid())return;
+  if(job.index>=blocks.length){folioCodeFocusJob=null;return}
+  const callback=deadline=>{
+   job.timer=null;
+   if(!valid())return;
+   scan(32,deadline);
+   next();
+  };
+  if(typeof requestIdleCallback==='function'){
+   job.usesIdle=true;job.timer=requestIdleCallback(callback,{timeout:700});
+  }else{
+   job.usesIdle=false;job.timer=setTimeout(()=>callback(null),32);
+  }
+ };
+ scan(12,null);
+ next();
+}
 function paginateChapter(fraction=pageFraction(),token=state.renderToken){
  if(token!==state.renderToken||!state.book)return;
  const frame=$('readerFrame'),doc=frame.contentDocument,body=doc?.body;
  if(!body||frame.clientWidth<1||frame.clientHeight<1)return;
+ if(folioCodeFocusJob?.doc!==doc)folioCancelCodeFocusJob();
  if(folioIsFixedPage(doc)){
   const fit=folioFitFixedPage(doc);if(!fit)return;
   state.paging={page:0,pages:1,physicalPages:[0],columns:1,step:0,gap:0,restore:0,...fit};
@@ -2714,6 +2885,9 @@ function paginateChapter(fraction=pageFraction(),token=state.renderToken){
  // Layout metrics for in-chapter TOC anchors are invalid after fonts,
  // images or a viewport change causes a new pagination geometry.
  folioTocPages.delete(doc);
+ folioTocSpatialIndex.delete(doc);
+ folioMediaAnchorIndex.delete(doc);
+ folioTextOccupiedSpreads.delete(doc);
  folioTocTarget=null;
  folioSpeechLayoutEpoch++;
  // Reset translation before collecting measurements. The multicol element's scrollWidth
@@ -2792,20 +2966,22 @@ function paginateChapter(fraction=pageFraction(),token=state.renderToken){
  for(const table of tables){
   const actual=table.getBoundingClientRect().width;
   const tooWide=Math.max(table.scrollWidth,actual)>availableWidth+2;
-  // Tables may be technically narrow enough but still illegible on phones.
-  // Keep the paginated rendering, and provide an optional full-size inspection.
-  const columnsInTable=Math.max(0,...Array.from(table.rows).slice(0,12).map(r=>
-   Array.from(r.cells).reduce((total,cell)=>total+Math.min(30,Math.max(1,cell.colSpan||1)),0)));
-  const offerPreview=tooWide||(availableWidth<480&&columnsInTable>=3);
+  // Do not create a hidden preview button for every ordinary table.
+  // Technical EPUBs may contain hundreds of narrow tables: these unused
+  // DOM nodes still incur style and multicolumn pagination work.
+  // Only calculate complex cell spans at narrow viewport widths.
+  const offerPreview=tooWide||(availableWidth<480&&
+   Math.max(0,...Array.from(table.rows).slice(0,12).map(r=>
+    Array.from(r.cells).reduce((total,cell)=>total+Math.min(30,Math.max(1,cell.colSpan||1)),0)))>=3);
   let preview=table.nextElementSibling;
-  if(!preview?.matches?.('[data-folio-expand-table]')){
+  if(offerPreview&&!preview?.matches?.('[data-folio-expand-table]')){
    preview=doc.createElement('button');
    preview.type='button';preview.className='folio-expand-table-button';
    preview.setAttribute('data-folio-expand-table','');
    preview.textContent='View table ↗';
    table.after(preview);
   }
-  preview.hidden=!offerPreview;
+  if(preview?.matches?.('[data-folio-expand-table]'))preview.hidden=!offerPreview;
   if(tooWide){
    if(!folioTableOriginalWidth.has(table))folioTableOriginalWidth.set(table,{
     value:table.style.getPropertyValue('width'),priority:table.style.getPropertyPriority('width')
@@ -2816,6 +2992,11 @@ function paginateChapter(fraction=pageFraction(),token=state.renderToken){
   }
  }
  if(fitted)void doc.body.offsetWidth; // Flush once after the batch of writes.
+ // Focusability beyond the first code blocks is inexpensive to settle in
+ // idle slices. Reading all scrollWidth/scrollHeight values before the first
+ // page paints makes very large technical EPUB chapters unnecessarily slow.
+ // Do the first twelve immediately; the rest are processed asynchronously.
+ folioPrepareCodeScrollports(doc,token);
  // Fit image/caption groups after the final column width is known but before
  // occupiedReaderSpreads counts the meaningful pages.
  fitReaderFigures(doc,body);
@@ -3057,21 +3238,72 @@ function toggleBookmark(){
  state.bookmarks[state.book.id]=items;safeSave(STORAGE.bookmarks,state.bookmarks);
  renderBookmarks();setButtonState();
 }
-function chapterTitle(i){const s=state.spine[i];if(!s)return'';const matching=state.toc.find(t=>t.path===s.path);return matching?.label||s.label||`Chapter ${i+1}`}
-// TOC section positions depend on the CSS column layout, not on which page is
-// currently translated into view. Cache their logical pages per document and
-// invalidate only on a genuine repagination. Page turns remain GPU-only.
+// An EPUB can have thousands of TOC anchors pointing into one spine item.
+// Build a per-book index only once: page turns and chapter labels must not
+// linearly scan every TOC entry. A new parsed TOC array resets the index.
+let folioTocIndexedSource=null;
+let folioTocIndicesByPath=new Map();
+function folioTocIndicesForPath(path){
+ if(folioTocIndexedSource!==state.toc){
+  folioTocIndexedSource=state.toc;
+  folioTocIndicesByPath=new Map();
+  for(let i=0;i<state.toc.length;i++){
+   const key=state.toc[i].path;
+   let ids=folioTocIndicesByPath.get(key);
+   if(!ids){ids=[];folioTocIndicesByPath.set(key,ids)}
+   ids.push(i);
+  }
+ }
+ return folioTocIndicesByPath.get(path)||[];
+}
+function chapterTitle(i){
+ const s=state.spine[i];if(!s)return '';
+ const first=folioTocIndicesForPath(s.path)[0];
+ return (first===undefined?null:state.toc[first])?.label||s.label||`Chapter ${i+1}`;
+}
+// TOC section positions depend on CSS column geometry. Index them once per
+// document, sorted by logical page, so an EPUB with hundreds of headings in
+// the same XHTML chapter does not linearly scan every heading on page turns.
+// The WeakMap owns no live chapter beyond the iframe's lifetime.
 const folioTocPages=new WeakMap();
+const folioTocSpatialIndex=new WeakMap();
 // A direct TOC jump should select the requested heading even if the same
 // spread begins with text belonging to the previous section.
 let folioTocTarget=null;
 // Select exactly one entry, based on the chapter and the anchor at the visible page.
 // Several TOC subsections commonly link to different #ids in the same XHTML file.
+function folioIndexedTocPositions(doc,path,indices){
+ let cache=folioTocSpatialIndex.get(doc);
+ if(cache?.toc===state.toc&&cache.path===path)return cache.groups;
+ const byPage=new Map(),byId=new Map();
+ for(const i of indices){
+  const hash=state.toc[i].hash;
+  if(!hash)continue;
+  let id=hash;
+  try{id=decodeURIComponent(hash)}catch{}
+  let targetPage=byId.get(id);
+  if(targetPage===undefined){
+   const target=doc.getElementById(id)||doc.getElementsByName(id)[0]||null;
+   targetPage=target?{target,page:elementPage(target)}:null;
+   byId.set(id,targetPage);
+  }
+  if(!targetPage)continue;
+  let items=byPage.get(targetPage.page);
+  if(!items){items=[];byPage.set(targetPage.page,items)}
+  // The indices arrive in original navigation order, so each page group
+  // is already sorted without an extra full-array sort.
+  items.push({index:i,target:targetPage.target});
+ }
+ // Only distinct page numbers require ordering, normally far fewer than
+ // the hundreds of headings in a technical-book chapter.
+ const groups=[...byPage].sort((a,b)=>a[0]-b[0]).map(([page,items])=>({page,items}));
+ folioTocSpatialIndex.set(doc,{toc:state.toc,path,groups});
+ return groups;
+}
 function activeTocIndex(){
  const path=state.spine[state.chapter]?.path;
  if(!path||!state.toc.length)return -1;
- const indices=[];
- for(let i=0;i<state.toc.length;i++)if(state.toc[i].path===path)indices.push(i);
+ const indices=folioTocIndicesForPath(path);
  if(!indices.length)return -1;
  if(indices.length===1)return indices[0];
  const doc=$('readerFrame').contentDocument;
@@ -3082,53 +3314,75 @@ function activeTocIndex(){
   if(pin.doc===doc&&pin.chapter===state.chapter&&pin.page===current)return pin.index;
   folioTocTarget=null;
  }
- let geometry=folioTocPages.get(doc);
- if(!geometry){geometry=new Map();folioTocPages.set(doc,geometry)}
- // Two or more subsections can share one visible spread. Choosing the last
- // matching page incorrectly highlights a subsection that has not started.
- // Compare DOM order with the first visible text anchor when possible.
+ const groups=folioIndexedTocPositions(doc,path,indices);
+ // Upper bound: the last heading group starting on/before this spread.
+ let lo=0,hi=groups.length;
+ while(lo<hi){const mid=(lo+hi)>>1;if(groups[mid].page<=current)lo=mid+1;else hi=mid}
  const readingNode=state.readingAnchor?.doc===doc&&state.readingAnchor.node?.isConnected
    ?state.readingAnchor.node:null;
- let best=indices[0],lastPage=-1;
- for(const i of indices){
-  const hash=state.toc[i].hash;
-  if(!hash)continue;
-  let id=hash;
-  try{id=decodeURIComponent(hash)}catch{}
-  const target=doc.getElementById(id)||doc.getElementsByName(id)[0];
-  if(!target)continue;
-  let page=geometry.get(i);
-  if(page===undefined){page=elementPage(target);geometry.set(i,page)}
-  if(page>current)continue;
-  if(readingNode&&page===current){
-   const relation=target.compareDocumentPosition(readingNode);
-   if(target!==readingNode && !(relation & Node.DOCUMENT_POSITION_FOLLOWING))continue;
+ for(let g=lo-1;g>=0;g--){
+  const group=groups[g];
+  // Only headings starting on the current page require DOM-order testing.
+  // For earlier pages, the highest original TOC index always wins a tie.
+  if(group.page<current)return group.items[group.items.length-1].index;
+  for(let j=group.items.length-1;j>=0;j--){
+   const item=group.items[j];
+   if(readingNode){
+    const relation=item.target.compareDocumentPosition(readingNode);
+    if(item.target!==readingNode&&!(relation&Node.DOCUMENT_POSITION_FOLLOWING))continue;
+   }
+   return item.index;
   }
-  if(page>=lastPage){best=i;lastPage=page}
  }
- return best;
+ return indices[0];
 }
+// Updating 220 TOC buttons on every page turn creates style invalidations
+// even while the drawer is closed. Only the previous and current item can
+// change state. The cached element may be disconnected when filtering or
+// opening another book, so always locate the current item in the live list.
+let folioTocHighlightedElement=null;
 function syncTocHighlight(){
  const selected=activeTocIndex();
- // Update the unobtrusive footer label after the page's deferred anchor scan.
- // Avoid reading TOC geometry inside the immediate page-turn transform.
  if(state.book&&!state.noteReturn){
   const title=state.toc[selected]?.label||chapterTitle(state.chapter);
   const info=$('chapterInfo');
   if(info.textContent!==title)info.textContent=title;
-  info.title=title;
-  info.setAttribute('aria-label','Current section: '+title);
+  if(info.title!==title)info.title=title;
+  const aria='Current section: '+title;
+  if(info.getAttribute('aria-label')!==aria)info.setAttribute('aria-label',aria);
  }
- for(const b of $('tocList').querySelectorAll('[data-toc]')){
-  const active=Number(b.dataset.toc)===selected;
-  b.classList.toggle('active',active);
-  if(active)b.setAttribute('aria-current','location');
-  else b.removeAttribute('aria-current');
+ const list=$('tocList');
+ const current=selected<0?null:list.querySelector(`[data-toc="${selected}"]`);
+ if(folioTocHighlightedElement&&folioTocHighlightedElement!==current){
+  folioTocHighlightedElement.classList.remove('active');
+  folioTocHighlightedElement.removeAttribute('aria-current');
  }
+ if(current){
+  if(!current.classList.contains('active'))current.classList.add('active');
+  if(current.getAttribute('aria-current')!=='location')current.setAttribute('aria-current','location');
+ }
+ folioTocHighlightedElement=current;
 }
 function folioTocMatchText(text,needle){return String(text||'').normalize('NFKC').toLocaleLowerCase().includes(needle)}
+let folioRenderedTocSource=null,folioRenderedTocQuery=null;
 function renderTOC(){
  const list=$('tocList'),query=($('folioTocFilter').value||'').trim().normalize('NFKC').toLocaleLowerCase();
+ // Hidden TOCs can be thousands of entries. First-page text and the topbar
+ // current-section label need only the indexed TOC metadata, not 220 offscreen
+ // buttons. Defer their DOM creation until the chapter drawer is opened.
+ if(state.drawer!=='toc'){
+  if(folioRenderedTocSource!==state.toc){
+   list.replaceChildren();folioRenderedTocSource=null;
+   folioRenderedTocQuery=null;folioTocHighlightedElement=null;
+  }
+  syncTocHighlight();return;
+ }
+ // Switching chapters or reopening an unchanged drawer must not destroy
+ // hundreds of TOC buttons and their focus/scroll position. Book replacement
+ // changes the parsed TOC array; filtering changes the normalized query.
+ if(folioRenderedTocSource===state.toc&&folioRenderedTocQuery===query&&list.childNodes.length){
+  syncTocHighlight();renderBookmarks();return;
+ }
  const matches=[];let total=0;
  for(let i=0;i<state.toc.length;i++){
   const t=state.toc[i];if(query&&!folioTocMatchText(t.label,query))continue;
@@ -3142,18 +3396,32 @@ function renderTOC(){
   t.heading?`<div class="toc-heading" role="heading" aria-level="${Math.min(6,(t.depth||0)+2)}" style="padding-left:${12+Math.min(t.depth||0,5)*16}px">${escapeHTML(t.label)}</div>`:
   `<button class="toc-item" data-toc="${i}" style="padding-left:${12+Math.min(t.depth||0,5)*16}px">${escapeHTML(t.label)}</button>`).join('')+(total>220?'<p class="drawer-empty">Showing the first 220 matches. Narrow the filter to see more.</p>':''):
   `<p class="drawer-empty">${query?'No matching chapter titles.':'This book has no table of contents.'}</p>`;
- list.querySelectorAll('[data-toc]').forEach(b=>b.addEventListener('click',()=>{
-  const item=state.toc[Number(b.dataset.toc)];
-  if(!item)return;
-  // Notes already keep their own temporary return point; don't double-record.
-  const index=state.spine.findIndex(x=>x.path===item.path);
-  if(index>=0&&!state.noteReturn)folioRecordReadingJump();
-  navigateToPath(item.path,item.hash);closeDrawer();
- }));
+ folioRenderedTocSource=state.toc;
+ folioRenderedTocQuery=query;
  syncTocHighlight();renderBookmarks();
 }
+// One delegated listener survives TOC filters and different books. A long
+// table of contents no longer allocates one closure per visible entry.
+$('tocList').addEventListener('click',event=>{
+ const button=event.target?.closest?.('[data-toc]');
+ if(!button||!$('tocList').contains(button))return;
+ const item=state.toc[Number(button.dataset.toc)];
+ if(!item)return;
+ // Notes already keep their own temporary return point; don't double-record.
+ const index=state.spine.findIndex(x=>x.path===item.path);
+ if(index>=0&&!state.noteReturn)folioRecordReadingJump();
+ navigateToPath(item.path,item.hash);closeDrawer();
+});
+let folioRenderedBookmarkKey=null;
 function renderBookmarks(){
- const list=$('bookmarkList'),items=(state.bookmarks[state.book?.id]||[]).slice().sort((a,b)=>a.chapter-b.chapter||a.fraction-b.fraction);
+ const list=$('bookmarkList'),bookId=state.book?.id||'';
+ const original=state.bookmarks[state.book?.id]||[];
+ // Bookmarks may be mutated in place by the toggle/remove actions, so array
+ // identity alone is not an adequate cache key. Fingerprint only the displayed
+ // fields, and keep the existing button handlers when nothing has changed.
+ const key=JSON.stringify([bookId,original.map(x=>[x.id,x.label,x.excerpt,x.chapter,x.fraction,x.date])]);
+ if(key===folioRenderedBookmarkKey&&list.childNodes.length)return;
+ const items=original.slice().sort((a,b)=>a.chapter-b.chapter||a.fraction-b.fraction);
  list.innerHTML=items.map(item=>`<div class="bookmark-item"><button type="button" class="bookmark-main" data-mark="${escapeHTML(item.id)}" aria-label="Go to bookmark: ${escapeHTML(item.label)}"><strong>${escapeHTML(item.label)}</strong><small>${Math.round(item.fraction*100)}% of chapter · ${shortDate(item.date)}</small>${item.excerpt?`<span class="bookmark-excerpt">${escapeHTML(item.excerpt)}</span>`:''}</button><button type="button" class="ibtn remove-mark" title="Remove bookmark" aria-label="Remove bookmark from ${escapeHTML(item.label)}" data-delmark="${escapeHTML(item.id)}">${ICON('x','sm')}</button></div>`).join('')||'<p class="drawer-empty">Nothing bookmarked yet. Use the bookmark icon while reading to save your place.</p>';
  list.querySelectorAll('[data-mark]').forEach(el=>el.addEventListener('click',()=>{
   const item=items.find(x=>x.id===el.dataset.mark);
@@ -3175,6 +3443,7 @@ function renderBookmarks(){
   e.stopPropagation();state.bookmarks[state.book.id]=items.filter(x=>x.id!==el.dataset.delmark);
   safeSave(STORAGE.bookmarks,state.bookmarks);renderBookmarks();setButtonState();notify('Bookmark removed')
  }));
+ folioRenderedBookmarkKey=key;
 }
 function folioTocKeyboard(event){
  if(!event.target?.matches?.('.toc-item'))return;
@@ -3227,7 +3496,7 @@ function folioEpubType(el){
 function getElements(root,local){return Array.from(root.getElementsByTagName('*')).filter(el=>el.localName?.toLowerCase()===local.toLowerCase())}
 function firstLocal(root,name){return getElements(root,name)[0]||null}
 function parseXML(xml){const d=new DOMParser().parseFromString(xml,'application/xml');if(d.querySelector('parsererror'))throw new Error('Invalid EPUB metadata XML');return d}
-async function parseBook(zip,filename){const container=zipFile(zip,'META-INF/container.xml');if(!container)throw new Error('Not a valid EPUB (missing container.xml)');const rootDoc=parseXML(await container.async('string'));const rootfiles=getElements(rootDoc,'rootfile');const rootfile=rootfiles.find(el=>el.getAttribute('media-type')==='application/oebps-package+xml')||rootfiles[0];const opfPath=rootfile?.getAttribute('full-path');if(!opfPath)throw new Error('EPUB package file missing');const opfFile=zipFile(zip,opfPath);if(!opfFile)throw new Error('Could not find EPUB package');const opf=parseXML(await opfFile.async('string'));
+async function parseBook(zip,filename,options={}){const container=zipFile(zip,'META-INF/container.xml');if(!container)throw new Error('Not a valid EPUB (missing container.xml)');const rootDoc=parseXML(await container.async('string'));const rootfiles=getElements(rootDoc,'rootfile');const rootfile=rootfiles.find(el=>el.getAttribute('media-type')==='application/oebps-package+xml')||rootfiles[0];const opfPath=rootfile?.getAttribute('full-path');if(!opfPath)throw new Error('EPUB package file missing');const opfFile=zipFile(zip,opfPath);if(!opfFile)throw new Error('Could not find EPUB package');const opf=parseXML(await opfFile.async('string'));
  const metadata=firstLocal(opf,'metadata'),title=metadata?firstLocal(metadata,'title')?.textContent?.trim():null,author=metadata?firstLocal(metadata,'creator')?.textContent?.trim():null;
  const bookLayout=metadata?getElements(metadata,'meta').find(el=>el.getAttribute('property')==='rendition:layout')?.textContent?.trim().toLowerCase():null;
  const fixedByDefault=bookLayout==='pre-paginated';
@@ -3328,20 +3597,64 @@ async function parseBook(zip,filename){const container=zipFile(zip,'META-INF/con
  let cover=[...manifest.values()].find(x=>x.properties.split(/\s+/).includes('cover-image'));
  if(!cover){const m=metadata?getElements(metadata,'meta').find(x=>x.getAttribute('name')==='cover'):null;cover=manifest.get(m?.getAttribute('content'))}
  if(!cover)cover=[...manifest.values()].find(x=>/^image\//.test(x.mediaType)&&/cover/i.test(x.id+' '+x.href));
- let coverBlob=null;if(cover&&zipFile(zip,cover.path)){try{coverBlob=new Blob([await zipFile(zip,cover.path).async('uint8array')],{type:cover.mediaType||mime(cover.path)})}catch{}}
+ let coverBlob=null;if(options.includeCover!==false&&cover&&zipFile(zip,cover.path)){try{coverBlob=new Blob([await zipFile(zip,cover.path).async('uint8array')],{type:cover.mediaType||mime(cover.path)})}catch{}}
  return {opfPath,title:title||filename.replace(/\.epub$/i,''),author:author||'',manifest,spine,auxiliary,pathAliases,toc,coverBlob,bookLayout}}
+// EPUB package metadata does not change after import. Preserve its native Maps
+// in IndexedDB so reopening can avoid repeated XML parsing, large navigation
+// DOM walks and cover inflation. Old backups/books simply fall back to parseBook.
+const FOLIO_PARSED_METADATA_VERSION=1;
+function folioStoredBookMetadata(parsed){
+ const {coverBlob,...metadata}=parsed;
+ return metadata;
+}
+function folioReusableBookMetadata(record,zip){
+ const data=record?.parsedMeta;
+ if(record.parsedMetaVersion!==FOLIO_PARSED_METADATA_VERSION||!data||!(data.manifest instanceof Map)||!Array.isArray(data.spine)||
+    !Array.isArray(data.toc)||!data.spine.length||!(data.auxiliary instanceof Map)||
+    !(data.pathAliases instanceof Map)||!data.spine.every(item=>typeof item.path==='string'&&zipFile(zip,item.path)))return null;
+ return data;
+}
+// Reuse one recent ZIP directory in memory after import or library return.
+// Bounded by original EPUB size and an idle deadline; never persisted.
+const FOLIO_HOT_ZIP_BYTES=(Number(navigator.deviceMemory||8)<4?8:24)*1024*1024,FOLIO_HOT_ZIP_IDLE_MS=120000;
+let folioHotZip=null,folioHotZipTimer=0;
+function folioForgetHotZip(){folioHotZip=null;clearTimeout(folioHotZipTimer);folioHotZipTimer=0}
+function folioRememberHotZip(record,zip){
+ if(!record?.epub||record.epub.size>FOLIO_HOT_ZIP_BYTES){folioForgetHotZip();return}
+ folioHotZip={id:record.id,epub:record.epub,zip};
+ clearTimeout(folioHotZipTimer);
+ folioHotZipTimer=setTimeout(()=>{folioHotZip=null;folioHotZipTimer=0},FOLIO_HOT_ZIP_IDLE_MS);
+}
+async function folioOpenZip(record){
+ if(folioHotZip?.id===record.id&&folioHotZip.epub===record.epub){
+  folioRememberHotZip(record,folioHotZip.zip);
+  return folioHotZip.zip;
+ }
+ const zip=await (await folioEnsureZipLibrary()).loadAsync(record.epub);
+ folioRememberHotZip(record,zip);
+ return zip;
+}
 async function hashFile(data,filename){if(globalThis.crypto?.subtle){try{const hash=await crypto.subtle.digest('SHA-256',data);return 'b-'+[...new Uint8Array(hash)].slice(0,16).map(x=>x.toString(16).padStart(2,'0')).join('')}catch{}}const u=new Uint8Array(data),step=Math.max(1,Math.floor(u.length/4096));let h=2166136261;for(let i=0;i<u.length;i+=step){h^=u[i];h=Math.imul(h,16777619)}for(const c of filename){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return 'b-'+(h>>>0).toString(16)+'-'+u.length}
 async function importFiles(files){const valid=[...files].filter(f=>/\.epub$/i.test(f.name)||f.type==='application/epub+zip');if(!valid.length){notify('Please choose a .epub book');return}loading(true,'Importing EPUB books…');let first=null,done=0;try{for(const file of valid){try{if(file.size>700*1024*1024)throw new Error('EPUB is too large to open safely (700 MB limit)');
  const buffer=await file.arrayBuffer();
- const zip=await JSZip.loadAsync(buffer);
+ const zip=await (await folioEnsureZipLibrary()).loadAsync(buffer);
  const entries=Object.values(zip.files);if(entries.length>30000)throw new Error('EPUB contains too many files');
  const inflated=entries.reduce((sum,e)=>sum+(e._data?.uncompressedSize||0),0);
  if(inflated>1.5*1024*1024*1024)throw new Error('EPUB expands beyond the safety limit');
- const parsed=await parseBook(zip,file.name);const id=await hashFile(buffer,file.name),prior=getBookRecord(id);const record={id,title:parsed.title,author:parsed.author,filename:file.name,size:file.size,createdAt:prior?.createdAt||Date.now(),lastOpened:Date.now(),cover:parsed.coverBlob,epub:new Blob([buffer],{type:'application/epub+zip'})};if(state.db){await database('readwrite',s=>s.put(record))}else state.temporary.set(id,record);
+ const parsed=await parseBook(zip,file.name);const id=await hashFile(buffer,file.name),prior=getBookRecord(id);folioForgetHotReader(id);const record={id,title:parsed.title,author:parsed.author,filename:file.name,size:file.size,createdAt:prior?.createdAt||Date.now(),lastOpened:Date.now(),cover:parsed.coverBlob,parsedMeta:folioStoredBookMetadata(parsed),parsedMetaVersion:FOLIO_PARSED_METADATA_VERSION,epub:new Blob([buffer],{type:'application/epub+zip'})};if(state.db){await database('readwrite',s=>s.put(record))}else state.temporary.set(id,record);
+ folioRememberHotZip(record,zip);
  const oldCover=state.coverUrls.get(id);if(oldCover){URL.revokeObjectURL(oldCover);state.coverUrls.delete(id)}
  done++;if(!first)first=id}catch(e){console.error(e);notify(`${file.name}: ${e.message}`)}}await refreshLibrary();if(first)await openBook(first);if(done>1)notify(`Imported ${done} books`)}finally{loading(false)}}
-async function openBook(id){folioResetReadingHistory();$('folioTocFilter').value='';folioStopPointerNavigation(true);stopFolioHeldNavigation();cancelFolioWheelQueue();cancelNeighborPreparation();folioBoundaryNavigation=null;resetFolioSearch();state.noteReturn=null;$('noteBack').hidden=true;const record=getBookRecord(id);if(!record){notify('Could not find that book');return}stopSpeech();closeDrawer();const token=++state.loadToken;loading(true,'Preparing your reading space…');try{const zip=await JSZip.loadAsync(record.epub);const parsed=await parseBook(zip,record.filename||record.title);if(token!==state.loadToken)return;folioCancelAssetSweep();for(const u of state.urls.values())URL.revokeObjectURL(u);state.urls.clear();folioAssetByteSizes.clear();state.chapterCache.clear();state.noteDocCache.clear();state.preparePromises.clear();state.styleCache.clear();state.zip=zip;state.book=record;state.meta=parsed;state.manifest=parsed.manifest;state.spine=parsed.spine;state.toc=parsed.toc;record.lastOpened=Date.now();if(state.db){try{await database('readwrite',s=>s.put(record))}catch(e){console.warn(e)}}else state.temporary.set(id,record);
- $('emptyView').hidden=true;$('readerView').hidden=false;$('app').classList.add('reader-active');setRail(false);$('topTitle').textContent=record.title;$('topSubtitle').textContent=record.author||'Enjoy your reading';setButtonState();const pos=state.progress[id];await renderChapter(Math.max(0,Math.min(state.spine.length-1,pos?.chapter??0)),pos?.fraction||0,{location:pos?.location});renderLibrary();if(window.innerWidth<=950)setRail(false)}catch(e){console.error(e);notify(`Could not open book: ${e.message}`);toLibrary()}finally{if(token===state.loadToken)loading(false)}}
+async function openBook(id){folioResetReadingHistory();$('folioTocFilter').value='';folioStopPointerNavigation(true);stopFolioHeldNavigation();cancelFolioWheelQueue();cancelNeighborPreparation();folioBoundaryNavigation=null;resetFolioSearch();state.noteReturn=null;$('noteBack').hidden=true;const record=getBookRecord(id);if(!record){notify('Could not find that book');return}stopSpeech();closeDrawer();const token=++state.loadToken;loading(true,'Preparing your reading space…');try{const zip=await folioOpenZip(record);const cachedMetadata=folioReusableBookMetadata(record,zip);const parsed=cachedMetadata||await parseBook(zip,record.filename||record.title,{includeCover:false});if(token!==state.loadToken)return;folioCancelAssetSweep();const warm=folioTakeHotReader(record,zip);for(const u of state.urls.values())URL.revokeObjectURL(u);state.urls.clear();folioAssetByteSizes.clear();state.chapterCache.clear();if(warm){for(const [key,value] of warm.chapters)state.chapterCache.set(key,value);for(const [key,url] of warm.urls)state.urls.set(key,url);for(const [key,bytes] of warm.bytes)folioAssetByteSizes.set(key,bytes)}state.noteDocCache.clear();state.preparePromises.clear();state.styleCache.clear();state.zip=zip;state.book=record;state.meta=parsed;state.manifest=parsed.manifest;state.svgResourcePaths=new Set([...parsed.manifest.values()].filter(item=>item.mediaType==='image/svg+xml').map(item=>item.path));state.spine=parsed.spine;state.toc=parsed.toc;record.lastOpened=Date.now();if(!cachedMetadata){record.parsedMeta=folioStoredBookMetadata(parsed);record.parsedMetaVersion=FOLIO_PARSED_METADATA_VERSION;}if(!state.db)state.temporary.set(id,record);
+ $('emptyView').hidden=true;$('readerView').hidden=false;$('app').classList.add('reader-active');setRail(false);$('topTitle').textContent=record.title;$('topSubtitle').textContent=record.author||'Enjoy your reading';setButtonState();const pos=state.progress[id];await renderChapter(Math.max(0,Math.min(state.spine.length-1,pos?.chapter??0)),pos?.fraction||0,{location:pos?.location});if(token!==state.loadToken)return;renderLibrary(true);if(window.innerWidth<=950)setRail(false);
+ // Updating last-opened time and upgrading old records is maintenance work.
+ // It cannot delay the first readable frame; an in-flight stale book must not
+ // resurrect a deleted entry. Keep the original error handling.
+ if(state.db&&getBookRecord(id)===record){
+  const saveRecord=()=>{if(getBookRecord(id)===record)
+   void database('readwrite',s=>s.put(record)).catch(e=>console.warn('Could not update book metadata',e));};
+  setTimeout(saveRecord,0);
+ }}catch(e){if(token===state.loadToken){console.error(e);notify(`Could not open book: ${e.message}`);toLibrary()}else console.debug("Cancelled book opening:",e)}finally{if(token===state.loadToken)loading(false)}}
 // Keep EPUB decompression bounded, even when the chapter has hundreds of images.
 // A per-archive in-flight map also prevents duplicate inflation of shared assets.
 const folioAssetRequests=new WeakMap();
@@ -3350,6 +3663,64 @@ const folioAssetQueues=new WeakMap();
 // merely because the visible chapter changed. A conservative idle sweep retains
 // everything reachable from the active document, cached chapters, or previews.
 const folioAssetByteSizes=new Map();
+const FOLIO_LOW_MEMORY=Number(navigator.deviceMemory||8)<4;
+const FOLIO_CHAPTER_CACHE_MAX_BYTES=(FOLIO_LOW_MEMORY?4:12)*1024*1024;
+const FOLIO_CHAPTER_PREFETCH_MAX_BYTES=(FOLIO_LOW_MEMORY?1:3)*1024*1024;
+function folioPreparedChapterBytes(value){
+ return 2*((value?.css?.length||0)+(value?.bodyHTML?.length||0));
+}
+function folioChapterCacheBytes(){
+ let bytes=0;for(const chapter of state.chapterCache.values())bytes+=folioPreparedChapterBytes(chapter);
+ return bytes;
+}
+function folioTrimChapterCache(protectedPath){
+ let bytes=folioChapterCacheBytes();
+ while((bytes>FOLIO_CHAPTER_CACHE_MAX_BYTES||state.chapterCache.size>6)&&state.chapterCache.size>1){
+  const oldest=[...state.chapterCache.keys()].find(path=>path!==protectedPath);
+  if(!oldest)break;
+  bytes-=folioPreparedChapterBytes(state.chapterCache.get(oldest));
+  state.chapterCache.delete(oldest);
+ }
+}
+// When returning to the shelf, keep only one recent book's already prepared
+// chapters and their Blob URLs, and only when the aggregate retained bytes fit.
+// The cache does NOT persist in IndexedDB and is discarded on a different book,
+// deletion, memory-constrained device, expiration or a full reload.
+const FOLIO_HOT_READER_IDLE_MS=45000;
+const FOLIO_HOT_READER_MAX_BYTES=(FOLIO_LOW_MEMORY?4:12)*1024*1024;
+let folioHotReader=null,folioHotReaderTimer=0;
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')folioForgetHotReader()});
+window.addEventListener('pagehide',()=>folioForgetHotReader());
+function folioForgetHotReader(id=null){
+ if(id!==null&&folioHotReader?.id!==id)return;
+ clearTimeout(folioHotReaderTimer);folioHotReaderTimer=0;
+ if(folioHotReader)for(const url of folioHotReader.urls.values())URL.revokeObjectURL(url);
+ folioHotReader=null;
+}
+function folioStageHotReader(){
+ if(!state.zip||!state.book||!state.chapterCache.size)return false;
+ // A bounded single warm book is cheaper than keeping whole EPUB render trees.
+ const assets=[...folioAssetByteSizes.values()].reduce((sum,b)=>sum+b,0);
+ const bytes=assets+folioChapterCacheBytes();
+ if(bytes>FOLIO_HOT_READER_MAX_BYTES||state.urls.size>64||
+    state.book.epub?.size>FOLIO_HOT_ZIP_BYTES)return false;
+ folioForgetHotReader();
+ const hot={id:state.book.id,epub:state.book.epub,zip:state.zip,
+  chapters:new Map(state.chapterCache),urls:new Map(state.urls),
+  bytes:new Map(folioAssetByteSizes),expires:Date.now()+FOLIO_HOT_READER_IDLE_MS};
+ folioHotReader=hot;
+ folioHotReaderTimer=setTimeout(()=>folioForgetHotReader(),FOLIO_HOT_READER_IDLE_MS);
+ return true;
+}
+function folioTakeHotReader(record,zip){
+ if(!folioHotReader)return null;
+ const hot=folioHotReader;
+ if(hot.id!==record.id||hot.epub!==record.epub||hot.zip!==zip||Date.now()>=hot.expires){
+  folioForgetHotReader();return null;
+ }
+ clearTimeout(folioHotReaderTimer);folioHotReaderTimer=0;folioHotReader=null;
+ return hot;
+}
 let folioActiveContentBuilds=0,folioAssetSweepTimer=0;
 function folioCancelAssetSweep(){clearTimeout(folioAssetSweepTimer);folioAssetSweepTimer=0}
 function folioScheduleAssetSweep(){
@@ -3477,7 +3848,26 @@ async function folioRunResourceJobs(jobs){
   while(next<jobs.length){const job=jobs[next++];await job()}
  }));
 }
-async function asyncReplace(source,regex,fn){const items=[...source.matchAll(regex)],values=await Promise.all(items.map(m=>fn(m)));let i=0;return source.replace(regex,()=>values[i++])}
+// Replacing thousands of CSS imports/URL references must not spawn thousands
+// of concurrent promises. Keep cascade order exactly, with at most eight
+// replacement jobs active; ZIP inflation has its own independent 6-job limit.
+async function asyncReplace(source,regex,fn){
+ const items=[...source.matchAll(regex)];
+ if(!items.length)return source;
+ const values=new Array(items.length),workers=Math.min(8,items.length);
+ let next=0;
+ await Promise.all(Array.from({length:workers},async()=>{
+  while(next<items.length){const i=next++;values[i]=await fn(items[i]);}
+ }));
+ const chunks=[];let end=0;
+ for(let i=0;i<items.length;i++){
+  const match=items[i];
+  chunks.push(source.slice(end,match.index),String(values[i]));
+  end=match.index+match[0].length;
+ }
+ chunks.push(source.slice(end));
+ return chunks.join('');
+}
 // EPUB CSS can contain quoted file names with spaces, fragment-only SVG paint
 // references, external sprite fragments and media-qualified @imports. Keep the
 // original cascade order; imported declarations remain at their import site.
@@ -3643,9 +4033,12 @@ async function folioBuildChapterContent(path,chapterToken){
   if(prepared)return chapterToken===null?null:makeChapterDocument(prepared);
  }
  const priority=chapterToken===null?'background':'foreground';
- const sourceZip=state.zip;
+ const sourceZip=state.zip,sourceLoadToken=state.loadToken;
  const file=zipFile(sourceZip,path);if(!file)throw new Error(`Missing chapter: ${path}`);const xhtml=await file.async('string');
-  const isSVG=state.manifest&&[...state.manifest.values()].some(item=>item.path===path&&item.mediaType==='image/svg+xml');
+  // Resolve SVG spine media types from the manifest index prepared once per book.
+  // A 5,000-item illustrated EPUB must not rebuild its manifest array for
+  // every chapter/neighbor prefetch. Auxiliary SVG spine paths also work.
+  const isSVG=state.svgResourcePaths.has(path);
   let doc;
   if(isSVG){
    const vector=new DOMParser().parseFromString(xhtml,'image/svg+xml');
@@ -3749,7 +4142,14 @@ async function folioBuildChapterContent(path,chapterToken){
  // strict limit. This substantially reduces cold-chapter latency for image-heavy
  // EPUBs without allowing hundreds of inflations at the same time.
  const resourceJobs=[];
- for(const el of doc.querySelectorAll('*')){
+ // Most EPUB prose elements have no URL-bearing attributes. In large text
+ // chapters, visiting every p/span/em and asking for seven absent attributes
+ // blocks the main thread needlessly. Select the same potential candidates
+ // in DOM order. [*|href] catches BOTH plain href and SVG xlink:href (whose
+ // namespace would be missed by a plain [href] selector).
+ // Include all [style] elements: we still check for url()/@import below.
+ const resourceElements=doc.querySelectorAll('[src],[poster],[data],[*|href],[srcset],[style]');
+ for(const el of resourceElements){
   // The linked publisher stylesheets have already been consumed above.
   // They aren't copied into the chapter's final document, so inflating them
   // again as generic href assets wastes ZIP slots and Blob memory.
@@ -3813,7 +4213,7 @@ async function folioBuildChapterContent(path,chapterToken){
  // Publisher CSS and the chapter's images/media are independent. Resolve
  // them together; don't require all image decompression to wait for styles.
  const [css]=await Promise.all([cssPromise,folioRunResourceJobs(resourceJobs)]);
- if(sourceZip!==state.zip||(chapterToken!==null&&chapterToken!==state.renderToken))return null;
+ if(sourceZip!==state.zip||sourceLoadToken!==state.loadToken||(chapterToken!==null&&chapterToken!==state.renderToken))return null;
  const body=firstLocal(doc,'body');
  // Inline EPUB 3 aside notes are accessed through their references, not flowed
  // into the page. Leave a dedicated all-notes chapter visible for navigation.
@@ -3824,7 +4224,7 @@ async function folioBuildChapterContent(path,chapterToken){
  const lang=doc.documentElement.getAttribute('lang')||doc.documentElement.getAttribute('xml:lang')||'';
  const prepared={css,lang,bodyHTML:body?.innerHTML||'',fixedViewport:fixedLayout?fixedViewport:null};
  state.chapterCache.delete(path);state.chapterCache.set(path,prepared);
- if(state.chapterCache.size>6)state.chapterCache.delete(state.chapterCache.keys().next().value);
+ folioTrimChapterCache(path);
  // Background preparation only needs the sanitized, asset-resolved chapter
  // in chapterCache. Avoid assembling a full srcdoc string that would be
  // thrown away: the foreground request produces it from the same cache.
@@ -3861,18 +4261,27 @@ function makeChapterDocument(prepared){
       Do not alter the math tree or shrink scientific symbols to unreadable sizes. */
    math[display="block"]{max-inline-size:100%;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}
    math[display="block"]::-webkit-scrollbar{height:5px}
-   /* Reflowable EPUBs can contain preformatted blocks wider than a column.
-      A nested scrollport clips both the first glyph and the right edge after a
-      paginated transform. Preserve whitespace and hard line breaks, but let
-      long physical lines wrap within the current reading column instead. */
-   body pre{box-sizing:border-box!important;inline-size:auto!important;
-    min-inline-size:0!important;max-inline-size:100%!important;
-    white-space:pre-wrap!important;overflow-wrap:anywhere!important;
-    word-break:normal!important;overflow:visible!important;
-    text-indent:0!important;
+   /* Code is an independently scrollable, column-sized viewport. Hard line
+      breaks and indentation are meaningful in source code: NEVER force a
+      long physical line to wrap to the reading column. A bounded block height
+      also keeps a large listing on one physical page; its own vertical scroll
+      makes the remainder accessible without changing Folio's page rhythm.
+      Column masks are safe because both scrollbars and ink are inset inside
+      the pre box rather than protruding into adjacent pages. */
+   body pre{box-sizing:border-box!important;display:block!important;
+    inline-size:auto!important;min-inline-size:0!important;
+    max-inline-size:100%!important;
+    max-block-size:calc(100vh - var(--folio-top) - var(--folio-bottom) - 1.5em)!important;
+    white-space:pre!important;overflow-wrap:normal!important;
+    word-break:normal!important;hyphens:none!important;
+    overflow-x:auto!important;overflow-y:auto!important;
+    overscroll-behavior:contain!important;
+    scrollbar-width:thin;scrollbar-gutter:stable;
+    touch-action:pan-x pan-y!important;
+    text-indent:0!important;break-inside:avoid-column!important;
     -webkit-box-decoration-break:clone;box-decoration-break:clone;}
-   body pre :is(code,kbd,samp,span){white-space:inherit!important;
-    overflow-wrap:anywhere!important;word-break:normal!important;}
+   body pre :is(code,kbd,samp,span,em,strong,b,i){white-space:inherit!important;
+    overflow-wrap:normal!important;word-break:normal!important;hyphens:none!important;}
    /* The global monospace rule applies to both pre and code. Without this,
       a nested <pre><code> is shrunk to .88em twice. */
    body pre :is(code,kbd,samp){font-size:inherit!important;}
@@ -3936,6 +4345,41 @@ function removePublisherFontFamilies(doc){
   if(el.style.fontFamily)el.style.removeProperty('font-family');
  }
 }
+// A chapter's source text does not change while its staged document is being
+// prepared. Check its text nodes once rather than flattening the entire DOM
+// every time a font-preparation/status path needs a Chinese sample. A WeakMap
+// attached to the body (not the book or spine path) cannot leak across
+// reconstructed iframes and is collected with their documents.
+const folioChapterHanSamples=new WeakMap();
+function folioChineseTextSample(doc){
+ const body=doc?.body;
+ if(!body)return '';
+ if(folioChapterHanSamples.has(body))return folioChapterHanSamples.get(body);
+ const walker=doc.createTreeWalker(body,NodeFilter.SHOW_TEXT);
+ let sample='',node;
+ while((node=walker.nextNode())){
+  const text=node.nodeValue||'';
+  const match=/[㐀-鿿]{1,12}/.exec(text);
+  if(!match)continue;
+  sample=match[0];
+  // A publisher may place consecutive Han characters in separate inline
+  // spans. Match the first contiguous 12-character run exactly as the old
+  // body.textContent regex did, even when it crosses text-node boundaries.
+  if(sample.length<12&&match.index+sample.length===text.length){
+   let next;
+   while(sample.length<12&&(next=walker.nextNode())){
+    const following=next.nodeValue||'';
+    const initial=/^[㐀-鿿]{1,12}/.exec(following);
+    if(!initial)break;
+    sample+=initial[0].slice(0,12-sample.length);
+    if(initial[0].length<following.length)break;
+   }
+  }
+  break;
+ }
+ folioChapterHanSamples.set(body,sample);
+ return sample;
+}
 function applyScriptFonts(doc){
  const force=!!state.settings.forceBookFonts;
  if(force){
@@ -3950,7 +4394,7 @@ function applyScriptFonts(doc){
   doc.body.style.setProperty('font-family',authorBody,'important');
   doc.documentElement.classList.add('folio-book-body-sans');
  }
- if(!/[㐀-鿿]/.test(doc.body.textContent)){
+ if(!folioChineseTextSample(doc)){
   doc.documentElement.classList.add('folio-english-chapter');
   return;
  }
@@ -4227,10 +4671,13 @@ function readerCSS(){const s=state.settings,tone=folioEffectiveTheme(),night=ton
  body img[data-folio-deferred-image]{background:color-mix(in srgb,${ink} 5%,${bg});border-radius:.2em;}
  body :is(img,svg,video){max-width:100%!important;max-height:calc(100vh - var(--folio-top) - var(--folio-bottom) - 55px)!important;object-fit:contain;height:auto;break-inside:avoid;}
  body table{max-width:100%!important;overflow-wrap:normal;white-space:normal;}
- /* Force a width that fits ONE reading column. The EPUB compatibility rules
-    below also override publisher nowrap/hidden-scroll declarations. */
+ /* A long code line scrolls inside its column; it never wraps or grows
+    the multicolumn spread. The compatibility stylesheet supplies the
+    bounded scrollport and protects against publisher overflow:hidden. */
  body pre{max-width:100%!important;max-inline-size:100%!important;
-   overflow-wrap:anywhere!important;white-space:pre-wrap!important;}
+   min-inline-size:0!important;white-space:pre!important;
+   overflow-wrap:normal!important;word-break:normal!important;
+   overflow-x:auto!important;overflow-y:auto!important;}
 
  /* Figure sizing is determined per chapter/column width by fitReaderFigures().
     A short caption stays beside its image; a long caption may fragment instead
@@ -4255,7 +4702,8 @@ function readerCSS(){const s=state.settings,tone=folioEffectiveTheme(),night=ton
  body math mtext{white-space:nowrap!important;overflow-wrap:normal!important;word-break:normal!important;}
  body :is(.math-display,.equation,.displaymath,.katex-display){max-width:100%!important;overflow-wrap:normal!important;word-break:normal!important;}
  body :is(td,th){overflow-wrap:anywhere;word-break:break-word;}
- body :is(table,blockquote,pre){break-inside:auto!important;}
+ body :is(table,blockquote){break-inside:auto!important;}
+ body pre{break-inside:avoid-column!important;}
  body table{border-collapse:collapse}body :is(pre,code,kbd,samp){font-family:ui-monospace,Consolas,monospace!important;font-size:.88em;white-space:pre-wrap;overflow-wrap:anywhere}
  /* A publisher can paint a pale code/quotation box while Folio uses Night's
     pale body ink. Repair only blocks flagged as incompatible with the active
@@ -4376,8 +4824,8 @@ function readerCSS(){const s=state.settings,tone=folioEffectiveTheme(),night=ton
     margin-block:1em 1.15em;padding:.72em .84em;
     border:1px solid var(--folio-special-rule);border-radius:.32em;
     background:var(--folio-special-faint);font-size:.88em;
-    line-height:1.55;white-space:pre-wrap;
-    tab-size:4;hyphens:none;overflow-wrap:anywhere;break-inside:auto;
+    line-height:1.55;white-space:pre;
+    tab-size:4;hyphens:none;overflow-wrap:normal;break-inside:avoid-column;
   }
   body [data-folio-special="definitions"]{margin-block:.75em 1em!important;}
   body [data-folio-special="definitions"] dt{font-weight:650;margin-block:.62em .12em;}
@@ -4386,7 +4834,11 @@ function readerCSS(){const s=state.settings,tone=folioEffectiveTheme(),night=ton
   body [data-folio-special] > :last-child{margin-block-end:0!important;}
   
 
- @media(max-width:920px){:root{--folio-gap:0px;--folio-side:clamp(40px,7vw,64px)}body{column-count:1!important;}}
+ /* A one-column page still needs a physical gap to the next CSS column.
+    Zero gap exposes slivers of the NEXT page in the 6px optical punctuation
+    gutter. This gap lies outside the reading measure: neither font nor line
+    breaks change, while current-page hanging commas remain visible. */
+ @media(max-width:920px){:root{--folio-gap:12px;--folio-side:clamp(40px,7vw,64px)}body{column-count:1!important;}}
  @media(max-height:450px){:root{--folio-top:14px;--folio-bottom:14px}}
  `}
 const readerStyleMemo={key:'',parts:null};
@@ -4423,7 +4875,7 @@ function folioUpdateChineseFontStatus(){
  const name=font==='Noto Serif SC'?'Source Han / Noto Serif':font==='Noto Sans SC'?'Source Han / Noto Sans':font;
  const doc=state.book?$('readerFrame')?.contentDocument:null;
  if(!doc?.body){label.textContent=name+' Regular: checks installed fonts first; uses Google Fonts when needed.';return}
- if(!/[㐀-鿿]/.test(doc.body.textContent||'')){
+ if(!folioChineseTextSample(doc)){
   label.textContent='No Chinese text in this chapter; the web font is not needed.';return;
  }
  const active=doc.getElementById('folioRemoteFonts');
@@ -4444,7 +4896,7 @@ async function loadRemoteReaderFonts(doc,token){
  const font=state.settings.zhFont,spec=FOLIO_CHINESE_WEB_FONTS[font];
  if(token!==state.renderToken||font!==state.settings.zhFont||!doc?.documentElement)return false;
  const root=doc.documentElement;
- const useFont=Boolean(spec&&/[㐀-鿿]/.test(doc.body?.textContent||''));
+ const useFont=Boolean(spec&&folioChineseTextSample(doc));
  const old=doc.getElementById('folioRemoteFonts');
  const markReady=enabled=>{
   if(token!==state.renderToken||font!==state.settings.zhFont||!root.isConnected)return;
@@ -4493,7 +4945,7 @@ async function loadRemoteReaderFonts(doc,token){
      remote.replaceWith(link);remote=link;remote.__folioPromise=request;
      await cssLoaded;
      if(settled||!remote.isConnected)throw Error('Cancelled');
-     const sample=(doc.body?.textContent||'').match(/[㐀-鿿]{1,12}/)?.[0]||'中文';
+     const sample=folioChineseTextSample(doc)||'中文';
      const faces=await doc.fonts.load('normal 18px '+JSON.stringify(spec.webFamily),sample);
      const face=faces.find(f=>f.status==='loaded'&&f.family.replace(/^[\'\"]|[\'\"]$/g,'')===spec.webFamily);
      if(!face)throw Error('Google Fonts face unavailable');
@@ -4552,6 +5004,25 @@ function repairReaderBlockContrast(doc){
  for(const el of fixes)el.setAttribute('data-folio-tone-surface','');
 }
 
+// v95.27: Theme changes only affect paint tokens. Recompute the iframe's
+// color rules and block contrast without invalidating the chapter's column
+// geometry or rerunning the Knuth-Plass optimizer. Font/spacing changes
+// continue to use updateReaderTheme() and its full safety checks.
+function updateReaderTone(){
+ if(!state.book)return;
+ const doc=$('readerFrame').contentDocument;
+ if(!doc)return;
+ if(folioIsFixedPage(doc)){
+  const tone=folioEffectiveTheme();
+  doc.documentElement.style.background=tone==='dark'?'#242b29':tone==='sepia'?'#f1e7d4':'#fbfaf7';
+  return;
+ }
+ const style=doc.getElementById('folioReaderStyle');
+ if(!style){updateReaderTheme();return}
+ const layout=readerStyleParts().layout;
+ if(style.textContent!==layout)style.textContent=layout;
+ repairReaderBlockContrast(doc);
+}
 function updateReaderTheme(immediate=false){if(!state.book)return;const doc=$('readerFrame').contentDocument;if(!doc)return;
  if(folioIsFixedPage(doc)){
   const tone=folioEffectiveTheme();
@@ -4754,11 +5225,16 @@ function cancelNeighborPreparation(){
 function scheduleNeighborPreparation(index){
  cancelNeighborPreparation();
  const zip=state.zip,load=state.loadToken,generation=chapterPrefetch.version;
- const tasks=[index+1,index-1,index+2].filter(n=>n>=0&&n<state.spine.length);
+ const tasks=(FOLIO_LOW_MEMORY?[index+1]:[index+1,index-1,index+2])
+  .filter(n=>n>=0&&n<state.spine.length);
  const begin=async()=>{
+  if(document.visibilityState==='hidden')return;
   for(const next of tasks){
    if(zip!==state.zip||load!==state.loadToken||generation!==chapterPrefetch.version)return;
    const path=state.spine[next].path;
+   const size=zipFile(zip,path)?._data?.uncompressedSize||0;
+   if(size>FOLIO_CHAPTER_PREFETCH_MAX_BYTES||
+      folioChapterCacheBytes()>FOLIO_CHAPTER_CACHE_MAX_BYTES*.85)continue;
    if(state.chapterCache.has(path)||state.preparePromises.has(path))continue;
    const pending=renderContent(path,null);
    state.preparePromises.set(path,pending);
@@ -4903,7 +5379,7 @@ function folioMediaReflowScheduler(doc,token){
 }
 async function folioWaitForStagedFonts(doc,token){
  const zh=state.settings.zhFont;
- const mayNeedRemote=Boolean(FOLIO_CHINESE_WEB_FONTS[zh]&&/[㐀-鿿]/.test(doc.body?.textContent||''));
+ const mayNeedRemote=Boolean(FOLIO_CHINESE_WEB_FONTS[zh]&&folioChineseTextSample(doc));
  const budget=mayNeedRemote?260:160;
  let timeout;
  const fontReady=Promise.resolve().then(()=>loadRemoteReaderFonts(doc,token)).then(async()=>{
@@ -4991,6 +5467,15 @@ async function renderChapter(index,fraction=0,opts={}){
  doc.addEventListener('click',handleIllustrationClick);
  doc.addEventListener('click',handleTablePreviewClick);
  doc.addEventListener('wheel',handleReaderWheel,{passive:false});
+ // A pointer can reach a code listing far beyond the first twelve before the
+ // idle focusability scan does. Make that one scrollport keyboard-accessible
+ // immediately, without synchronously measuring every other listing.
+ doc.addEventListener('pointerdown',event=>{
+  const pre=event.target?.closest?.('pre');
+  if(!pre||pre.hasAttribute('tabindex'))return;
+  const g=folioCodeScrollGeometry(pre);
+  if(g.w>g.cw+2||g.h>g.ch+2){pre.tabIndex=0;folioCodeAutoTabIndex.add(pre)}
+ },{passive:true});
  initFolioSwipe(doc);
  doc.addEventListener('keydown',event=>{
   // The iframe is a separate document: forward global library/search/help keys.
@@ -4999,6 +5484,8 @@ async function renderChapter(index,fraction=0,opts={}){
   if(event.key.toLowerCase()==='g'&&!event.altKey&&!event.ctrlKey&&!event.metaKey&&!state.drawer&&!event.target?.closest?.('a,button,input,textarea,select,[contenteditable="true"]')){event.preventDefault();folioOpenProgressNavigator();return}
   if(event.key==='b'&&!event.altKey&&!event.ctrlKey&&!event.metaKey&&!state.drawer&&!event.target?.closest?.('a,button,input,textarea,select,[contenteditable="true"]')){event.preventDefault();toggleBookmark();return}
   if(event.key==='Escape'){
+   const source=event.target?.closest?.('pre,math[display="block"]');
+   if(source){source.blur();event.preventDefault();return}
    if(state.drawer)closeDrawer();
    else if(!$('folioWordCard').hidden)hideWordCard();
    else if(!$('folioNotePopup').hidden)hideNotePopup();
@@ -5010,12 +5497,16 @@ async function renderChapter(index,fraction=0,opts={}){
   }
   if(state.drawer||event.altKey||event.ctrlKey||event.metaKey||!state.book)return;
   if(event.target?.closest?.('a,button,input,textarea,select,[contenteditable="true"]'))return;
-  // Arrow keys are reserved for horizontal inspection only when the
-  // focused technical block actually has horizontally scrollable contents.
-  // Wrapped <pre> blocks should retain normal reader page navigation.
-  if(['ArrowLeft','ArrowRight'].includes(event.key)){
-   const scroller=event.target?.closest?.('pre,math[display="block"]');
-   if(scroller&&scroller.scrollWidth>scroller.clientWidth+2)return;
+  // When the keyboard focus is inside scrollable code or an equation,
+  // let the browser move its scrollbar instead of turning the EPUB page.
+  // Ordinary prose and short, non-scrollable <pre> retain navigation keys.
+  const scroller=event.target?.closest?.('pre,math[display="block"]');
+  if(scroller){
+   const g=folioCodeScrollGeometry(scroller);
+   if(event.key==='Escape'){scroller.blur();return}
+   if(['ArrowLeft','ArrowRight'].includes(event.key)&&g.w>g.cw+2)return;
+   if(['ArrowUp','ArrowDown','PageUp','PageDown',' ','Home','End'].includes(event.key)&&
+      g.h>g.ch+2)return;
   }
   if(handleFolioNavigationKeydown(event))return;
   if(event.key==='Home'){event.preventDefault();folioJumpToChapterEdge(false)}
@@ -5231,15 +5722,30 @@ function handleReaderWheel(event){
  if(event.ctrlKey||event.metaKey||folioReaderNavigationBlocked())return;
  // Scrolling an opened widget should scroll that widget, not turn the book.
  if(event.target?.closest?.('input,textarea,select,[contenteditable="true"],.folio-note-popup,.word-card,.folio-image-stage,.folio-table-contents'))return;
- // Keep horizontal inspection possible for oversized equations/source code.
- // Shift+wheel is reserved for inspection; normal wheel still turns the page.
- if(event.shiftKey){
-  const scroll=event.target?.closest?.('math[display="block"],pre');
-  if(scroll&&scroll.scrollWidth>scroll.clientWidth+2){
+ // Code has its own scrollport. Shift+wheel and a horizontal trackpad
+ // gesture inspect the full source line; vertical wheel scrolls a tall
+ // listing, otherwise it continues to turn EPUB pages as before.
+ const scroll=event.target?.closest?.('pre,math[display="block"]');
+ if(scroll){
+  const horizontal=event.shiftKey||Math.abs(event.deltaX)>Math.abs(event.deltaY);
+  const delta=(horizontal?(event.shiftKey&&Math.abs(event.deltaX)<=Math.abs(event.deltaY)?event.deltaY:event.deltaX):event.deltaY)*
+   (event.deltaMode===1?24:event.deltaMode===2?Math.max(1,scroll.clientHeight):1);
+  const g=folioCodeScrollGeometry(scroll);
+  const max=horizontal?g.w-g.cw:g.h-g.ch;
+  const before=horizontal?scroll.scrollLeft:scroll.scrollTop;
+  const next=Math.max(0,Math.min(Math.max(0,max),before+delta));
+  if(max>2){
+   // An overflowing code/math box owns its gesture even at the scroll edge.
+   // Otherwise the last tick of a touchpad swipe can unexpectedly turn the
+   // whole EPUB page while the reader is inspecting the code.
    if(event.cancelable)event.preventDefault();
-   scroll.scrollLeft+=(Math.abs(event.deltaX)>Math.abs(event.deltaY)?event.deltaX:event.deltaY)*(event.deltaMode===1?24:1);
+   if(Math.abs(next-before)>.5){
+    if(horizontal)scroll.scrollLeft=next;else scroll.scrollTop=next;
+   }
    return;
   }
+  // Horizontal trackpad movement is not a reading-page navigation intent.
+  if(horizontal){if(event.cancelable)event.preventDefault();return;}
  }
  const primary=Math.abs(event.deltaY)>=Math.abs(event.deltaX)?event.deltaY:event.deltaX;
  if(!primary)return;
@@ -5393,7 +5899,7 @@ function initFolioSwipe(doc){
  let start=null,suppressClickUntil=0;
  doc.addEventListener('pointerdown',event=>{
   if(event.pointerType!=='touch'||!event.isPrimary||state.drawer){start=null;return}
-  if(event.target?.closest?.('a,button,input,select,textarea,[contenteditable="true"]')){start=null;return}
+  if(event.target?.closest?.('a,button,input,select,textarea,pre,math[display="block"],[contenteditable="true"]')){start=null;return}
   start={id:event.pointerId,x:event.clientX,y:event.clientY,time:performance.now()};
  },{passive:true});
  doc.addEventListener('pointercancel',()=>{start=null},{passive:true});
@@ -6226,7 +6732,7 @@ function toggleSpeech(){if(state.tts.mode==='playing')pauseSpeech();else if(stat
 function showDock(){flushFolioAnchor();$('ttsDock').hidden=false;setReadMode(true);updateTTSUI()}
 function closeDock(){stopSpeech();flushFolioAnchor();$('ttsDock').hidden=true;setReadMode(false);schedulePagination(pageFraction(),state.renderToken)}
 const pendingBookRemovals=new Set();
-async function removeBookById(id){
+async function removeBookById(id){if(folioHotZip?.id===id)folioForgetHotZip();
  const rec=getBookRecord(id);
  if(!rec||pendingBookRemovals.has(id))return;
  if(!confirm(`Remove “${rec.title}” from your library?\n\nThis deletes its EPUB file, reading progress, and bookmarks from this browser. Other books and reading preferences are not affected.`))return;
@@ -6234,10 +6740,11 @@ async function removeBookById(id){
  try{
   // Delete from persistent storage first so a failed operation leaves the book intact.
   if(state.db)await database('readwrite',store=>store.delete(id));
+  folioForgetHotReader(id);
   if(folioIsFavorite(id))state.settings.libraryFavorites=folioFavoriteIds().filter(item=>item!==id);
   state.settings.libraryCollections=folioCollections().map(c=>({...c,books:c.books.filter(item=>item!==id)}));
   safeSave(STORAGE.settings,state.settings);
-  if(state.book?.id===id){state.loadToken++;toLibrary()}
+  if(state.book?.id===id){state.loadToken++;toLibrary();folioForgetHotReader(id)}
   state.temporary.delete(id);
   delete state.progress[id];delete state.bookmarks[id];
   safeSave(STORAGE.progress,state.progress);safeSave(STORAGE.bookmarks,state.bookmarks);
@@ -6413,7 +6920,7 @@ async function exportFolioFullLibrary(){
  if(state.book){saveProgress();flushFolioProgress()}
  loading(true,'Preparing full library backup…');
  try{
-  const archive=new JSZip(),books=[];
+  const archive=new (await folioEnsureZipLibrary())(),books=[];
   for(let index=0;index<records.length;index++){
    const rec=records[index];
    if(!(rec.epub instanceof Blob))throw new Error('A saved EPUB file is missing');
@@ -6441,7 +6948,7 @@ async function importFolioFullLibrary(file){
  if(file.size>FOLIO_LIBRARY_LIMIT+15*1024*1024)throw new Error('Library ZIP exceeds the safe import limit (435 MB)');
  folioLibraryBackupBusy=true;loading(true,'Checking library backup…');
  try{
-  const archive=await JSZip.loadAsync(file);
+  const archive=await (await folioEnsureZipLibrary()).loadAsync(file);
   const entries=Object.values(archive.files);
   if(entries.length>300||entries.some(x=>x._data?.uncompressedSize>FOLIO_LIBRARY_LIMIT))throw new Error('Archive has too many or oversized entries');
   if(entries.reduce((size,item)=>size+(item._data?.uncompressedSize||0),0)>FOLIO_LIBRARY_LIMIT+3*1024*1024)
@@ -6468,12 +6975,13 @@ async function importFolioFullLibrary(file){
    // reading positions also transfer from file:// to localhost/HTTPS.
    const bytes=await archive.file(book.path).async('uint8array');
    if(bytes.length!==book.size)throw new Error('EPUB size mismatch in backup');
-   const epub=await JSZip.loadAsync(bytes);
+   const epub=await (await folioEnsureZipLibrary()).loadAsync(bytes);
    const contents=Object.values(epub.files);
    if(contents.length>30000||contents.reduce((n,e)=>n+(e._data?.uncompressedSize||0),0)>1.5*1024*1024*1024)
     throw new Error('EPUB exceeds the safe import limits');
    const parsed=await parseBook(epub,book.filename);
    const id=await hashFile(bytes,book.filename),prior=getBookRecord(id);
+   folioForgetHotReader(id);
    const record={id,title:parsed.title,author:parsed.author,filename:book.filename,
     size:bytes.length,createdAt:prior?.createdAt||book.createdAt||Date.now(),
     lastOpened:prior?.lastOpened||book.lastOpened||Date.now(),cover:parsed.coverBlob,
@@ -6508,9 +7016,9 @@ async function requestFolioPersistence(){
   notify(granted?'Local storage protection enabled':'Your browser did not grant protected storage')}
  catch(e){notify('Storage protection is not available in this browser')}
 }
-async function clearAllData(){if(!confirm('Delete ALL saved books, reading positions, bookmarks and settings from this browser? This cannot be undone.'))return;stopSpeech();state.loadToken++;toLibrary();try{if(state.db)await database('readwrite',s=>s.clear())}catch(e){console.warn(e);notify('Could not clear book storage; no other data was erased');return}state.temporary.clear();for(const id of Object.values(STORAGE))try{localStorage.removeItem(id)}catch{}for(const url of state.coverUrls.values())URL.revokeObjectURL(url);state.coverUrls.clear();location.reload()}
+async function clearAllData(){folioForgetHotZip();if(!confirm('Delete ALL saved books, reading positions, bookmarks and settings from this browser? This cannot be undone.'))return;stopSpeech();state.loadToken++;toLibrary();folioForgetHotReader();try{if(state.db)await database('readwrite',s=>s.clear())}catch(e){console.warn(e);notify('Could not clear book storage; no other data was erased');return}state.temporary.clear();for(const id of Object.values(STORAGE))try{localStorage.removeItem(id)}catch{}for(const url of state.coverUrls.values())URL.revokeObjectURL(url);state.coverUrls.clear();location.reload()}
 function clearReadingData(){if(!confirm('Clear reading positions and bookmarks for every book? Your EPUB files and visual preferences will stay.'))return;clearTimeout(folioProgressWriteTimer);folioProgressWriteTimer=0;folioProgressDirty=false;state.progress={};state.bookmarks={};try{localStorage.removeItem(STORAGE.progress);localStorage.removeItem(STORAGE.bookmarks)}catch{}renderBookmarks();renderLibrary();setButtonState();notify('Reading history and bookmarks cleared')}
-async function createDemo(){const zip=new JSZip();zip.file('mimetype','application/epub+zip',{compression:'STORE'});zip.file('META-INF/container.xml','<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>');zip.file('OEBPS/content.opf',`<?xml version="1.0" encoding="utf-8"?><package xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid" version="3.0"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>The Art of Paying Attention</dc:title><dc:creator>Folio Reader</dc:creator><dc:language>en</dc:language><dc:identifier id="bookid">urn:folio:demo</dc:identifier></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="c1" href="one.xhtml" media-type="application/xhtml+xml"/><item id="c2" href="two.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="c1"/><itemref idref="c2"/></spine></package>`);
+async function createDemo(){const zip=new (await folioEnsureZipLibrary())();zip.file('mimetype','application/epub+zip',{compression:'STORE'});zip.file('META-INF/container.xml','<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>');zip.file('OEBPS/content.opf',`<?xml version="1.0" encoding="utf-8"?><package xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid" version="3.0"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>The Art of Paying Attention</dc:title><dc:creator>Folio Reader</dc:creator><dc:language>en</dc:language><dc:identifier id="bookid">urn:folio:demo</dc:identifier></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="c1" href="one.xhtml" media-type="application/xhtml+xml"/><item id="c2" href="two.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="c1"/><itemref idref="c2"/></spine></package>`);
  zip.file('OEBPS/nav.xhtml','<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><head><title>Contents</title></head><body><nav epub:type="toc"><ol><li><a href="one.xhtml">The space between words</a></li><li><a href="two.xhtml">留一点时间给自己</a></li></ol></nav></body></html>');
  zip.file('OEBPS/one.xhtml',`<html xmlns="http://www.w3.org/1999/xhtml"><head><title>The space between words</title></head><body><h1>The space between words</h1><p>There is a particular kind of quiet that arrives when you open a good book. The screen fades away. The room is still there, but your attention has moved somewhere else.</p><p>Reading has always been a small act of imagination. A few marks on a page become a city in the rain, a conversation between strangers, or an unexpected idea that stays with you all day.</p><p>Sometimes the best tools make fewer demands. They remember where you stopped, offer you a comfortable page, and then step out of the way.</p><p>Try changing the typeface in the appearance panel. Increase the line spacing. Switch from Paper to Warm or Night. Then open the headphones button and choose a voice.</p><p>This is a sample book made for exploring the reader. Import your own DRM-free EPUB to keep reading.</p><p>And when your attention wanders, remember that the next paragraph can always wait. A book does not ask you to hurry.</p></body></html>`);
  zip.file('OEBPS/two.xhtml',`<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN"><head><title>留一点时间给自己</title></head><body><h1>留一点时间给自己</h1><p>读书的时候，最难得的也许不是读完多少页，而是允许自己慢下来。窗外的光在移动，桌上的茶渐渐凉了，文字却把时间留在了这一刻。</p><p>好的阅读体验，应该安静、自由。中文可以选择宋体、楷体或黑体；English text, such as Georgia and Bookerly, should use the selected English font. 全角英文ＡＢＣ也应显示成标准字宽。字号、行距和页面宽度，都应该由读者决定。</p><p>你可以打开朗读功能，让浏览器用中文自然语音读出这一段，也可以暂停，回到刚刚停下的位置。</p><p>如果一本书值得反复阅读，那么一个书签就像留给未来自己的小纸条。你不必记住所有事情，只需要记住自己曾在哪里停留。</p><p>愿每次打开一本书，都像推开一扇熟悉的窗。</p></body></html>`);
@@ -6619,7 +7127,7 @@ function folioInitializeLibraryPickers(){
 
 function bindEvents(){
  const systemScheme=window.matchMedia?.('(prefers-color-scheme: dark)');
- const onSystemSchemeChange=()=>{if(state.settings.theme==='system'){setTheme('system');updateReaderTheme()}};
+ const onSystemSchemeChange=()=>{if(state.settings.theme==='system'){setTheme('system');updateReaderTone()}};
  if(systemScheme?.addEventListener)systemScheme.addEventListener('change',onSystemSchemeChange);
  else systemScheme?.addListener?.(onSystemSchemeChange);
  $('libraryFilter').addEventListener('input',filterLibraryBooks);

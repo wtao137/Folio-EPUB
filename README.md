@@ -1,6 +1,112 @@
+**Current default (v95.27):** Knuth–Plass typesetting is enabled on new installations. It remains optional and can be disabled in Typography; stored preferences take precedence. Earlier version notes below describe their historical defaults.
+
+### v95.26 — Long code listings
+
+For very large code-heavy chapters, Folio no longer measures the scroll size of every source block before showing the first page. The first twelve blocks remain immediately keyboard accessible when needed; other overflowing code blocks receive their tab stop during browser idle time or on first pointer interaction. Inside a long code block, horizontal gestures stay within the code even at the left/right edge; vertical gestures inside a tall overflowing block are likewise contained. Press **Esc** to leave a focused block and use the normal page-turning shortcuts. Text, pagination, and publisher styles are unchanged.
+
+### New in v95.25
+
+**Long code blocks now scroll rather than wrap.** Preformatted EPUB source preserves physical lines and indentation. Shift+wheel/trackpad or a code-block scrollbar lets you inspect long lines; very tall examples also scroll vertically inside the block. Swipe gestures that start inside code no longer page-turn, and overflowing code blocks are keyboard-accessible. Inline code and ordinary prose retain the existing typographic rules.
+
+Folio now delays compilation of its bundled ZIP archive engine until you actually import/open an EPUB or use library backup/recovery. This reduces initial library-screen JavaScript work without needing network access. Invisible table-expansion controls are no longer created for normal tables; table fitting and the visible experience remain compatible. Knuth–Plass, book progress, and local EPUB storage are unchanged. Refer to `CHANGELOG.md` for benchmark scope and limitations.
+
+### New in v95.24
+
+This release removes redundant DOM/text work in Knuth–Plass idle continuations and final commit while maintaining exact source verification. Its optical ink and CJK glue safety checks now skip irrelevant paragraphs without disabling checks where punctuation hanging or spacing corrections are possible. Chromium tests at 390/1130/2100 px show identical page content and pixels versus v95.23. Repeated-paragraph CPU timings show a small improvement, but there is no demonstrated whole-book speedup: browser multicolumn layout remains the dominant synchronous cost. Existing book data and reading progress are unchanged. See the changelog for details and known historical test failures.
+
+### New in v95.23
+
+**Memory-conscious typography caches:** Knuth–Plass plans, measured paragraph templates, and tokenization are now bounded by both entry count and estimated storage. Large, long chapters cannot cause these caches to retain arbitrarily many complex line plans. The Canvas measurer also persists across short idle batches, with font state explicitly reset whenever an idle task resumes. The calculation and EPUB source are unchanged.
+
+The limits apply to specific **CPU-side caches only**, not all browser memory. Actual gains vary by book and device. In controlled Chromium tests all 260 solver equivalence cases and three realistic viewport screenshots matched v95.22; this does not establish a universal cold-load or FPS improvement.
+
+Extract the full PWA ZIP (maximum 100 entries), or overwrite v95.22 with the smaller update ZIP. Your stored books, bookmarks and positions do not require a database reset. The normal reader still uses official Google Fonts URLs with local fallbacks.
+
+### New in v95.22
+
+**Cooperative Canvas measurement**: long, previously unseen paragraphs now measure their glyphs and optical punctuation in bounded token batches while the reader is idle. This complements v95.21's resumable Knuth–Plass solver, so the browser is less likely to stall even *before* the DP phase starts. The glyph geometry, line breaks and visual output are not approximated. 8 repeated Chromium cold-context trials found that the median longest refinement call decreased from 30.20ms (v95.21) to 12.35ms (v95.22) for a synthetic 1,153-character paragraph; some individual calls still exceeded 16ms.
+
+Install the full PWA ZIP (100 archive entries), or extract the small update ZIP over your v95.21 PWA files. Previous books, bookmarks and settings continue to work without storage reset. Optical punctuation and publisher-font preferences are unchanged.
+
+### New in v95.21
+
+Large paragraphs no longer require one unbroken Knuth–Plass dynamic-programming solve while idle refinement runs. The solver can preserve its candidate search and resume at the next idle opportunity without changing the line-break result. This improves **responsiveness**, not necessarily total computation time. 260 synthetic cross-version line-break plans were equal; the real-browser 26-paragraph pause/resume/cancellation test passed. Bilingual Chromium screenshot comparisons at 390/1130/2100px had zero changed pixels.
+
+Update from v95.20: overlay the small delta ZIP on the previous PWA folder, preserving existing site data. Full ZIP has 100 entries for Antigravity compatibility. A standalone HTML version and self-contained regression tests are also provided.
+
+### New in v95.20
+
+Long chapters now reserve more of the main thread for first-page interaction. Knuth–Plass optimizes a bounded initial portion, then finishes remaining paragraphs in idle slices and commits once while preserving the reading anchor. Simple Han-and-Latin text tokenizes without expensive per-character Unicode segmentation, while complex Unicode still uses the full grapheme algorithm. Font measurement and prepared-text caches are tied to the EPUB document to avoid both cross-book font collisions and stale book text.
+
+A 70-paragraph unique-Chinese-content Chromium benchmark observed an initial typesetting median of 302.95ms in v95.19 versus 125.10ms in v95.20. Full optical completion occurs later during idle; total start-to-finished typesetting is not claimed to be 59% faster. Three viewport screenshot comparisons remained pixel-identical. See `CHANGELOG.md` for tests and caveats.
+
+Upgrade: overlay the delta ZIP on v95.19, keeping existing site data intact. The full PWA ZIP has 100 entries; the regression test scripts are distributed separately.
+
+### New in v95.19
+
+**More consistent Chinese optical text edges:** A Han character at the end of a line was correctly positioned; the following comma and quotation-mark lines visually ended too far inside. Chinese-compatible Knuth–Plass now adjusts *painted punctuation ink*, not the Han text or selected line breaks, and checks that every visible mark stays inside its safe viewport/column margin. Browser screenshots are included separately.
+
+**Faster repeated styled paragraphs:** An EPUB-scoped LRU caches measured Knuth–Plass geometry for identical paragraphs, with a strict 48-entry / 1500-character bound and invalidation on reflow. Repetitive synthetic Chinese and English stress tests improved by 27% and 35% respectively without changing page count. Do not assume the same savings on novels with almost all unique paragraphs.
+
+**Upgrade from v95.18:** Overlay the changed files from the delta ZIP, including the PWA `sw.js` cache version and revised KP engine, then reload once. Do not clear IndexedDB or reimport EPUBs. Full PWA ZIP is capped at 100 entries; a separate test archive includes the current optical regression suite. Details and limitations are in `CHANGELOG.md`.
+
+### New in v95.18
+
+**Faster image-heavy EPUB navigation** — Graphic novels, illustrated science books and large image-only XHTML chapters now use a lazy, page-indexed media anchor cache rather than walking every illustration on each page turn. A text occupancy set from the existing paginator also avoids expensive browser caret hit-tests on pages known to contain no text. These indexes are temporary, weakly referenced, automatically invalidated on repagination and never stored with a book. Knuth–Plass avoids redundant identical glue candidates without changing any tested line break.
+
+**Upgrade from v95.17:** Overlay the five changed files (`index.html`, `folio-knuth-plass.js`, `sw.js`, `README.md`, `CHANGELOG.md`) from the incremental ZIP and reload the reader. Do **not** clear IndexedDB or reimport EPUBs. The full PWA ZIP retains 100 entries for Antigravity. The standalone file includes the updated engines inline.
+
+**Evidence:** In a controlled 360-image/181-page Chromium EPUB at 1130×860, 45 consecutive media anchor queries took 134.8ms (v95.17) vs 22.8ms (v95.18), with identical anchor targets; this is a *microbenchmark for image-only pages*, not a general page-turn or cold-start percentage. Three viewport screenshot regressions show 0 changed pixels. See `CHANGELOG.md` for QA details and limitations.
+
+### New in v95.17
+
+For navigation-heavy EPUBs, page changes no longer require scanning the complete list of in-chapter table-of-contents anchors. A document-weak page-group index selects the current section efficiently without sacrificing same-page anchor correctness. Simple prose uses fewer exact text-range geometry scans during first pagination, and large EPUB CSS URL/import transformations avoid a redundant regular-expression pass. No permanent cache, IndexedDB change or EPUB conversion is involved.
+
+**Upgrade from v95.16:** Overlay the updated `index.html`, `sw.js`, `README.md`, and `CHANGELOG.md` from the incremental ZIP, and reload the site. Do not clear site data or reimport books. The full PWA ZIP is capped at 100 entries for Antigravity. The standalone HTML is a one-file alternative with the existing local/library limitations.
+
+In six controlled Chromium runs of a synthetic 420-heading / 105-page chapter, first pagination median was 39.0ms (v95.16) vs 28.6ms (v95.17), and 2,200 indexed section lookups took 198.5ms vs 2.6ms. This is not a prediction for other EPUBs or all devices. See `CHANGELOG.md` for detailed tests and known limitations.
+
+### New in v95.16
+
+Folio now reuses one recently read book's prepared chapters and already resolved illustration assets for a bounded 45-second interval after returning to the library. A byte-aware chapter LRU prevents large EPUBs from multiplying retained HTML memory, while oversized neighboring chapters are not speculatively prepared. Low-memory devices get stricter budgets. Very large CSS files now resolve external references through eight bounded asynchronous workers. Cancelling a superseded book opening no longer lets stale work overwrite newer navigation.
+
+In two independent 20-open Chromium benchmarks of a 12-chapter / 2,400-entry TOC synthetic EPUB, the median fell from 39.70ms to 36.25ms and from 40.30ms to 33.10ms, respectively, with repeat chapter parses eliminated. Performance depends strongly on the EPUB, available RAM, fonts and page geometry. Book data, reading positions, bookmarks, dictionary data and typographic layout remain compatible with v95.15; no migration is required.
+
+### New in v95.15
+
+Faster reopening and more predictable mobile quality typography: Folio builds its long contents list only when the drawer is opened, avoids rebuilding invisible book cards while reading, and preserves a 12px gap between adjacent one-column pages so that next-page glyphs never intrude into the intended punctuation-hanging gutter. Neither line wrapping nor font choices are changed by the gap fix. Existing EPUBs, bookmarks, preferences and library backups remain compatible.
+
+In a reproducible Chromium test (synthetic 12-chapter, 2,400-entry TOC), 16 repeated book openings had a median of 40.40ms versus 48.75ms with v95.14. Device, book and cache conditions can change these timings substantially. The known right-edge fragment issue from v95.14 is resolved in the tested 390px Chinese/English quality-wrap scenario. Refer to `CHANGELOG.md` for test coverage and limitations.
+
+### New in v95.14
+
+Faster reopening of previously imported EPUBs: Folio reuses validated stored EPUB navigation/package metadata, temporarily reuses one small ZIP directory in RAM (up to 24 MiB, 2-minute idle expiry), and does not wait for the book-history database update before showing the first page. These optimizations do **not** change the typography or the book data.
+
+The old library, existing reading progress and portable full-library ZIP backups work without any manual migration. On the first opening of an older saved EPUB, the metadata is rebuilt and saved for subsequent opens. Detailed measurements and limitations are in `CHANGELOG.md`.
+
+### New in v95.13
+
+Chapter font selection now reuses a small per-document Han text sample. This avoids repeated whole-chapter text flattening during initial font readiness and status checks, especially for very long EPUB chapters. No changes were made to line breaking, punctuation hanging, and stored reading data. See the v95.13 section of `CHANGELOG.md` for details and benchmarking limits.
+
+## Folio v95.13 — stable large-book contents, cheaper page-turn highlighting
+
+Long tables of contents are now indexed once per parsed book, and the 220-item
+contents panel is preserved when the book, search filter and entries are unchanged.
+Page turns only update the previously active and newly active TOC button instead
+of walking and toggling every entry. A single delegated click listener replaces
+one per button. Bookmarks similarly keep their DOM nodes unless displayed data
+changes, without sacrificing in-place add/remove support. This avoids unnecessary
+DOM churn, preserves panel scroll/focus, and keeps navigation responsive in books
+with thousands of headings. Neither typography nor EPUB source content changes.
+See [upgrade notes](UPGRADE_FROM_v95.11.md) and `tests/toc_dom_reuse_v9512.py`.
+
+## Folio v95.11 — faster EPUB resource discovery and indexed SVG spine detection
+
+Large chapters now resolve image and media URLs by visiting only elements with resource-related attributes, instead of all prose elements. The selector deliberately uses `[*|href]` to retain SVG `xlink:href` as well as ordinary EPUB links, and keeps the original resource-job order and rewrite logic. SVG spine media types are indexed once when the book opens, instead of re-scanning the entire OPF manifest on each chapter or speculative prefetch. Existing layout, typography, PWA storage, fallback and page navigation are untouched. See [upgrade notes](UPGRADE_FROM_v95.10.md), `tests/resource_scan_v9511.py`, and `tests/epub_resources_v9511.py`.
+
 ## Folio v95.10 — faster staged chapter preparation
 
-Speculative neighbor chapters now cache resolved content without assembling unused complete iframe HTML. Identical font CSS no longer causes an extra staged style rewrite, and semantic markup discovery avoids repeated token splits in long chapters. Quality typesetting, optical punctuation, original EPUB text and fallback guards are unchanged. See [upgrade notes](UPGRADE_FROM_v95.9.md) and `tests/chapter_prep_v9510.py`.
+Speculative neighbor chapters now cache resolved content without assembling unused complete iframe HTML. Identical font CSS no longer causes an extra staged style rewrite, and semantic markup discovery avoids repeated token splits in long chapters. Quality typesetting, optical punctuation, original EPUB text and fallback guards are unchanged. See `CHANGELOG.md` and `tests/chapter_prep_v9510.py`.
 
 Folio v95.9 — lower-cost occupied-page detection for Knuth–Plass text, with unchanged glyph geometry, line breaks and safety fallback. See `UPGRADE_FROM_v95.8.md` for the browser benchmarks and compatibility notes.
 
