@@ -1,3 +1,54 @@
+## v95.10 — 2026-11-19 — leaner chapter preparation and no redundant font-style restaging
+
+- **Avoid unused srcdoc assembly in speculative chapter prefetch.** The sanitizer, publisher-style rewrite, resource resolution and bounded chapter LRU still run in the background; `makeChapterDocument` now assembles a complete HTML string only for a foreground request. A prefetched chapter remains fully ready and receives the current typography when it becomes visible. In a six-chapter synthetic EPUB, viewing chapter 1 with two neighbors prefetched required 3 complete srcdoc assemblies before and 1 after; opening chapter 2 then makes exactly 1 additional assembly.
+- **Avoid identical staged font-CSS rewrites.** Before swapping the invisible staged iframe into view, compare the generated font CSS with the style element's current text, and replace it only if the user's settings changed during chapter preparation. Browser MutationObserver regression: normal initial chapter font-style rewrites 1 -> 0. The existing final layout/style sync and later font-change repagination remain intact.
+- **Reduce chapter semantic-markup processing.** Skip ordinary tag-only prose with zero semantic attributes, and parse EPUB/ARIA/CSS class tokens once per element instead of reparsing them for each semantic category. Preserves blockquote/pre/dl tag semantics, custom-prefixed EPUB types, and publisher styles. A standalone 4,600-paragraph synthetic DOM scan measured ~18.7 ms -> 3.7 ms median (one Chromium environment; not total chapter-load latency).
+- **Regression:** full Chromium viewports and exact pixel equality with v95.9 at 1130px and 390px on the supplied literary EPUB; real typography 390/24 Sans 66 optimized paragraphs/0 fallbacks, 830/16 Serif 69/0, 1130/20 Serif 69/0. Mixed Chinese/English, MathML, inline code and footnote cases passed at 390/830/1130px. No glyph placement, line-breaking, clipping, font choice or page-transition policies changed. Source book is not redistributed.
+- Add `tests/chapter_prep_v9510.py` and `tests/visual_chapter_v9510.py`; update app-shell cache `folio-shell-v95.10`. Full distribution remains at most 100 ZIP entries. End-to-end offline restart remains unverified.
+
+## v95.9 — 2026-11-19
+
+- Avoid repeated `textContent` concatenation and per-line `DOMRectList` enumeration when scanning nonfragmented optimized line boxes for occupied pages. Publisher content that can fragment still uses exact multi-rect scanning.
+- Cache computed visibility only within one occupancy scan for text nodes sharing a parent, preventing stale chapter/font visibility data.
+- Preserve identical Knuth–Plass output, text, links, optical ink safety, and zero validation fallbacks on tested real and synthetic EPUBs.
+- Add browser-real occupancy equivalence and timing regression (`tests/occupancy_fastpath_v959.py`) and update PWA cache version. Full ZIP contains 100 entries.
+
+## v95.8 — leaner optical ink validation and exact paragraph-end anchors
+
+- Check glyph-ink boundaries with **one punctuation selector query per optimized paragraph**, rather than one per line (including unmarked lines). Cache physical column geometry per marked line. Strict clipping and actual-ink safety limits remain unchanged.
+- Reuse one DOM Range through the mixed Chinese/Latin post-layout check and avoid materializing temporary arrays for CJK glue inspection. No text, line-breaking heuristics or glyph positions are intentionally changed.
+- Fix the last-text-node end anchor (`length`, not `length-1`) on return from quality mode, avoiding one-UTF-16-unit progress/caret drift at a paragraph boundary.
+- Add cumulative glyph validation counters across progressive batches; old per-batch statistics are retained.
+- Restore missing `tests/cjk_punctuation_v934.py` EPUB fixture so shipped clipping/punctuation tests can run. Add `tests/optical_batch_anchor_v958.py`, retiring two obsolete regression scripts to retain 100 ZIP entries.
+- Real Chromium regressions: six real Chinese literary EPUB font/width cases, 3 mixed English/Han/MathML/footnote cases, glyph ink/clipping tests, and 830→1130→390→1130px resize pass. 390px/24px black-sans: **66 optimized paragraphs, 767 lines, 0 native fallback**; 390/1130px textual line plans unchanged from v95.7. No claimed guaranteed whole-chapter speedup.
+- PWA app-shell cache `folio-shell-v95.8`. Private test book not packaged; deployed HTTPS offline restart unverified.
+
+## v95.7 — remove phantom terminal CJK letter-spacing at its source
+
+- Fix a structural disagreement between the Knuth–Plass gap model and Chromium’s `scrollWidth`: a dense Chinese run previously placed **all N glyphs** inside a tracked inline span and canceled the final tracking advance with a negative margin. Chromium can still count that non-painted terminal advance in the span’s scroll rect, triggering unnecessary positive-Han-glue compression after composition.
+- Render **the first N−1 glyphs** inside the tracked span and the final glyph as an ordinary text node. The N−1 intended interglyph gaps remain in the exact same positions, while the trailing phantom advance and negative compensation margin disappear. Keep individual spacer nodes for source runs with nonzero author-specified letter-spacing rather than overriding the author’s style.
+- Apply the correct N−1-gap accounting to the rare remaining genuine-overflow repair and to retargeted-width layouts. Do **not** weaken browser ink, clipping, punctuation or original-content checks; unsafe constructs still use native layout.
+- Real, separately supplied Chinese literature EPUB at 390px/24px Noto Sans SC: **28 → 0** post-composition Han-glue repairs, **66** quality paragraphs and **0** cumulative validation fallbacks, with identical text and line breaks to v95.6. The opening-quotation paragraphs still pass. Five additional literary configurations, 390/830/1130px mixed Chinese/English/MathML/code cases, and 830→1130→390→1130px resize pass.
+- Update Service Worker app shell to `folio-shell-v95.7`; PWA ZIP retains 100 entries. The user-provided book is not distributed. Performance gains beyond this narrow regression remain unproven; full browser offline restart remains unverified.
+
+## v95.6 — repair right-edge Han-glue overrun without misusing leading hanging quotation
+
+- In the 390px / 24px Noto Sans SC real-literature test, two first lines beginning with a hanging opening quote had ~3px right overflow; the local CJK positive-glue repair incorrectly treated the *leading* quote trim as a *trailing* overflow allowance and restored both paragraphs to native layout.
+- Repair a right-edge overflow using only the line's trailing optical trim. The existing bounded, batched positive CJK glue correction then retains both paragraphs after strict browser and glyph-ink validation. No line breaks or original EPUB nodes are sacrificed.
+- Add cumulative stats `validationFallbacksTotal`, `validationCheckedTotal`, `validationRepairLinesTotal` across progressive validation batches, while preserving the older per-batch fields.
+- Add `tests/opening_quote_fallback_v956.py`, using a separately supplied real EPUB. Six established real-book scenarios and mixed Han/Latin/MathML/footnote tests passed. Narrow 390px / 24px black type: **64 -> 66 optimized paragraphs; 2 -> 0 native fallbacks**. Results are scoped to the tested chapter and settings; fallback remains essential for genuinely unsafe markup/geometry.
+- Bump `folio-shell-v95.6`; keep exactly 100 ZIP entries without bundling the test EPUB or changing stored book data. End-to-end offline restart and universal-zero-fallback claims are not made.
+
+## v95.5 — deduplicated late-font repagination and accurate two-sided optical width regression
+
+- Coalesce `FontFaceSet.ready` and `loadingdone` notifications within one animation frame per chapter. One face completion no longer invalidates font/glyph measurement caches twice or restarts the media reflow debounce twice.
+- The `ready` path now **also** invalidates cached Knuth–Plass measurements: an EPUB font may become available through `ready` without a corresponding observable `loadingdone` callback. Keep `renderToken` and live-document guards to discard stale notifications from earlier chapters.
+- Preserve the existing staged-font readiness deadline and all column-edge safety checks. A separate experimental overlap of font loading and first layout was discarded because repeated cold-chapter benchmarks were unstable or slower.
+- Correct the historical MathML regression (`tests/kp_quality_math_v913.py`): the `Range` union extends both left and right when punctuation is legitimately hung; compare each range edge against its **own** measured CSS hanging allowance rather than treating the combined range width as illegal overflow. This is a correction to the test, NOT a change to the Knuth–Plass layout.
+- Add `tests/font_reflow_v955.py` exercising duplicate completion notification and a distinct later one on real Chromium at 390 and 1130px, preserving EPUB text and inline MathML. Previous v95.4 produces two invalidations for one burst; v95.5 produces one, and still observes later arrivals.
+- Verify unchanged real Chinese literary EPUB typography, mixed Han/English/MathML/code/footnotes, multi-column and resize stability. No new glyph style, punctuation shift, candidate-line cost, or extra Canvas measurement.
+- End-to-end cold load is **not** claimed faster: repeated wall-clock measurements are noisy; local Service Worker offline browser test remains blocked by the browser administrator policy (`ERR_BLOCKED_BY_ADMINISTRATOR`).
+
 ## v95.4 — real optical ink gutter + staged multicolumn layout preparation
 
 - Fix a paint-layer clipping cause that independent Knuth–Plass line width / Canvas ink checks could not see: the opaque reader paper masks overlaid the outer edge of safely hung glyphs. In quality mode, reserve a font-sized, margin-bounded 0–8px corridor inside the external gutter, keeping navigation touch targets safely outside.

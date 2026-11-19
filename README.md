@@ -1,3 +1,17 @@
+## Folio v95.10 — faster staged chapter preparation
+
+Speculative neighbor chapters now cache resolved content without assembling unused complete iframe HTML. Identical font CSS no longer causes an extra staged style rewrite, and semantic markup discovery avoids repeated token splits in long chapters. Quality typesetting, optical punctuation, original EPUB text and fallback guards are unchanged. See [upgrade notes](UPGRADE_FROM_v95.9.md) and `tests/chapter_prep_v9510.py`.
+
+Folio v95.9 — lower-cost occupied-page detection for Knuth–Plass text, with unchanged glyph geometry, line breaks and safety fallback. See `UPGRADE_FROM_v95.8.md` for the browser benchmarks and compatibility notes.
+
+Folio v95.8 — less work during optical punctuation validation, reusable mixed-script geometry Range and exact reading anchors at paragraph ends. The existing Knuth–Plass visual layout and ink safety limits remain unchanged; see `UPGRADE_FROM_v95.7.md`. The full PWA release contains 100 ZIP entries and restores the previously omitted synthetic punctuation test fixture.
+
+Folio v95.7 — eliminate phantom line-end CJK tracking: preserve natural glyph spacing while avoiding unnecessary post-layout compressions. The 390px/24px Noto Sans SC real-book regression now requires 0 instead of 28 positive-gap repairs, with unchanged line breaks and no new native fallbacks. See `UPGRADE_FROM_v95.6.md`.
+
+Folio v95.6 — retain two previously unnecessary native fallback paragraphs in narrow, large-font Chinese prose without weakening glyph visibility checks; see `UPGRADE_FROM_v95.5.md`.
+
+Folio v95.5 — coalesce duplicate late-font reflows and revalidate glyph metrics after font readiness; restore the MathML/optical-hanging test without weakening visual ink checks. See `UPGRADE_FROM_v95.4.md`.
+
 Folio v95.4 — preserve visible hanging punctuation through external reader masks, reduce avoidable staged-column CSS invalidations, and add reproducible cold-layout/resize diagnostics. See `UPGRADE_FROM_v95.3.md`.
 
 Folio v95.3 — faster Knuth–Plass solver hot paths, typed prefix geometry and per-document ink-metric caching; identical typography to v95.2. See `UPGRADE_FROM_v95.2.md` for tests and limitations.

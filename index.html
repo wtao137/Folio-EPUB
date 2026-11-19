@@ -2242,6 +2242,16 @@ function occupiedReaderSpreads(doc,body,step){
   const physical=Math.floor((rect.left-left+1)/step);
   if(physical>=0&&physical<100000)filled.add(physical);
  };
+ // A single chapter-layout walk sees static computed visibility. Inline
+ // mixed-script runs often share a parent element; caching only visibility
+ // (never glyph geometry) avoids repeated CSSOM reads, and is discarded
+ // immediately after this occupancy scan.
+ const visibilityByElement=new WeakMap();
+ const visible=element=>{
+  let ok=visibilityByElement.get(element);
+  if(ok===undefined){ok=view.getComputedStyle(element).visibility!=='hidden';visibilityByElement.set(element,ok)}
+  return ok;
+ };
  const range=doc.createRange(),walker=doc.createTreeWalker(body,
   NodeFilter.SHOW_TEXT|NodeFilter.SHOW_ELEMENT,{
    acceptNode(node){
@@ -2261,7 +2271,7 @@ function occupiedReaderSpreads(doc,body,step){
         !node.hasAttribute('data-folio-kp') &&
         !node.closest('[hidden],[aria-hidden="true"],[data-folio-popup-note="true"]') &&
         !node.querySelector('p,li,dd,blockquote,figcaption,ol,ul,dl,pre,table,math,svg,img,video,canvas,iframe,ruby,[data-folio-kp],[hidden],[aria-hidden="true"],[style*="visibility"]') &&
-        view.getComputedStyle(node).visibility!=='hidden'){
+        visible(node)){
        range.selectNodeContents(node);
        for(const rect of range.getClientRects())mark(rect);
        return NodeFilter.FILTER_REJECT;
@@ -2278,7 +2288,7 @@ function occupiedReaderSpreads(doc,body,step){
   if(!parent||parent.closest('script,style,noscript,[hidden],[aria-hidden="true"],[data-folio-popup-note="true"]'))continue;
   // Only text with visible glyphs can justify a page. Layout-only blocks
   // should not create a blank three-column spread.
-  if(view.getComputedStyle(parent).visibility==='hidden')continue;
+  if(!visible(parent))continue;
   range.selectNodeContents(node);
   for(const rect of range.getClientRects())mark(rect);
  }
@@ -2286,8 +2296,12 @@ function occupiedReaderSpreads(doc,body,step){
  // text. Its rectangle covers exactly one occupied column without counting
  // paragraph padding or artificial blank EPUB blocks.
  for(const line of body.querySelectorAll('[data-folio-kp]>.folio-kp-line')){
-  if(!line.textContent.trim() || line.closest('[hidden],[aria-hidden="true"]'))continue;
-  for(const rect of line.getClientRects())mark(rect);
+  // Every eligible KP line is nonempty and has one nowrap, nonfragmented
+  // block rectangle. getBoundingClientRect() avoids allocating a DOMRectList
+  // for every line, and checking its concatenated textContent would traverse
+  // hundreds of inline tracking spans again. Keep publisher-hidden lines out.
+  if(line.closest('[hidden],[aria-hidden="true"]'))continue;
+  mark(line.getBoundingClientRect());
  }
  // Illustrated/diagram-only EPUB chapters may have no normal text nodes.
  for(const el of body.querySelectorAll('img,svg,video,canvas,hr')){
@@ -3559,15 +3573,20 @@ async function bookStyles(path,priority='foreground'){
 // Marker attributes are cacheable and do not change the source EPUB or its links.
 function annotateFolioSpecialElements(root){
  const recognized=/^(?:quote|quotation|pull[-_]?quote|pullquote|epigraph|poem|poetry|verse|verseblock|stanza|sidebar|aside|letter|correspondence|attribution|signature|verse[-_]line|poem[-_]line)$/i;
- const token=(value,name)=>String(value||'').toLowerCase().split(/[\s,]+/).includes(name);
  let count=0;
  const nodes=root.querySelectorAll('blockquote,pre,dl,aside,section,article,div,figure,p,footer,cite,[role],[class]');
  for(const el of nodes){
   const tag=el.localName.toLowerCase();
+  // Plain prose with no semantic attributes cannot match any decoration.
+  // This is the overwhelmingly common case in long literary chapters.
+  if(!el.attributes.length&&tag!=='blockquote'&&tag!=='pre'&&tag!=='dl')continue;
   const epub=folioEpubType(el).toLowerCase();
   const role=(el.getAttribute('role')||'').toLowerCase();
   const classes=[...el.classList].map(c=>c.toLowerCase());
-  const has=(...names)=>names.some(n=>token(epub,n)||token(role,n)||classes.includes(n));
+  // Parse the semantic tokens once, instead of splitting their strings for
+  // every one of the eight style categories below.
+  const tokens=new Set([...epub.split(/[\s,]+/),...role.split(/[\s,]+/),...classes]);
+  const has=(...names)=>names.some(name=>tokens.has(name));
   let kind='';
   if(has('epigraph','doc-epigraph'))kind='epigraph';
   else if(has('pullquote','pull-quote','pull_quote','doc-pullquote'))kind='pullquote';
@@ -3613,7 +3632,7 @@ async function renderContent(path,chapterToken){
 }
 async function folioBuildChapterContent(path,chapterToken){
  const cached=state.chapterCache.get(path);
- if(cached){state.chapterCache.delete(path);state.chapterCache.set(path,cached);return makeChapterDocument(cached)}
+ if(cached){state.chapterCache.delete(path);state.chapterCache.set(path,cached);return chapterToken===null?null:makeChapterDocument(cached)}
  // Reuse low-priority background preparation when the user turns the page.
  const preparing=state.preparePromises.get(path);
  if(preparing){
@@ -3621,7 +3640,7 @@ async function folioBuildChapterContent(path,chapterToken){
   if(chapterToken!==null)folioPromotePendingZipAssets(state.zip);
   await preparing;
   const prepared=state.chapterCache.get(path);
-  if(prepared)return makeChapterDocument(prepared);
+  if(prepared)return chapterToken===null?null:makeChapterDocument(prepared);
  }
  const priority=chapterToken===null?'background':'foreground';
  const sourceZip=state.zip;
@@ -3806,7 +3825,10 @@ async function folioBuildChapterContent(path,chapterToken){
  const prepared={css,lang,bodyHTML:body?.innerHTML||'',fixedViewport:fixedLayout?fixedViewport:null};
  state.chapterCache.delete(path);state.chapterCache.set(path,prepared);
  if(state.chapterCache.size>6)state.chapterCache.delete(state.chapterCache.keys().next().value);
- return makeChapterDocument(prepared);
+ // Background preparation only needs the sanitized, asset-resolved chapter
+ // in chapterCache. Avoid assembling a full srcdoc string that would be
+ // thrown away: the foreground request produces it from the same cache.
+ return chapterToken===null?null:makeChapterDocument(prepared);
 }
 function makeChapterDocument(prepared){
   // A fixed-layout page is an authored canvas, not prose to be reflowed into
@@ -4940,7 +4962,10 @@ async function renderChapter(index,fraction=0,opts={}){
   const styles=readerStyleParts();
   const fontStyle=stagedDoc.getElementById('folioFontStyle');
   const readerStyle=stagedDoc.getElementById('folioReaderStyle');
-  if(fontStyle)fontStyle.textContent=compactReaderFontRules(styles.fonts);
+  // An identical style-text assignment still invalidates the staged iframe's
+  // font/style tree. Only write if appearance changed during loading.
+  const stagedFonts=compactReaderFontRules(styles.fonts);
+  if(fontStyle&&fontStyle.textContent!==stagedFonts)fontStyle.textContent=stagedFonts;
   if(readerStyle&&!readerStyle.textContent.startsWith(styles.layout)){
    readerStyle.textContent=styles.layout;
   }
@@ -5002,11 +5027,24 @@ async function renderChapter(index,fraction=0,opts={}){
   img.addEventListener('load',repaginate,{once:true});
   img.addEventListener('error',repaginate,{once:true});
  }
- // FontFaceSet.ready resolves immediately for chapters with no pending font
- // loads. Avoid needlessly repeating the entire layout in that case.
- if(doc.fonts?.status==='loading')doc.fonts.ready.then(repaginate).catch(()=>{});
- // Fonts may start loading after the initial pagination (e.g. remote CJK CSS).
- doc.fonts?.addEventListener?.('loadingdone',()=>{window.FolioKnuthPlass?.invalidate(doc);repaginate()});
+ // FontFaceSet.ready and loadingdone can describe the SAME font completion.
+ // Coalesce them into one animation-frame invalidation: a single late web
+ // font should never schedule two identical chapter reflows. Invalidate the
+ // glyph metric caches in BOTH cases, not just loadingdone; ready can be the
+ // only observed notification for some embedded EPUB font-face loads.
+ let fontReflowFrame=0;
+ const onChapterFontsSettled=()=>{
+  if(token!==state.renderToken||doc!==$('readerFrame').contentDocument||fontReflowFrame)return;
+  fontReflowFrame=requestAnimationFrame(()=>{
+   fontReflowFrame=0;
+   if(token!==state.renderToken||doc!==$('readerFrame').contentDocument)return;
+   window.FolioKnuthPlass?.invalidate(doc);
+   repaginate();
+  });
+ };
+ if(doc.fonts?.status==='loading')doc.fonts.ready.then(onChapterFontsSettled).catch(()=>{});
+ // Fonts may begin loading after the initial pagination (e.g. Google CJK CSS).
+ doc.fonts?.addEventListener?.('loadingdone',onChapterFontsSettled);
  paginateChapter(fraction,token);
  if(opts.location)folioRestoreSavedLocation(doc,opts.location);
  if(Number.isInteger(opts.noteOriginIndex)&&opts.noteOriginIndex>=0){
