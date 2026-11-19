@@ -130,14 +130,55 @@
  // incurs no template-cloning cost. The stored DOM is detached and bounded.
  const MAX_SAVED_LAYOUTS=3, MAX_SAVED_LAYOUT_CHARS=2400;
  const cacheByDoc = new WeakMap();
- const metricsCache = new Map();
- const inkMetricsCache = new Map();
+ // Canvas metrics belong to a live EPUB document, not a global font-family
+ // name. Two books may both declare 'BookSerif' with different @font-face.
+ const metricsCacheByDoc = new WeakMap();
+ const inkMetricsCacheByDoc = new WeakMap();
  const measureContexts = new WeakMap();
  // Reuse font-ink measurement across validated resizes of one EPUB document.
  // A WeakMap prevents retaining closed chapters, and invalidate() drops the
  // entries when the font/publisher styling changes.
  const paintMeasureByDoc = new WeakMap();
- const planCache = new Map();
+ // Plans contain font-dependent token objects; never reuse across EPUB
+ // documents which can resolve the same family to different embedded fonts.
+ const planCachesByDoc = new WeakMap();
+ // Long technical chapters can contain hundreds of different multi-line
+ // layouts. Limiting the cache by entry COUNT alone retained megabytes of
+ // token arrays and full paragraph strings, even if almost never reused.
+ // The estimate is intentionally conservative (JS objects are engine-specific)
+ // and the cache is an optimization only: eviction cannot change line breaks.
+ const MAX_PLAN_CACHE_BYTES = 4 * 1024 * 1024;
+ const MAX_PLAN_CACHE_ENTRIES = 128;
+ class BoundedPlanCache extends Map {
+  constructor(){super();this.bytes=0;this.weights=new Map();this.evictions=0;}
+  static estimate(key,choice){
+   const plan=choice?.best;
+   return Math.max(128, 2 * key.length +
+    (plan?._tokens?.length||0)*224 + (plan?.lines?.length||0)*320 +
+    (plan?.breakpoints?.length||0)*16 + 256);
+  }
+  get(key){
+   const value=super.get(key);
+   if(value!==undefined){super.delete(key);super.set(key,value);}
+   return value;
+  }
+  delete(key){
+   const bytes=this.weights.get(key);
+   if(bytes!==undefined){this.bytes-=bytes;this.weights.delete(key);}
+   return super.delete(key);
+  }
+  clear(){super.clear();this.weights.clear();this.bytes=0;}
+  set(key,value){
+   if(super.has(key))this.delete(key);
+   const weight=BoundedPlanCache.estimate(key,value);
+   if(weight>MAX_PLAN_CACHE_BYTES)return this;
+   super.set(key,value);this.weights.set(key,weight);this.bytes+=weight;
+   while(this.size>MAX_PLAN_CACHE_ENTRIES || this.bytes>MAX_PLAN_CACHE_BYTES){
+    this.delete(super.keys().next().value);this.evictions++;
+   }
+   return this;
+  }
+ }
  // Pretext-inspired two-stage pipeline: tokenize / locate legal word breaks
  // once per *text*, independently of fonts and column widths. All actual glyph
  // widths remain measured with the browser's font engine at layout time.
@@ -146,8 +187,44 @@
  // repagination; no DOM measurement is performed by the Knuth-Plass DP.
  let measuredParagraphCache = new WeakMap();
  let eligibilityCache = new WeakMap();
- const preparedTextCache = new Map();
- const MAX_PREPARED_TEXT = 440;
+ // Reuse measured token geometry between identical, independently styled
+ // paragraphs *within the same EPUB document*. The weak document key avoids
+ // cross-book @font-face collisions; the small bounded map avoids retaining
+ // large books. Styled DOM run nodes are NEVER shared between paragraphs.
+ const measuredTemplatesByDoc = new WeakMap();
+ const MAX_MEASURED_TEMPLATES=48, MAX_MEASURED_TEMPLATE_CHARS=1500;
+ const MAX_TEMPLATE_CACHE_BYTES=2*1024*1024;
+ // Preserve tokenization results only while the owning chapter is alive.
+ // This prevents a closed copyrighted chapter lingering in a global LRU.
+ const preparedTextCachesByDoc = new WeakMap();
+ const MAX_PREPARED_TEXT = 256;
+ const MAX_PREPARED_TEXT_BYTES=3*1024*1024;
+ // Entry-count bounds alone do not prevent an EPUB with many distinct, very
+ // long paragraphs from retaining tens of megabytes of duplicated token
+ // objects. This cache tracks a conservative per-entry cost and evicts the
+ // least recently used items; no retained entry affects layout correctness.
+ class BoundedReusableCache extends Map {
+  constructor(maxEntries,maxBytes,estimate){super();this.maxEntries=maxEntries;
+   this.maxBytes=maxBytes;this.estimate=estimate;this.bytes=0;this.weights=new Map();this.evictions=0;}
+  get(key){const value=super.get(key);
+   if(value!==undefined){super.delete(key);super.set(key,value);}
+   return value;}
+  delete(key){const weight=this.weights.get(key);
+   if(weight!==undefined){this.bytes-=weight;this.weights.delete(key);}
+   return super.delete(key);}
+  clear(){super.clear();this.weights.clear();this.bytes=0;}
+  set(key,value){if(super.has(key))this.delete(key);
+   const weight=this.estimate(key,value);
+   if(weight>this.maxBytes)return this;
+   super.set(key,value);this.weights.set(key,weight);this.bytes+=weight;
+   while(this.size>this.maxEntries||this.bytes>this.maxBytes){
+    this.delete(super.keys().next().value);this.evictions++;}
+   return this;}
+ }
+ // Every character in this deliberately narrow BMP repertoire is a single
+ // grapheme. If a paragraph includes supplementary Han, combining marks,
+ // emoji, ZWJ or arbitrary scripts, retain Intl.Segmenter's exact behavior.
+ const FAST_SIMPLE_HAN = /^[\u3400-\u9fff\uf900-\ufaff\x20-\x7e\t\n\r\f，。、…！？；：‘’“”（）《》【】「」『』—·﹐﹑﹒]+$/u;
  const HAS_SEGMENTER = typeof Intl !== 'undefined' && !!Intl.Segmenter;
  const graphemeSegmenter = HAS_SEGMENTER ? new Intl.Segmenter('und',{granularity:'grapheme'}) : null;
  const own = (item,prop) => Object.prototype.hasOwnProperty.call(item,prop);
@@ -190,7 +267,22 @@
    }
    return result;
   }
+  // The Latin-only tokenizer above is already linear. For ordinary BMP
+  // Han plus Latin prose, the grapheme iterator needlessly creates hundreds
+  // of SegmentData objects; a simple code-unit walk is exactly equivalent.
   const out=[];
+  if(FAST_SIMPLE_HAN.test(text)){
+   for(let i=0;i<text.length;i++){
+    const part=text[i],kind=cls(part),prev=out[out.length-1];
+    if(prev && kind==='western' && prev.kind==='western' && /[-‐‑–]$/u.test(prev.text) && part!=='-'){
+     out.push({text:part,start:i,end:i+1,kind,width:0,stretch:0,shrink:0,afterStretch:0,afterShrink:0});continue;
+    }
+    if(prev && kind!=='cjk' && kind!=='math' && prev.kind===kind && !(/[-‐‑–]$/u.test(part))){
+     prev.text+=part;prev.end=i+1;
+    }else out.push({text:part,start:i,end:i+1,kind,width:0,stretch:0,shrink:0,afterStretch:0,afterShrink:0});
+   }
+   return out;
+  }
   for(const unit of graphemes(text)){
    let kind=cls(unit.part);
    // Never expose a soft-hyphen or joiner as an independent CJK line boundary.
@@ -205,17 +297,17 @@
   }
   return out;
  }
- function preparedTokens(text,hyphenator){
+ function preparedTokens(text,hyphenator,doc){
+  let preparedTextCache=preparedTextCachesByDoc.get(doc);
+  if(!preparedTextCache){preparedTextCache=new BoundedReusableCache(
+   MAX_PREPARED_TEXT,MAX_PREPARED_TEXT_BYTES,(k,v)=>2*k.length+152*v.length+128);
+   preparedTextCachesByDoc.set(doc,preparedTextCache);}
   const hasHyphenator=!!hyphenator?.points;
   const key=(hasHyphenator?'hyphen|':'plain|')+text;
   let prepared=preparedTextCache.get(key);
   if(!prepared){
    const base=tokenize(text);
    prepared=hasHyphenator?discretionaryTokens(base,hyphenator):base;
-   if(preparedTextCache.size>=MAX_PREPARED_TEXT){
-    // Bounded insertion-order cache; no persistent stored book content.
-    const firstKey=preparedTextCache.keys().next().value;preparedTextCache.delete(firstKey);
-   }
    preparedTextCache.set(key,prepared);
   }
   // Reflow can mutate computed widths and glue; never mutate cached tokens.
@@ -426,6 +518,14 @@
   const additionalInkHang=basicEnd>0 && tail.opticalExtra>0 && coreWidth>=goal-fontSize*.34
     ?tail.opticalExtra:0;
   const opticalEnd=basicEnd+additionalInkHang;
+  // Optical *ink* alignment, not advance-box alignment. The last mark's
+  // ink may remain well inside the justified margin after hanging its blank
+  // bearing: visually a normal Han ideograph then appears to protrude.
+  // Paint only the remaining empty bearing toward the edge, never stretch or
+  // shift the Han glyph, and cap to 0.32em for a natural pause-mark gap.
+  // Relative positioning changes paint but not Knuth-Plass line measures.
+  const paintShift=opticalEnd>0 && tail.opticalInkRight>opticalEnd
+   ?Math.min(fontSize*.32,Math.max(0,tail.opticalInkRight-opticalEnd-fontSize*.075)):0;
   const opticalChar=opticalEnd>.02?(tail.opticalChar||''):'';
   const naturalWidth=coreWidth-additionalInkHang;
   // Even maximum measured punctuation contraction cannot make this line fit.
@@ -486,7 +586,7 @@
     if(ratio>.77)properties.badness+=125*Math.pow((ratio-.77)/.23,2);
    }
    return {...properties,tracking,glyphCount,width,missing,spaces,naturalSpace,
-    cjkGaps,goal,opticalEnd,opticalChar,punctStart,
+    cjkGaps,goal,opticalEnd,paintShift,opticalChar,punctStart,
     punctStartChar:punctStart>0?first(tokens[start].text):'',fontSize,
     punctRatio:ratio,punctCompression:punctFixed+punctCapacity*ratio,punctCapacity,
     bracketRatio:edgeRatio,bracketCompression:bracketCapacity*edgeRatio,bracketCapacity};
@@ -508,7 +608,13 @@
   // Avoid allocating candidates and evaluating the same ratio twice. This
   // is a hot path: KP explores many candidate breaks per long Han paragraph.
   let best=null;
-  for(let i=0;i<4;i++){
+  // Without any compressible punctuation the four trial ratios produce
+  // identical glyph widths, glue, demerits and break decisions. In long
+  // prose this occurs for the majority of candidate lines: evaluate the
+  // full mixed-script glue model only once instead of four times. Keep
+  // all four trials whenever either kind of punctuation contraction exists.
+  const ratioTrials=punctCapacity<=0 && bracketCapacity<=0 ? 1 : 4;
+  for(let i=0;i<ratioTrials;i++){
    // A ragged final line has no obligation to pack punctuation tightly.
    // Try an airy setting before the normal pair compression; retain the
    // tighter option only if the natural ink widths cannot fit the column.
@@ -583,64 +689,27 @@
   }
   return cost;
  }
- function optimize(tokens,width,firstIndent=0,options={}){
-  if(tokens.length===0)return null;
+ // Resumable Knuth–Plass solver. The pure DP owns no DOM nodes; it may be
+ // paused between candidate breaks and continued on later idle callbacks.
+ // Its traversal order, fitness classes, pruning and tie breaking exactly
+ // match the previous synchronous optimizer. Each job is scoped to one EPUB
+ // document and discarded on typography, font, or chapter invalidation.
+ function beginOptimization(tokens,width,firstIndent=0,options={}){
+  if(!tokens.length)return null;
   const decomposition=options.geometry?.decomposition||nodesFor(tokens);
   const {breaks}=decomposition,prefix=options.geometry?.prefix||summarize(tokens);
   if(breaks.length<2)return null;
-  const fitGroups=4,maxBacktrack=144;
-  // Guard against one pathological paragraph monopolizing the chapter budget.
-  // The deadline is consulted only between DP nodes (pure computation, no DOM).
-  // The native CSS-justified paragraph remains readable if this budget expires.
-  const clock=typeof performance!=='undefined'&&performance.now?()=>performance.now():()=>Date.now();
-  const deadline=clock()+Math.max(20,options.timeBudgetMs??48);
-  // Justification is only considered for ratios <= 1.55, so a tolerance
-  // of 3 already admits every eligible line. Retrying with 12/infinity
-  // repeated identical DP work for paragraphs that could not be typeset.
-  const attempts=[3];
-  for(const tolerance of attempts){
-   const dp=Array.from({length:breaks.length},()=>[null,null,null,null]);
-   const live=new Uint8Array(breaks.length);live[0]=1;
-   dp[0][1]={cost:0,prev:-1,fit:1,flagged:false,target:width};
-   for(let k=1;k<breaks.length;k++){
-    if((k&7)===0 && clock()>deadline)return null;
-    const b=breaks[k],final=k===breaks.length-1;
-    for(let j=k-1;j>=0&&k-j<=maxBacktrack;j--){
-     const left=breaks[j];
-     // Width is pruned using the actual trimmed line metrics below. A
-     // pre-trim calculation incorrectly rejected a valid break after spaces.
-     const rawWidth=prefix.w[b.i]-prefix.w[left.i];
-     if(rawWidth>width*1.22+35 && j<k-1){
-      const contraction=(prefix.punctCap[b.i]-prefix.punctCap[left.i])+
-       (prefix.punctFixed[b.i]-prefix.punctFixed[left.i])+
-       (prefix.edgeCap[b.i]-prefix.edgeCap[left.i])+
-       (prefix.sh[b.i]-prefix.sh[left.i]);
-      if(rawWidth-contraction>width*1.22+35)break;
-     }
-     // Keep width pruning ahead of reachability: if an overfull candidate
-     // proves no earlier break can fit, we can stop the backwards scan.
-     // A Uint8Array is cheaper than probing four dynamic-program states.
-     if(!live[j])continue;
-     const reachable=dp[j];
-     const goal=width-(j===0?firstIndent:0);
-     const line=lineMetrics(tokens,prefix,left.i,b.i,goal,final,options.align||'start',options.fontSize||20,options.allowTracking!==false,j===0?firstIndent:0);
-     if(!line || !Number.isFinite(line.badness))continue;
-     if(!final && line.justify && line.ratio>tolerance)continue;
-     const nextFit=fitness(line);
-     for(let f=0;f<fitGroups;f++){
-      const previous=reachable[f];if(!previous)continue;
-      const cost=score(previous,line,b,final);
-      const existing=dp[k][nextFit];
-      if(!existing || cost<existing.cost){
-       dp[k][nextFit]={cost,prev:j,prevFit:f,fit:nextFit,flagged:b.flagged,hyphenStreak:b.flagged?(previous.hyphenStreak||0)+1:0,target:width,ratio:line.ratio,metrics:line};
-       live[k]=1;
-      }
-     }
-    }
-   }
+  const dp=Array.from({length:breaks.length},()=>[null,null,null,null]);
+  const live=new Uint8Array(breaks.length);live[0]=1;
+  dp[0][1]={cost:0,prev:-1,fit:1,flagged:false,target:width};
+  return {tokens,width,firstIndent,options,decomposition,breaks,prefix,dp,live,
+   k:1,j:0,steps:0,slices:0,startedAt:Date.now()};
+ }
+ function finishOptimization(task){
+  const {tokens,decomposition,breaks,dp}=task;
    const finalIndex=breaks.length-1;
    const best=dp[finalIndex].filter(Boolean).sort((a,b)=>a.cost-b.cost)[0];
-   if(!best)continue;
+   if(!best)return null;
    const lines=[];let index=finalIndex,node=best;
    while(index>0){
     if(!node||node.prev<0)return null;
@@ -649,7 +718,7 @@
      end:tokens[breaks[index].i-1]?.end||0,ratio:node.ratio,justify:node.metrics?.justify||false,
      width:node.metrics?.width,goal:node.metrics?.goal,spaceCount:node.metrics?.spaces||0,naturalSpace:node.metrics?.naturalSpace||0,badness:node.metrics?.badness,cost:node.cost,
      justifyMode:node.metrics?.justifyMode||'none',wordSpacing:node.metrics?.wordSpacing||0,
-     cjkSpacing:node.metrics?.cjkSpacing||0,tracking:node.metrics?.tracking||0,glyphCount:node.metrics?.glyphCount||0,opticalEnd:node.metrics?.opticalEnd||0,opticalChar:node.metrics?.opticalChar||'',punctStart:node.metrics?.punctStart||0,punctStartChar:node.metrics?.punctStartChar||'',punctRatio:node.metrics?.punctRatio||0,punctCompression:node.metrics?.punctCompression||0,bracketRatio:node.metrics?.bracketRatio||0,bracketCompression:node.metrics?.bracketCompression||0,
+     cjkSpacing:node.metrics?.cjkSpacing||0,tracking:node.metrics?.tracking||0,glyphCount:node.metrics?.glyphCount||0,opticalEnd:node.metrics?.opticalEnd||0,paintShift:node.metrics?.paintShift||0,opticalChar:node.metrics?.opticalChar||'',punctStart:node.metrics?.punctStart||0,punctStartChar:node.metrics?.punctStartChar||'',punctRatio:node.metrics?.punctRatio||0,punctCompression:node.metrics?.punctCompression||0,bracketRatio:node.metrics?.bracketRatio||0,bracketCompression:node.metrics?.bracketCompression||0,
      hyphenate:index!==finalIndex && !!tokens[breaks[index].i-1]?.hyphenBreak});
     const prevIndex=node.prev;
     node=dp[prevIndex][node.prevFit];index=prevIndex;
@@ -657,9 +726,67 @@
    lines.reverse();
    // A paragraph containing only one achievable line needs no DOM changes.
    if(lines.length<2)return null;
-   return {lines,breakpoints:breaks.length,cost:best.cost,tolerance,nodes:decomposition.nodes.length,_tokens:tokens};
+   return {lines,breakpoints:breaks.length,cost:best.cost,tolerance:3,nodes:decomposition.nodes.length,_tokens:tokens};
+
+ }
+ function advanceOptimization(task,budgetMs=8){
+  if(!task)return {finished:true,plan:null};
+  const {tokens,width,firstIndent,options,breaks,prefix,dp,live}=task;
+  const clock=typeof performance!=='undefined'&&performance.now?()=>performance.now():()=>Date.now();
+  const deadline=clock()+Math.max(.5,budgetMs);
+  let examined=0;
+  while(task.k<breaks.length){
+   const k=task.k,b=breaks[k],final=k===breaks.length-1;
+   for(let j=task.j;j>=0&&k-j<=144;j--){
+    task.j=j-1; // checkpoint AFTER this candidate, never score it twice
+    const left=breaks[j];
+    const rawWidth=prefix.w[b.i]-prefix.w[left.i];
+    if(rawWidth>width*1.22+35 && j<k-1){
+     const contraction=(prefix.punctCap[b.i]-prefix.punctCap[left.i])+
+      (prefix.punctFixed[b.i]-prefix.punctFixed[left.i])+
+      (prefix.edgeCap[b.i]-prefix.edgeCap[left.i])+
+      (prefix.sh[b.i]-prefix.sh[left.i]);
+     if(rawWidth-contraction>width*1.22+35){task.j=-1;break;}
+    }
+    if(live[j]){
+     const reachable=dp[j];
+     const goal=width-(j===0?firstIndent:0);
+     const line=lineMetrics(tokens,prefix,left.i,b.i,goal,final,options.align||'start',options.fontSize||20,options.allowTracking!==false,j===0?firstIndent:0);
+     if(line && Number.isFinite(line.badness) && (final || !line.justify || line.ratio<=3)){
+      const nextFit=fitness(line);
+      for(let f=0;f<4;f++){
+       const previous=reachable[f];if(!previous)continue;
+       const cost=score(previous,line,b,final);
+       const existing=dp[k][nextFit];
+       if(!existing||cost<existing.cost){
+        dp[k][nextFit]={cost,prev:j,prevFit:f,fit:nextFit,flagged:b.flagged,
+         hyphenStreak:b.flagged?(previous.hyphenStreak||0)+1:0,
+         target:width,ratio:line.ratio,metrics:line};live[k]=1;
+       }
+      }
+     }
+    }
+    task.steps++;examined++;
+    // Check time inside one long break-node, not only at its boundary.
+    // Always complete >= one candidate per call, so tiny idle deadlines
+    // cannot starve a partially solved paragraph.
+    if((examined&15)===0 && clock()>=deadline){
+     task.slices++;
+     return {finished:false,task,examined};
+    }
+   }
+   task.k++;task.j=task.k-1;
   }
-  return null;
+  task.slices++;
+  return {finished:true,plan:finishOptimization(task),examined};
+ }
+ function optimize(tokens,width,firstIndent=0,options={}){
+  const task=beginOptimization(tokens,width,firstIndent,options);
+  if(!task)return null;
+  // Preserve the former deadline policy for the initial synchronous pass:
+  // an unfinished paragraph stays in native CSS text until idle refinement.
+  const response=advanceOptimization(task,Math.max(20,options.timeBudgetMs??48));
+  return response.finished?response.plan:null;
  }
  function refitExistingBreaks(tokens,previous,width,indent,options){
   // A few CSS pixels of width change usually do not justify rearranging
@@ -686,7 +813,7 @@
    lines.push({...prior,ratio:metrics.ratio,justify:metrics.justify,width:metrics.width,goal,
     spaceCount:metrics.spaces,naturalSpace:metrics.naturalSpace,badness:metrics.badness,
     justifyMode:metrics.justifyMode,wordSpacing:metrics.wordSpacing,
-    cjkSpacing:metrics.cjkSpacing,tracking:metrics.tracking,glyphCount:metrics.glyphCount,opticalEnd:metrics.opticalEnd||0,opticalChar:metrics.opticalChar||'',punctStart:metrics.punctStart||0,punctStartChar:metrics.punctStartChar||'',punctRatio:metrics.punctRatio||0,punctCompression:metrics.punctCompression||0,bracketRatio:metrics.bracketRatio||0,bracketCompression:metrics.bracketCompression||0});
+    cjkSpacing:metrics.cjkSpacing,tracking:metrics.tracking,glyphCount:metrics.glyphCount,opticalEnd:metrics.opticalEnd||0,paintShift:metrics.paintShift||0,opticalChar:metrics.opticalChar||'',punctStart:metrics.punctStart||0,punctStartChar:metrics.punctStartChar||'',punctRatio:metrics.punctRatio||0,punctCompression:metrics.punctCompression||0,bracketRatio:metrics.bracketRatio||0,bracketCompression:metrics.bracketCompression||0});
   }
   return {lines,breakpoints:previous.breakpoints||0,tolerance:3,
    _tokens:tokens,stable:true};
@@ -812,6 +939,10 @@
   return {text:all,runs};
  }
  function makeMeasurer(doc,runs){
+  let metricsCache=metricsCacheByDoc.get(doc);
+  if(!metricsCache){metricsCache=new Map();metricsCacheByDoc.set(doc,metricsCache);}
+  let inkMetricsCache=inkMetricsCacheByDoc.get(doc);
+  if(!inkMetricsCache){inkMetricsCache=new Map();inkMetricsCacheByDoc.set(doc,inkMetricsCache);}
   let ctx=measureContexts.get(doc);
   if(!ctx){
    // OffscreenCanvas does not insert even a detached element into the DOM.
@@ -821,6 +952,10 @@
   }
   if(!ctx)return null;
   let lastFont='',lastKerning='';
+  // When measurement resumes after an idle yield, another paragraph may
+  // have used this document's Canvas context. Force font/kerning rebind on
+  // each slice, even if this measurer remembers the previous run's font.
+  const reset=()=>{lastFont='';lastKerning='';};
   const measure=(t,run)=>{
    const key=`${run.font}|${run.kerning}|${run.letterSpacing}|${run.wordSpacing}|${t}`;
    const cached=metricsCache.get(key);if(cached!==undefined)return cached;
@@ -843,6 +978,7 @@
    }
    return width;
   };
+  get.reset=reset;
   get.ink=(offset,letter)=>{
    let lo=0,hi=runs.length;
    while(lo<hi){const mid=(lo+hi)>>1;if(runs[mid].end<=offset)lo=mid+1;else hi=mid;}
@@ -880,14 +1016,22 @@
   };
   return get;
  }
- function populateWidths(tokens,text,runs,doc,autoSpace=false,language=''){
-  const measure=makeMeasurer(doc,runs);if(!measure)return false;
+ function populateWidths(tokens,text,runs,doc,autoSpace=false,language='',startToken=0,endToken=tokens.length,session=null){
+  const measure=session?.measure||makeMeasurer(doc,runs);if(!measure)return false;
+  // The same OffscreenCanvas may be used by another paragraph between idle
+  // batches. Rebind its font on the first cache miss of each resumed batch.
+  if(session)measure.reset();
   const fontSize=runs[0]?.fontSize||20;
-  const traditionalChinese=/^zh[-_]?(?:Hant|TW|HK|MO)(?:[-_]|$)/i.test(language);
-  const chinesePunctuation=!/^(?:ja|ko)(?:[-_]|$)/i.test(language) &&
+  const traditionalChinese=session?session.traditionalChinese:
+   /^zh[-_]?(?:Hant|TW|HK|MO)(?:[-_]|$)/i.test(language);
+  const chinesePunctuation=session?session.chinesePunctuation:
+   !/^(?:ja|ko)(?:[-_]|$)/i.test(language) &&
    (/^zh(?:[-_]|$)/i.test(language)||/\p{Script=Han}/u.test(text));
   let activeFontRun=0;
-  for(let i=0;i<tokens.length;i++){
+  // Each token's Canvas/ink geometry depends only on its run and immediate
+  // neighbour, so measuring [startToken,endToken) is identical to the full
+  // pass. This lets idle refinement yield *before* the DP stage as well.
+  for(let i=startToken;i<Math.min(endToken,tokens.length);i++){
    const t=tokens[i];
    while(activeFontRun<runs.length-1 && runs[activeFontRun].end<=t.start)activeFontRun++;
    // A source sequence of spaces/tabs/newlines is one rendered space in
@@ -917,11 +1061,15 @@
     // part of actual punctuation ink may project outside the measure. Closing
     // brackets/quotes get much less allowance than commas and periods.
     // Do not scale/reposition glyphs or apply this to Western punctuation.
+    // Keep the actual trailing ink bearing for optical edge alignment.
+    // A fullwidth comma's ink can stop 10-15px short of its advance edge;
+    // layout-margin trimming alone cannot make its visible ink align.
+    t.opticalInkRight=ink&&!traditionalChinese?ink.right:0;
     const inkHang=ink&&!traditionalChinese?HANG_END_INK.get(edge)||0:0;
     const maxTotal=inkHang>0?Math.min(ink.advance*.92,
       ink.right+localEm*inkHang,localEm*.91):t.opticalEnd;
     t.opticalExtra=Math.max(0,maxTotal-t.opticalEnd);
-   }else {t.opticalEnd=0;t.opticalExtra=0;}
+   }else {t.opticalEnd=0;t.opticalExtra=0;t.opticalInkRight=0;}
 
    if(t.kind==='space'){
     t.stretch=Math.max(1,t.width*.65);
@@ -993,6 +1141,41 @@
   }
   return true;
  }
+ // The initial Canvas measurement of a long paragraph used to run as one
+ // uninterrupted task even after v95.21 made its DP phase cooperative.
+ // Measure at most a small contiguous token batch before checking time. The
+ // same populateWidths() function is used by both the normal and the sliced
+ // paths; punctuation optical geometry and original source stay identical.
+ function advanceMeasurement(task,budgetMs=6){
+  // Build the measuring closure once per paragraph rather than once for each
+  // 32-token idle batch. The closure keeps run boundaries and per-document
+  // glyph maps; all source-dependent geometry remains exactly measured.
+  if(!task.session){
+   const measure=makeMeasurer(task.doc,task.runs);
+   if(!measure)return {finished:true,failed:true};
+   task.session={measure,
+    traditionalChinese:/^zh[-_]?(?:Hant|TW|HK|MO)(?:[-_]|$)/i.test(task.language),
+    chinesePunctuation:!/^(?:ja|ko)(?:[-_]|$)/i.test(task.language) &&
+      (/^zh(?:[-_]|$)/i.test(task.language)||/\p{Script=Han}/u.test(task.text))};
+  }
+  const clock=typeof performance!=='undefined'&&performance.now?()=>performance.now():()=>Date.now();
+  const deadline=clock()+Math.max(.5,Number(budgetMs)||6);
+  const {tokens,text,runs,doc,autoSpace,language}=task;
+  let blocks=0;
+  while(task.cursor<tokens.length){
+   const end=Math.min(tokens.length,task.cursor+32);
+   if(!populateWidths(tokens,text,runs,doc,autoSpace,language,task.cursor,end,task.session))
+    return {finished:true,failed:true};
+   task.cursor=end;blocks++;
+   // Do not schedule a redundant idle turn after the final batch.
+   if(task.cursor>=tokens.length)break;
+   // The token loop is deterministic. Complete a full 32-token batch before
+   // yielding; never return without making progress even on a busy main thread.
+   if(clock()>=deadline){task.slices++;return {finished:false,measured:task.cursor};}
+  }
+  task.slices++;
+  return {finished:true,measured:task.cursor};
+ }
  // Range.cloneContents() drops an inline ancestor when a line begins and
  // ends in one of its text nodes. That silently changes Latin words from the
  // English font to the Chinese fallback! Clone the exact *ancestor chain*
@@ -1062,14 +1245,20 @@
        IDEOGRAPH.test(source[boundary-1]) && IDEOGRAPH.test(source[boundary])){
       count++;boundary++;idx++;
      }
-     if(count>=3){
+     if(count>=3 && Math.abs(run.letterSpacing||0)<.001){
       const begin=local-1;
       if(begin>at)target.appendChild(doc.createTextNode(source.slice(at,begin)));
       const cluster=doc.createElement('span');cluster.className='folio-kp-cjk-track';
+      // A tracked inline span with N ideographs paints an unwanted EXTRA
+      // letter-spacing after glyph N. Chromium includes that invisible final
+      // advance in scrollWidth even if margin-inline-end cancels line layout.
+      // Track only the first N-1 glyphs, letting their *last* spacing form
+      // the genuine gap before an ordinary final glyph. Same visual positions
+      // and N-1 elastic spaces, but no phantom terminal overflow or repair.
       cluster.style.letterSpacing=width.toFixed(4)+'px';
-      cluster.style.marginInlineEnd=(-width).toFixed(4)+'px';
-      cluster.textContent=source.slice(begin,boundary);
+      cluster.textContent=source.slice(begin,boundary-1);
       target.appendChild(cluster);
+      target.appendChild(doc.createTextNode(source.slice(boundary-1,boundary)));
       at=boundary;gapIndex+=count;continue;
      }
     }
@@ -1099,7 +1288,10 @@
    if(n.length>remaining)return {doc:p.ownerDocument,node:n,offset:remaining};
    remaining-=n.length;tail=n;
   }
-  return tail?{doc:p.ownerDocument,node:tail,offset:Math.max(0,tail.length-1)}:null;
+  // A caret exactly after the paragraph's last grapheme is a valid DOM
+  // position. Returning length-1 quietly moves reading/search anchors one
+  // UTF-16 unit backward (or into a surrogate pair) after a quality toggle.
+  return tail?{doc:p.ownerDocument,node:tail,offset:tail.length}:null;
  }
  function restore(doc,anchor){
   const state=cacheByDoc.get(doc);
@@ -1114,44 +1306,93 @@
   state.entries.clear();state.deferredPending=[];state.refinement=null;state.key='';state.invalid=true;
   return memory?restoreAnchor(memory)||anchor:anchor;
  }
- function prepareMeasuredParagraph(p,doc,preparationKey,autoSpace,sourceRoot=null){
+ function prepareMeasuredParagraph(p,doc,preparationKey,autoSpace,sourceRoot=null,cooperative=null){
   const old=measuredParagraphCache.get(p);
   // The original text nodes are reattached by restore(). A missing first
   // original node means an external EPUB mutation invalidated this entry.
-  // On width-only reflow, original source nodes are held in a private,
-  // detached element. The reader cannot mutate that subtree through the
-  // visible DOM. Trust node identity instead of concatenating hundreds of
-  // live line text nodes only to compare sourceText on every resize.
+  // On width-only reflow original source nodes remain in a detached element.
   const sourceStable=!!sourceRoot && old?.runs?.length && sourceRoot.contains(old.runs[0].node);
   if(old && old.key===preparationKey && old.autoSpace===autoSpace &&
       (sourceStable || (old.sourceText===p.textContent &&
        (!old.runs.length || p.contains(old.runs[0].node))))){
    return {...old,cached:true};
   }
+  const awaiting=cooperative?.pending?.kind==='measurement'?
+   cooperative.pending.task:null;
+  // The page-layout key is checked by the idle coordinator before continuing.
+  // Also check paragraph identity and preparation key here so a stale
+  // continuation cannot be resumed after a different font/run is selected.
+  const resumed=awaiting?.paragraph===p && awaiting.preparationKey===preparationKey &&
+   awaiting.autoSpace===autoSpace && awaiting.sourceText===p.textContent ? awaiting:null;
+  if(resumed){
+   const progress=advanceMeasurement(resumed,cooperative.budgetMs);
+   if(!progress.finished)return {preparationPending:true,
+    continuation:{kind:'measurement',task:resumed}};
+   if(progress.failed)return null;
+   const geometry={decomposition:nodesFor(resumed.tokens),prefix:summarize(resumed.tokens)};
+   const prepared={key:preparationKey,autoSpace,text:resumed.text,runs:resumed.runs,
+    tokens:resumed.tokens,geometry,signature:resumed.signature,sourceText:resumed.sourceText};
+   measuredParagraphCache.set(p,prepared);
+   if(resumed.templateKey){
+    const templates=resumed.templates;
+    templates.set(resumed.templateKey,{tokens:resumed.tokens,geometry});
+   }
+   return {...prepared,cached:false,templateReused:false};
+  }
   const {text,runs}=getRuns(p,doc.defaultView);
   if(!runs.length || !text.trim())return null;
   const language=(p.closest('[lang]')?.getAttribute('lang')||
    doc.documentElement.getAttribute('lang')||doc.documentElement.getAttribute('xml:lang')||'').trim();
-  // Never apply an American-English hyphenation dictionary to a known
-  // non-English European language. Han/Latin mixed chapters may contain
-  // English words, for which dictionary opportunities remain available.
   const englishPatterns=!language || /^(en|zh|ja|ko)(?:[-_]|$)/i.test(language);
   const hyphenator=englishPatterns && typeof window!=='undefined'?window.FolioHyphenation:null;
-  const tokens=preparedTokens(text,hyphenator);
-  if(tokens.length<3||tokens.length>MAX_TOKENS)return null;
-  if(!populateWidths(tokens,text,runs,doc,autoSpace,language))return null;
-  // The same glyphs have different legal trims in zh and ja/ko books.
-  // A global plan-cache entry must never cross language-specific rules.
+  // Every measured width depends on the exact styled-run sequence, its
+  // kerning, and atomic MathML/code/noteref dimensions. Key *all* of them.
+  // A chapter-specific document cache is essential because EPUBs may embed
+  // unrelated fonts with the same CSS family string.
   const signature=language+'|'+runs.map(r=>r.start+','+r.end+','+r.font+','+
-   r.letterSpacing+','+r.wordSpacing+','+(r.type!=='text'?r.width:'')).join(';');
-  // Break opportunities and width prefix sums depend on font/style and text,
-  // not the current column width. Cache them alongside Canvas metrics.
+   r.letterSpacing+','+r.wordSpacing+','+r.kerning+','+
+   (r.type!=='text'?r.type+':'+r.width:'')).join(';');
+  let templates=measuredTemplatesByDoc.get(doc);
+  if(!templates){templates=new BoundedReusableCache(MAX_MEASURED_TEMPLATES,
+   MAX_TEMPLATE_CACHE_BYTES,(k,v)=>2*k.length+280*(v.tokens?.length||0)+256);
+   measuredTemplatesByDoc.set(doc,templates);}
+  const templateKey=text.length<=MAX_MEASURED_TEMPLATE_CHARS?
+   JSON.stringify([preparationKey,autoSpace,signature,!!hyphenator?.points,text]):null;
+  if(templateKey){
+   const template=templates.get(templateKey);
+   if(template){
+    // Refresh insertion order to make the bounded cache genuinely LRU.
+    templates.delete(templateKey);templates.set(templateKey,template);
+    const prepared={key:preparationKey,autoSpace,text,runs,tokens:template.tokens,
+     geometry:template.geometry,signature,sourceText:p.textContent};
+    measuredParagraphCache.set(p,prepared);
+    return {...prepared,cached:true,templateReused:true};
+   }
+  }
+  const tokens=preparedTokens(text,hyphenator,doc);
+  if(tokens.length<3||tokens.length>MAX_TOKENS)return null;
+  // A long paragraph should yield even before DP: Canvas text/ink
+  // measurements are the other significant uninterruptible workload.
+  // Small paragraphs continue through the old immediate path, without
+  // adding background scheduling overhead.
+  if(cooperative && tokens.length>=160){
+   const task={kind:'measurement',paragraph:p,preparationKey,autoSpace,
+    doc,text,sourceText:p.textContent,runs,tokens,language,signature,templates,templateKey,
+    cursor:0,slices:0};
+   const progress=advanceMeasurement(task,cooperative.budgetMs);
+   if(!progress.finished)return {preparationPending:true,
+    continuation:{kind:'measurement',task}};
+   if(progress.failed)return null;
+  }else if(!populateWidths(tokens,text,runs,doc,autoSpace,language))return null;
   const geometry={decomposition:nodesFor(tokens),prefix:summarize(tokens)};
   const prepared={key:preparationKey,autoSpace,text,runs,tokens,geometry,signature,sourceText:p.textContent};
   measuredParagraphCache.set(p,prepared);
-  return {...prepared,cached:false};
+  if(templateKey){
+   templates.set(templateKey,{tokens,geometry});
+  }
+  return {...prepared,cached:false,templateReused:false};
  }
- function hangLastGlyph(doc,line,ch,amount){
+ function hangLastGlyph(doc,line,ch,amount,paintShift=0){
   // The cloned text may be nested in <em>, <span> or a footnote-free link.
   // Descend into the final text node without touching original source nodes.
   const walker=doc.createTreeWalker(line,4); // NodeFilter.SHOW_TEXT
@@ -1169,6 +1410,12 @@
   const wrapper=doc.createElement('span');
   wrapper.className='folio-kp-optical-end';
   wrapper.style.setProperty('margin-inline-end',(-amount).toFixed(4)+'px','important');
+  // Inline transforms are ignored by CSS; position:relative translates the
+  // punctuation's *ink* without changing its measured advance or text order.
+  if(paintShift>.01){
+   wrapper.style.setProperty('position','relative','important');
+   wrapper.style.setProperty('inset-inline-start',paintShift.toFixed(4)+'px','important');
+  }
   // Keep the original glyph's painted position. In v94.9, an additional
   // left paint-offset crowded the pause mark into the preceding Han text.
   // Its measured line-end bearing already provides a clean optical margin;
@@ -1195,7 +1442,7 @@
   }
   return false;
  }
- function fitParagraph(p,available,doc,preparationKey,previous=null){
+ function fitParagraph(p,available,doc,preparationKey,previous=null,cooperative=null){
   const win=doc.defaultView,style=eligibilityCache.get(p)?.measure;
   // The reader spread and a publisher's inner text container do NOT always
   // scale together. SICP, for instance, retains a ~626px inner text box when
@@ -1244,7 +1491,9 @@
     baselineFragments:null,cachedPreparation:true,restoredLayout:true,
     fitWidth:optimizeWidth,validatedSafe:true,validatedWidth:optimizeWidth};
   }
-  const prepared=prepareMeasuredParagraph(p,doc,preparationKey,style?.autoSpace||false,previous?.original||null);
+  const prepared=prepareMeasuredParagraph(p,doc,preparationKey,style?.autoSpace||false,previous?.original||null,cooperative);
+  if(prepared?.preparationPending)return {optimizationPending:true,
+   continuation:prepared.continuation,measurementPending:true};
   if(!prepared)return null;
   const {text,runs,tokens:measuredTokens,geometry}=prepared;
   const inlineMath=runs.filter(r=>r.type==='math'||r.type==='code');
@@ -1252,6 +1501,8 @@
   const runSignature=prepared.signature;
   const alignment='justify'; // Opt-in quality mode requests fully justified prose.
   const planKey=width.toFixed(2)+'|'+indent.toFixed(2)+'|'+alignment+'|'+(style?.autoSpace?'normal':'none')+'|'+runSignature+'|'+text;
+  let planCache=planCachesByDoc.get(doc);
+  if(!planCache){planCache=new BoundedPlanCache();planCachesByDoc.set(doc,planCache);}
   const solverOptions={align:alignment,fontSize:runs[0]?.fontSize||20,
    allowTracking:!inlineMath.length,geometry};
   let stabilized=false;
@@ -1267,10 +1518,21 @@
    if(choice===undefined){
     const tokens=measuredTokens;
     if(tokens.some(t=>t.kind!=='space'&&t.width>width*.94)){return null;}
-    const plan=optimize(tokens,optimizeWidth,indent,{...solverOptions});
+    let plan;
+    if(cooperative){
+     const previousTask=cooperative.pending?.key===planKey?cooperative.pending.task:null;
+     const task=previousTask||beginOptimization(tokens,optimizeWidth,indent,solverOptions);
+     const response=advanceOptimization(task,cooperative.budgetMs??6);
+     if(!response.finished)return {optimizationPending:true,
+      continuation:{kind:'solver',key:planKey,task},chars:text.length};
+     plan=response.plan;
+    }else plan=optimize(tokens,optimizeWidth,indent,{...solverOptions});
     choice={best:plan,baseline:null};
-    if(planCache.size>350){let count=0;for(const key of planCache.keys()){planCache.delete(key);if(++count>=80)break;}}
-    planCache.set(planKey,choice);
+    // BoundedPlanCache uses size-aware true LRU eviction. A big paragraph
+    // cannot displace the entire chapter's useful short plans.
+    // Never poison the cache with a timeout. An idle continuation is allowed
+    // to revisit the same paragraph, even if its initial pass ran out of time.
+    if(plan || cooperative)planCache.set(planKey,choice);
    }
   }
   // The prefix sum was already built for the DP. Reuse it here instead
@@ -1295,12 +1557,12 @@
   // DOM-last optimization; resizing may leave most paragraphs untouched.
   const lineSignatures=choice.best.lines.map(l=>[
    l.start,l.end,l.hyphenate?1:0,l.justify?1:0,
-   l.wordSpacing.toFixed(3),l.cjkSpacing.toFixed(3),l.tracking.toFixed(4),Number(l.opticalEnd||0).toFixed(3),Number(l.punctStart||0).toFixed(3),Number(l.punctRatio||0).toFixed(3),Number(l.bracketRatio||0).toFixed(3)
+   l.wordSpacing.toFixed(3),l.cjkSpacing.toFixed(3),l.tracking.toFixed(4),Number(l.opticalEnd||0).toFixed(3),Number(l.paintShift||0).toFixed(3),Number(l.punctStart||0).toFixed(3),Number(l.punctRatio||0).toFixed(3),Number(l.bracketRatio||0).toFixed(3)
   ].join(':'));
   const layoutSignature=lineSignatures.join('|');
   const lineLayout=choice.best.lines.map(l=>({start:l.start,end:l.end,
    hyphenate:l.hyphenate,justify:l.justify,justifyMode:l.justifyMode,
-   wordSpacing:l.wordSpacing,cjkSpacing:l.cjkSpacing,tracking:l.tracking,opticalEnd:l.opticalEnd||0,opticalChar:l.opticalChar||'',punctStart:l.punctStart||0,punctStartChar:l.punctStartChar||'',punctRatio:l.punctRatio||0,punctCompression:l.punctCompression||0,bracketRatio:l.bracketRatio||0,bracketCompression:l.bracketCompression||0}));
+   wordSpacing:l.wordSpacing,cjkSpacing:l.cjkSpacing,tracking:l.tracking,opticalEnd:l.opticalEnd||0,paintShift:l.paintShift||0,opticalChar:l.opticalChar||'',punctStart:l.punctStart||0,punctStartChar:l.punctStartChar||'',punctRatio:l.punctRatio||0,punctCompression:l.punctCompression||0,bracketRatio:l.bracketRatio||0,bracketCompression:l.bracketCompression||0}));
   if(previous && previous.layoutSignature===layoutSignature){
    return {reuse:true,cachedPreparation:prepared.cached,layoutSignature,lineSignatures,lineLayout,
     optimizedLines:choice.best.lines,fitWidth:optimizeWidth,
@@ -1316,6 +1578,7 @@
    return old.start===l.start && old.end===l.end && old.hyphenate===l.hyphenate &&
     old.justify===l.justify && old.justifyMode===l.justifyMode &&
     Math.abs((old.opticalEnd||0)-(l.opticalEnd||0))<.002 &&
+    Math.abs((old.paintShift||0)-(l.paintShift||0))<.002 &&
     Math.abs((old.punctStart||0)-(l.punctStart||0))<.002 &&
     Math.abs((old.punctRatio||0)-(l.punctRatio||0))<.002 &&
     Math.abs((old.bracketRatio||0)-(l.bracketRatio||0))<.002 &&
@@ -1365,7 +1628,7 @@
      // block: preserves the publisher's nested italic/bold elements and
      // allows real ink to protrude while consuming less layout width.
      const ch=line.opticalChar;
-     if(!ch || !hangLastGlyph(doc,span,ch,line.opticalEnd))return null;
+     if(!ch || !hangLastGlyph(doc,span,ch,line.opticalEnd,line.paintShift||0))return null;
      span.classList.add('folio-kp-optical-line');
     }
     if(i===0&&indent>0)span.style.paddingInlineStart=indent+'px';
@@ -1395,13 +1658,20 @@
     }else span.classList.add('folio-kp-ragged');
     fragments.push(span);
    }
-   return fragments.map(el=>el.textContent).join('')===p.textContent?fragments:null;
+   const exact=fragments.map(el=>el.textContent).join('');
+   return exact===prepared.sourceText && exact===p.textContent?fragments:null;
   }
   const fragments=fragmentsFor(choice.best);
   if(!fragments){return null;}
   const baselineFragments=choice.baseline?fragmentsFor(choice.baseline):null;
   return {fragments,baselineFragments,baselineLines:choice.baseline?.lines.length||0,
    cachedPreparation:prepared.cached,layoutSignature,lineSignatures,lineLayout,
+   // v95.24: fragmentsFor has already checked the complete byte-exact source.
+   // Retain that immutable string until commit; detached DOM textContent scans
+   // on EVERY idle slice and AGAIN at commit only duplicate the same work.
+   sourceText:prepared.sourceText,
+   hasOpticalMarks:choice.best.lines.some(l=>l.opticalEnd>.02||l.punctStart>.02),
+   needsPositiveGlueReview:choice.best.lines.some(l=>l.cjkSpacing>.15),
    optimizedLines:choice.best.lines,fitWidth:optimizeWidth,
    planOriginWidth:stabilized?(previous?.planOriginWidth??previous?.fitWidth):optimizeWidth,
    keptBreakPlan:stabilized,
@@ -1438,7 +1708,7 @@
     }
     for(const track of line.querySelectorAll('.folio-kp-cjk-track')){
      track.style.letterSpacing=now.cjkSpacing.toFixed(4)+'px';
-     track.style.marginInlineEnd=(-now.cjkSpacing).toFixed(4)+'px';
+     track.style.marginInlineEnd='0px';
     }
     count++;
    }
@@ -1536,7 +1806,13 @@
   const pending=[],toNative=[],toRetarget=[];
   const timestamps={};
   const paragraphs=Array.from(doc.body.querySelectorAll('p,li,dd,blockquote,figcaption'));
-  const initialBudget=Number.isFinite(config.budgetMs)?Math.max(0,config.budgetMs):300;
+  // A single large XHTML chapter should not monopolize an entire 300ms
+  // animation frame. The existing idle pipeline finishes the remaining
+  // paragraphs off the first-interaction path, then commits once with the
+  // reader's preserved text anchor. Small chapters retain the old budget.
+  // An explicit budget (tests / caller policy) always wins.
+  const defaultBudget=paragraphs.length>=48?120:paragraphs.length>=28?190:300;
+  const initialBudget=Number.isFinite(config.budgetMs)?Math.max(0,config.budgetMs):defaultBudget;
   let budgetStopped=false;
   const remaining=[];
   for(const p of paragraphs){
@@ -1628,6 +1904,7 @@
    reusedPreparations,newPreparations,unchangedParagraphs,updatedParagraphs,
    reusedLineNodes,restoredParagraphs,retargetedParagraphs,spacingUpdates,stabilizedParagraphs,trustedSpacingUpdates,retainedOpticalFits,restoredLayouts,
    elapsedMs:(win.performance?.now?.()||Date.now())-start,timestamps,
+   firstPaintBudgetMs:initialBudget,
    progressiveRemaining:remaining.length,progressivePrepared:0,
    progressiveCommitted:0,progressiveElapsedMs:0};
   if(!config.deferValidation)validate(doc);
@@ -1645,19 +1922,38 @@
    return {done:true,stale:true,ready:false};
   const win=doc.defaultView,now=()=>win.performance?.now?.()||Date.now();
   const start=now(),limit=Math.max(1,Math.min(35,Number(config.budgetMs)||12));
-  let attempted=0,eligible=0;
+  let attempted=0,eligible=0,continuationEligibilitySkips=0;
   while(job.cursor<job.remaining.length && (attempted===0 || now()-start<limit)){
    if((state.stats?.processed||0)+job.results.length>=MAX_PARAGRAPHS){
     job.cursor=job.remaining.length;break;
    }
-   const p=job.remaining[job.cursor++];
-   if(!p.isConnected||!doc.body.contains(p)||state.entries.has(p))continue;
+   const p=job.remaining[job.cursor];
+   if(!p.isConnected||!doc.body.contains(p)||state.entries.has(p)){
+    job.pendingOptimization=null;job.cursor++;continue;
+   }
    attempted++;job.attempted++;
-   if(!eligibleWithCache(p,win,job.preparationKey,job.available))continue;
-   const result=fitParagraph(p,job.available,doc,job.preparationKey);
+   // A pending measurement/DP task has already passed structural eligibility.
+   // All work remains detached; do a final source identity check at commit.
+   // This avoids repeatedly traversing the whole DOM to re-run the same
+   // eligibility checks after every 32-token measurement slice.
+   if(job.pendingOptimization)continuationEligibilitySkips++;
+   if(!job.pendingOptimization && !eligibleWithCache(p,win,job.preparationKey,job.available)){
+    job.pendingOptimization=null;job.cursor++;continue;
+   }
+   // Stop the DP at a safe candidate boundary when the idle budget expires.
+   // The continuation retains only measured tokens and DP tables, never
+   // live DOM subtrees. A subsequent call resumes at exactly the next break.
+   const budgetLeft=Math.max(1,limit-(now()-start));
+   const result=fitParagraph(p,job.available,doc,job.preparationKey,null,
+    {budgetMs:budgetLeft,pending:job.pendingOptimization});
+   if(result?.optimizationPending){
+    job.pendingOptimization=result.continuation;
+    break;
+   }
+   job.pendingOptimization=null;job.cursor++;
    if(!result || result.reuse || result.retarget || !result.fragments)continue;
    // An EPUB's author content must remain unchanged throughout the operation.
-   if(result.fragments.map(n=>n.textContent).join('')!==p.textContent)continue;
+   if(result.sourceText!==p.textContent)continue;
    job.results.push([p,result]);eligible++;job.eligible++;
   }
   job.elapsedMs+=now()-start;
@@ -1666,10 +1962,14 @@
    state.stats.progressiveRemaining=job.remaining.length-job.cursor;
    state.stats.progressivePrepared=job.results.length;
    state.stats.progressiveElapsedMs=job.elapsedMs;
+   state.stats.eligibilityContinuationSkips=(state.stats.eligibilityContinuationSkips||0)+continuationEligibilitySkips;
   }
   return {done:ready,ready,stale:false,attempted,eligible,
    remaining:job.remaining.length-job.cursor,prepared:job.results.length,
-   elapsedMs:now()-start};
+   elapsedMs:now()-start,
+   optimizationInProgress:!!job.pendingOptimization,
+   measurementInProgress:job.pendingOptimization?.kind==='measurement',
+   optimizationSlices:job.pendingOptimization?.task?.slices||0};
  }
  function commitRefinement(doc,anchor=null){
   const state=cacheByDoc.get(doc),job=state?.refinement;
@@ -1680,7 +1980,7 @@
   const validation=[];
   for(const [p,result] of job.results){
    if(!p.isConnected||state.entries.has(p)||!doc.body.contains(p)||
-      result.fragments.map(n=>n.textContent).join('')!==p.textContent)continue;
+      result.sourceText!==p.textContent)continue;
    if(anchor?.node&&p.contains(anchor.node))remembered=anchorInfo(anchor,p);
    const original=doc.createElement(p.localName);
    while(p.firstChild)original.appendChild(p.firstChild);
@@ -1731,53 +2031,72 @@
    record={ctx,inkCache:new Map()};paintMeasureByDoc.set(doc,record);
   }
   const {ctx,inkCache}=record;
-  const unsafe=new Set();let checked=0,measurements=0,cacheHits=0;
-  for(const [p] of pending){
-   if(!p.isConnected)continue;
-   for(const line of p.children){
-    if(!line.classList.contains('folio-kp-line'))continue;
-    const marks=line.querySelectorAll('.folio-kp-optical-end,.folio-kp-punct-start');
-    if(!marks.length)continue;
-    const lr=line.getBoundingClientRect();
-    const idx=Math.max(0,Math.floor((lr.left-br.left+Math.min(colWidth*.10,12))/step));
-    const left=br.left+idx*step,right=left+colWidth;
-    const slot=idx%columns;
-    const safeColumnLeft=left-(slot===0?outerLeftGutter:innerGutter);
-    const safeColumnRight=right+(slot===columns-1?outerRightGutter:innerGutter);
-    for(const mark of marks){
-     const opening=mark.classList.contains('folio-kp-punct-start');
-     const content=mark.textContent.trim(),ch=opening?first(content):last(content);
-     if(!ch)continue;
-     const cs=win.getComputedStyle(mark),r=mark.getBoundingClientRect();
-     const font=cs.font||`${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
-     let box=inkCache.get(font+'\0'+ch);
-     if(!box){ctx.font=font;try{ctx.fontKerning='auto'}catch{}const m=ctx.measureText(ch);measurements++;
-      // Canvas metrics must be finite; otherwise conservatively retain the
-      // original browser line breaking instead of guessing an ink boundary.
-      box={left:m.actualBoundingBoxLeft,right:m.actualBoundingBoxRight};
-      if(inkCache.size>4096)inkCache.clear();
-      inkCache.set(font+'\0'+ch,box);}
-     else cacheHits++;
-     checked++;
-     if(!Number.isFinite(box.left)||!Number.isFinite(box.right)){
-      unsafe.add(p);break;
-     }
-     const inkLeft=r.left-box.left,inkRight=r.left+box.right;
-     // The viewport hides inactive page columns. Enforce viewport clipping
-     // only when this line is actually in view; future columns are validated
-     // against their own physical column, not the current page viewport.
-     const inView=lr.left>=-0.5&&lr.right<=viewportWidth+0.5&&
-      lr.top<win.innerHeight&&lr.bottom>0;
-     const safeLeft=Math.max(safeColumnLeft,inView?1.5:-Infinity);
-     const safeRight=Math.min(safeColumnRight,inView?viewportWidth-1.5:Infinity);
-     // Full ink + 1px AA safety must fit. No exceptions for a hanging glyph:
-     // this is deliberately stricter than a line scrollWidth test.
-     if(inkLeft<safeLeft-0.01||inkRight>safeRight-0.01){unsafe.add(p);break;}
+  const unsafe=new Set(),paintAdjustments=[];let checked=0,measurements=0,cacheHits=0;
+  let inspectedParagraphs=0,inspectedLines=0;
+  for(const [p,result] of pending){
+   if(!p.isConnected || result?.hasOpticalMarks===false)continue;
+   // One descendant query per paragraph, instead of one query per visual
+   // line. Long Chinese chapters routinely contain hundreds of mostly
+   // unmarked lines, so the old loop repeatedly walked empty subtrees.
+   const marks=p.querySelectorAll('.folio-kp-optical-end,.folio-kp-punct-start');
+   if(!marks.length)continue;
+   inspectedParagraphs++;
+   let activeLine=null,safeColumnLeft=0,safeColumnRight=0,columnRight=0,lr=null;
+   for(const mark of marks){
+    const line=mark.closest('.folio-kp-line');
+    // Only direct, optimized line children belong to this paragraph. A
+    // publisher's nested content must not borrow the parent line's budget.
+    if(!line || line.parentElement!==p)continue;
+    if(line!==activeLine){
+     activeLine=line;inspectedLines++;
+     lr=line.getBoundingClientRect();
+     const idx=Math.max(0,Math.floor((lr.left-br.left+Math.min(colWidth*.10,12))/step));
+     const left=br.left+idx*step,right=left+colWidth;
+     columnRight=right;
+     const slot=idx%columns;
+     safeColumnLeft=left-(slot===0?outerLeftGutter:innerGutter);
+     safeColumnRight=right+(slot===columns-1?outerRightGutter:innerGutter);
     }
-    if(unsafe.has(p))break;
+    const opening=mark.classList.contains('folio-kp-punct-start');
+    const content=mark.textContent.trim(),ch=opening?first(content):last(content);
+    if(!ch)continue;
+    const cs=win.getComputedStyle(mark),r=mark.getBoundingClientRect();
+    const font=cs.font||`${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    let box=inkCache.get(font+'\0'+ch);
+    if(!box){ctx.font=font;try{ctx.fontKerning='auto'}catch{}const m=ctx.measureText(ch);measurements++;
+     box={left:m.actualBoundingBoxLeft,right:m.actualBoundingBoxRight};
+     if(inkCache.size>4096)inkCache.clear();
+     inkCache.set(font+'\0'+ch,box);}
+    else cacheHits++;
+    checked++;
+    if(!Number.isFinite(box.left)||!Number.isFinite(box.right)){
+     unsafe.add(p);break;
+    }
+    const inkLeft=r.left-box.left,inkRight=r.left+box.right;
+    const inView=lr.left>=-0.5&&lr.right<=viewportWidth+0.5&&
+     lr.top<win.innerHeight&&lr.bottom>0;
+    const safeLeft=Math.max(safeColumnLeft,inView?1.5:-Infinity);
+    const safeRight=Math.min(safeColumnRight,inView?viewportWidth-1.5:Infinity);
+    // The KP plan measures glyph *advances*, but browser painting of a
+    // proportional quoted mark can end further inside the edge than the
+    // plan predicts. One post-layout, ink-aware calibration (read-only here)
+    // brings the final ink to within ~0.08em of its real column measure.
+    // This affects only a single hangable mark, never following text,
+    // never changes a line break, and never lets ink cross the safe gutter.
+    let paintDelta=0;
+    if(!opening && HANG_END_INK.has(ch) && inkRight<columnRight-1.3 &&
+       inkLeft>=safeLeft && inkRight<=safeRight){
+     const fontSize=parseFloat(cs.fontSize)||20;
+     const prior=parseFloat(mark.style.insetInlineStart)||0;
+     const desiredRight=Math.min(columnRight-fontSize*.075,safeRight-1);
+     paintDelta=Math.max(0,Math.min(fontSize*.33-prior,desiredRight-inkRight));
+     if(paintDelta>.35){paintAdjustments.push([mark,prior+paintDelta]);}
+     else paintDelta=0;
+    }
+    if(inkLeft<safeLeft-0.01||inkRight+paintDelta>safeRight-0.01){unsafe.add(p);break;}
    }
   }
-  return {checked,unsafe,measurements,cacheHits};
+  return {checked,unsafe,paintAdjustments,measurements,cacheHits,inspectedParagraphs,inspectedLines};
  }
  // Call after the pagination engine has already measured the column spread.
  // Otherwise scrollWidth on each paragraph forces an early whole-chapter layout.
@@ -1790,13 +2109,20 @@
   const win=doc.defaultView;
   const started=win.performance?.now?.()||Date.now();
   const calibration=[];
+  // Reuse one DOM Range across the mixed-script lines. Range allocation is
+  // unnecessary for successive read-only geometry checks in the same doc.
+  let calibrationRange=null;
   for(const [p] of pending){
    for(const line of p.children){
     if(!line.classList.contains('folio-kp-mixed-fit'))continue;
     const gaps=line.querySelectorAll('.folio-kp-ideograph-glue');
-    if(gaps.length<2 || [...gaps].some(g=>parseFloat(g.style.marginInlineStart)<0))continue;
-    const range=doc.createRange();range.selectNodeContents(line);
-    const rendered=range.getBoundingClientRect().width;
+    if(gaps.length<2)continue;
+    let hasNegativeGlue=false;
+    for(const gap of gaps)if(parseFloat(gap.style.marginInlineStart)<0){hasNegativeGlue=true;break;}
+    if(hasNegativeGlue)continue;
+    if(!calibrationRange)calibrationRange=doc.createRange();
+    calibrationRange.selectNodeContents(line);
+    const rendered=calibrationRange.getBoundingClientRect().width;
     const goal=line.getBoundingClientRect().width-(parseFloat(win.getComputedStyle(line).paddingInlineStart)||0);
     const delta=goal-rendered;
     if(Math.abs(delta)<.8)continue;
@@ -1823,19 +2149,28 @@
   const repairs=[];
   const repairsByParagraph=new Map();
   for(const [p,result] of pending){
-   if(!p.isConnected || result.fastSafe || p.scrollWidth<=p.clientWidth+2)continue;
+   if(!p.isConnected || result.fastSafe || result.needsPositiveGlueReview===false ||
+      p.scrollWidth<=p.clientWidth+2)continue;
    const children=p.children,lines=result.optimizedLines||[];
    for(let i=0;i<lines.length&&i<children.length;i++){
     const line=children[i],metric=lines[i];
     if(!line.classList.contains('folio-kp-line') || !(metric.cjkSpacing>.15))continue;
-    const optical=Math.max(0,metric.opticalEnd||0,metric.punctStart||0);
+    // scrollWidth's excess must be repaired on its *own* (trailing) edge.
+    // A legal opening-quote trim belongs to the opposite edge and cannot
+    // excuse a 3px overrun caused by positive Han spacing on the first line.
+    // Subtract only the actual end-glyph optical allowance, then let the
+    // existing bounded positive-glue repair resolve minor physical overflow.
+    const optical=Math.max(0,(metric.opticalEnd||0)+(metric.paintShift||0));
     const excess=line.scrollWidth-line.clientWidth-optical;
     if(!(excess>1.5))continue;
     const glues=[];
     let count=0;
     for(const el of line.querySelectorAll('.folio-kp-cjk-track,.folio-kp-ideograph-glue')){
      if(el.classList.contains('folio-kp-cjk-track')){
-      const n=Math.max(0,el.textContent.length-1);
+      // A compact track deliberately excludes the final glyph of its
+      // run. Its last letter-spacing is the genuine gap before that
+      // untracked glyph, not a phantom trailing advance.
+      const n=el.textContent.length;
       if(n){glues.push([el,n,true]);count+=n;}
      }else{
       glues.push([el,1,false]);count++;
@@ -1855,7 +2190,7 @@
   for(const repair of repairs){
    const spacing=repair.newValue;
    for(const [node,,track] of repair.glues){
-    if(track){node.style.letterSpacing=spacing.toFixed(4)+'px';node.style.marginInlineEnd=(-spacing).toFixed(4)+'px';}
+    if(track){node.style.letterSpacing=spacing.toFixed(4)+'px';node.style.marginInlineEnd='0px';}
     else{node.style.width=Math.max(0,spacing).toFixed(4)+'px';node.style.marginInlineStart=Math.min(0,spacing).toFixed(4)+'px';}
    }
   }
@@ -1863,6 +2198,14 @@
   // A write/read cycle for each failing paragraph forces repeated whole-
   // chapter multicolumn layout, even if there are only a few failures.
   const paint=opticalPaintBoundaries(doc,pending);
+  // Batch every paint correction after all geometry reads. A per-mark
+  // relative-position write inside opticalPaintBoundaries would force
+  // quadratic Chromium reflows on image-heavy or punctuation-heavy EPUBs.
+  for(const [mark,shift] of paint.paintAdjustments||[]){
+   mark.style.setProperty('position','relative','important');
+   mark.style.setProperty('inset-inline-start',shift.toFixed(4)+'px','important');
+  }
+  if(paint.paintAdjustments?.length)changed=true;
   const overflow=[];
   for(const [p,result] of pending){
    if(!p.isConnected)continue;
@@ -1882,7 +2225,11 @@
     // line boxes before calling this a genuine overflow; permit only the
     // precise measured leading trim plus a 2px browser rounding margin.
     let edgeAllowance=0;
-    for(const line of result.optimizedLines||[])edgeAllowance=Math.max(edgeAllowance,line.punctStart||0,line.opticalEnd||0);
+    for(const [i,line] of (result.optimizedLines||[]).entries()){
+     const lastMark=p.children[i]?.querySelector('.folio-kp-optical-end');
+     const actualShift=lastMark?(parseFloat(lastMark.style.insetInlineStart)||0):(line.paintShift||0);
+     edgeAllowance=Math.max(edgeAllowance,line.punctStart||0,(line.opticalEnd||0)+actualShift);
+    }
     if(edgeAllowance>.02 && excess<=edgeAllowance+2.1){
      safe=true;
      let i=0;
@@ -1891,7 +2238,9 @@
       // The line scroll rect still includes the *empty* glyph advance
       // eliminated by a negative end margin. We only disregard an excess
       // bounded by that exact glyph's font-ink-limited optical trim.
-      if(line.scrollWidth-line.clientWidth>(measured?.opticalEnd||0)+2.1){safe=false;break;}
+      const mark=line.querySelector('.folio-kp-optical-end');
+      const actualShift=mark?(parseFloat(mark.style.insetInlineStart)||0):(measured?.paintShift||0);
+      if(line.scrollWidth-line.clientWidth>(measured?.opticalEnd||0)+actualShift+2.1){safe=false;break;}
      }
     }
    }
@@ -1941,12 +2290,41 @@
   state.stats.validationInkMeasurements=paint.measurements;
   state.stats.validationInkCacheHits=paint.cacheHits;
   state.stats.validationInkFallbacks=paint.unsafe.size;
+  state.stats.validationInkParagraphs=paint.inspectedParagraphs||0;
+  state.stats.validationInkLines=paint.inspectedLines||0;
+  // Incremental chapters may validate multiple batches. Per-batch counters
+  // cannot be compared across builds because scheduler timing varies; retain
+  // cumulative glyph/paragraph/line counts for reproducible diagnostics.
+  state.stats.validationInkCheckedTotal=(state.stats.validationInkCheckedTotal||0)+paint.checked;
+  state.stats.validationInkLinesTotal=(state.stats.validationInkLinesTotal||0)+(paint.inspectedLines||0);
+  state.stats.validationInkParagraphsTotal=(state.stats.validationInkParagraphsTotal||0)+(paint.inspectedParagraphs||0);
+  state.stats.validationInkMeasurementsTotal=(state.stats.validationInkMeasurementsTotal||0)+paint.measurements;
+  state.stats.validationInkCacheHitsTotal=(state.stats.validationInkCacheHitsTotal||0)+paint.cacheHits;
+  // The progressive compositor may validate several batches. Preserve
+  // per-batch fields for compatibility and add cumulative counters so a
+  // later clean batch cannot hide an earlier unsafe paragraph restoration.
   state.stats.validationFallbacks=removed;
+  state.stats.validationFallbacksTotal=(state.stats.validationFallbacksTotal||0)+removed;
+  state.stats.validationCheckedTotal=(state.stats.validationCheckedTotal||0)+checked;
+  state.stats.validationRepairLinesTotal=(state.stats.validationRepairLinesTotal||0)+keptRepairLines;
   state.stats.validationRepairLines=keptRepairLines;
   state.stats.validationRepairParagraphs=keptRepairParagraphs;
   return {changed,checked,removed};
  }
- function invalidate(doc){const s=cacheByDoc.get(doc);if(s){s.invalid=true;s.refinement=null;}measuredParagraphCache=new WeakMap();eligibilityCache=new WeakMap();metricsCache.clear();inkMetricsCache.clear();paintMeasureByDoc.delete(doc);planCache.clear();}
+ function invalidate(doc){const s=cacheByDoc.get(doc);if(s){s.invalid=true;s.refinement=null;}measuredParagraphCache=new WeakMap();eligibilityCache=new WeakMap();metricsCacheByDoc.delete(doc);inkMetricsCacheByDoc.delete(doc);preparedTextCachesByDoc.delete(doc);paintMeasureByDoc.delete(doc);measuredTemplatesByDoc.delete(doc);planCachesByDoc.delete(doc);}
  function stats(doc){return cacheByDoc.get(doc)?.stats||null;}
- return {typeset,refine,commitRefinement,validate,restore,invalidate,stats,tokenize,discretionaryTokens,breakAfter,optimize,nodesFor,populateWidths,version:'1.39.0'};
+ // Diagnostics contain counts/estimated bytes only, never text or font data.
+ function cacheStats(doc){const plans=planCachesByDoc.get(doc);return {
+  plans:plans?.size||0,estimatedPlanBytes:plans?.bytes||0,
+  planEvictions:plans?.evictions||0,planByteBudget:MAX_PLAN_CACHE_BYTES,
+  planEntryBudget:MAX_PLAN_CACHE_ENTRIES,
+  measuredTemplates:measuredTemplatesByDoc.get(doc)?.size||0,
+  estimatedTemplateBytes:measuredTemplatesByDoc.get(doc)?.bytes||0,
+  templateByteBudget:MAX_TEMPLATE_CACHE_BYTES,
+  preparedTexts:preparedTextCachesByDoc.get(doc)?.size||0,
+  estimatedPreparedTextBytes:preparedTextCachesByDoc.get(doc)?.bytes||0,
+  preparedTextByteBudget:MAX_PREPARED_TEXT_BYTES,
+  glyphWidths:metricsCacheByDoc.get(doc)?.size||0
+ };}
+ return {typeset,refine,commitRefinement,validate,restore,invalidate,stats,cacheStats,tokenize,discretionaryTokens,breakAfter,optimize,nodesFor,populateWidths,version:'1.50.0'};
 });
