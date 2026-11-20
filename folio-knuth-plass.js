@@ -1775,6 +1775,59 @@
    '{overflow:visible!important}';
   (doc.head||doc.documentElement).appendChild(css);
  }
+ // Prioritize what will actually be painted on the first spread.  Folio's
+ // staging reader already has its final column count and lightweight native
+ // wrapping before the engine runs.  Probe only the leading fragment boxes;
+ // stop as soon as the paragraph flow has left the first physical spread.
+ // This is a geometry READ phase, before the first KP DOM mutation, so it
+ // cannot create layout thrash.  It deliberately excludes complex content
+ // from any promise of exact KP coverage: those nodes remain browser-owned.
+ function visibleOpeningParagraphs(doc,paragraphs,fraction=0){
+  if(paragraphs.length<48)return null;
+  const box=doc.body.getBoundingClientRect();
+  if(!(box.width>80 && box.height>50))return null;
+  const f=Math.min(1,Math.max(0,Number(fraction)||0));
+  let spread=0,stride=box.width;
+  if(f>0.001){
+   const gap=parseFloat(doc.defaultView.getComputedStyle(doc.body).columnGap)||0;
+   stride=box.width+gap;
+   const last=Math.max(0,Math.ceil((doc.body.scrollWidth+gap)/stride)-1);
+   spread=Math.round(f*last);
+  }
+  const left=box.left+spread*stride-1.5,right=left+box.width+3;
+  let begin=0,probed=0;
+  // A restored chapter may open halfway through a book. Locate the target
+  // spread using a sparse binary search over monotonically flowing block
+  // fragment positions, then inspect only neighboring paragraphs. If an EPUB
+  // uses unusual positioned/hidden markup, fall back to the prior safe path.
+  if(spread>0){
+   let low=0,high=paragraphs.length;
+   while(low<high){
+    const mid=(low+high)>>1;
+    const r=paragraphs[mid].getClientRects()[0];probed++;
+    if(!r||!Number.isFinite(r.left))return null;
+    if(r.left<left)low=mid+1;
+    else high=mid;
+   }
+   begin=Math.max(0,low-3);
+  }
+  let last=-1,first=-1,offscreen=0;
+  for(let i=begin;i<Math.min(paragraphs.length,begin+160);i++){
+   let here=false,later=false;
+   for(const r of paragraphs[i].getClientRects()){
+    if(r.width<1||r.height<1)continue;
+    if(r.left<right&&r.right>left)here=true;
+    else if(r.left>=right)later=true;
+   }
+   probed++;
+   if(here){if(first<0)first=i;last=i;offscreen=0;}
+   else if(first>=0&&later){if(++offscreen>=2)break;}
+  }
+  if(first<0||last<0)return null;
+  return {first,last,priorityStart:Math.max(0,first-(spread>0?3:1)),
+   targetEnd:Math.min(paragraphs.length-1,last+(spread>0?3:1)),probed,spread};
+ }
+
  // The initial ~300ms budget is a FIRST-PAINT budget, not a permanent limit.
  // Prepare the remaining paragraphs in idle slices, without mutating the
  // active chapter on every slice. A final batched commit avoids repeated
@@ -1812,13 +1865,31 @@
   // reader's preserved text anchor. Small chapters retain the old budget.
   // An explicit budget (tests / caller policy) always wins.
   const defaultBudget=paragraphs.length>=48?120:paragraphs.length>=28?190:300;
-  const initialBudget=Number.isFinite(config.budgetMs)?Math.max(0,config.budgetMs):defaultBudget;
+  // Existing direct API users keep the explicit budget policy. In the live
+  // reader, only chapter-opening spread 0 uses geometry-driven prioritization;
+  // an existing anchor or a saved later-page position uses the old safe path.
+  const firstPaintProbe= config.visibleFirstPaint && !Number.isFinite(config.budgetMs)
+   ? visibleOpeningParagraphs(doc,paragraphs,config.visibleFraction) : null;
+  const count=firstPaintProbe?firstPaintProbe.targetEnd-firstPaintProbe.priorityStart+1:0;
+  // Keep the emergency long-task bound, but do not count the mandatory
+  // Chromium visibility probe against the compositor's useful work budget.
+  const initialBudget=Number.isFinite(config.budgetMs)?Math.max(0,config.budgetMs)
+   :firstPaintProbe?Math.min(320,Math.max(150,count*24)):defaultBudget;
+  const compositionStart=firstPaintProbe?(win.performance?.now?.()||Date.now()):start;
+  const priorityOrder=firstPaintProbe?.spread>0
+   ? [...Array.from({length:count},(_,i)=>firstPaintProbe.priorityStart+i),
+      ...Array.from({length:paragraphs.length},(_,i)=>i)
+       .filter(i=>i<firstPaintProbe.priorityStart||i>firstPaintProbe.targetEnd)]
+   :null;
   let budgetStopped=false;
   const remaining=[];
-  for(const p of paragraphs){
+  for(let orderIndex=0;orderIndex<paragraphs.length;orderIndex++){
+   const paragraphIndex=priorityOrder?priorityOrder[orderIndex]:orderIndex;
+   const p=paragraphs[paragraphIndex];
    const previous=canReuse?state.entries.get(p):null;
    if(processed>=MAX_PARAGRAPHS || budgetStopped ||
-      (win.performance?.now?.()||Date.now())-start>initialBudget){
+      (firstPaintProbe&&(priorityOrder?orderIndex>=count:paragraphIndex>firstPaintProbe.targetEnd))||
+      (win.performance?.now?.()||Date.now())-compositionStart>initialBudget){
     if(!budgetStopped && processed<MAX_PARAGRAPHS)budgetStopped=true;
     if(budgetStopped && processed<MAX_PARAGRAPHS)remaining.push(p);
     if(previous)toNative.push([p,previous]);skipped++;continue;
@@ -1905,6 +1976,11 @@
    reusedLineNodes,restoredParagraphs,retargetedParagraphs,spacingUpdates,stabilizedParagraphs,trustedSpacingUpdates,retainedOpticalFits,restoredLayouts,
    elapsedMs:(win.performance?.now?.()||Date.now())-start,timestamps,
    firstPaintBudgetMs:initialBudget,
+   visibleFirstPaintTarget:firstPaintProbe?.targetEnd??null,
+   visibleFirstPaintFirst:firstPaintProbe?.first??null,
+   visibleFirstPaintProbed:firstPaintProbe?.probed??0,
+   visibleFirstPaintSpread:firstPaintProbe?.spread??null,
+   visibleFirstPaintPriorityStart:firstPaintProbe?.priorityStart??null,
    progressiveRemaining:remaining.length,progressivePrepared:0,
    progressiveCommitted:0,progressiveElapsedMs:0};
   if(!config.deferValidation)validate(doc);
@@ -2326,5 +2402,5 @@
   preparedTextByteBudget:MAX_PREPARED_TEXT_BYTES,
   glyphWidths:metricsCacheByDoc.get(doc)?.size||0
  };}
- return {typeset,refine,commitRefinement,validate,restore,invalidate,stats,cacheStats,tokenize,discretionaryTokens,breakAfter,optimize,nodesFor,populateWidths,version:'1.50.0'};
+ return {typeset,refine,commitRefinement,validate,restore,invalidate,stats,cacheStats,tokenize,discretionaryTokens,breakAfter,optimize,nodesFor,populateWidths,version:'1.51.0'};
 });

@@ -1,6 +1,110 @@
+## v95.48 — Avoid full-source srcdoc allocation and slice native tail parsing
+
+- **Make the first iframe HTML directly from the prepared book-source prefix.** v95.47 built a complete srcdoc string first, then sliced off its trailing body. On eligible giant plain-prose chapters, v95.48 splits the sanitized cached `bodyHTML` before calling `makeChapterDocument()`, producing only the needed first-spread iframe document. No extra complete HTML document string is assembled on that path. The full renderer is unchanged for other EPUBs.
+- **Cooperative, detached tail parsing in native-wrapping mode.** After the first screen is painted, for tails of at least ~384 KiB (or ~192 KiB on low-memory devices), parse about 48 KiB (24 KiB on low-memory devices) of source paragraphs at a time into a disconnected `DocumentFragment`, spending at most three batches and around 7 ms per idle callback. Smaller tails retain the faster legacy single-parse path. Mount the complete fragment **once** to avoid repeated full CSS multicolumn reflow; only then compute exact authoritative physical pages. No estimated total page count is published.
+- An immediate page turn forces the original single-parse completion path. If a background chunk was already parsed, the remaining chunks are synchronously drained without losing text or changing paragraph order. Cancelling a superseded chapter continues to discard its pending fragment.
+- **Conservative Knuth–Plass compatibility.** Because its progressive optimization is time-budgeted, it uses v95.47's unchunked full-tail parsing and normal cache invalidation. In the 390px, 650-paragraph Chromium test, both versions had 305 pages, 28 finally composed KP paragraphs, matching physical index, text and screenshots after the progressive job finished. The 1130px full-KP comparison exceeded the test budget and is **not** claimed to pass.
+- Chromium 650-paragraph native tests at 390/1130/2100px now correctly select one-shot parsing, preserving v95.47-identical physical pages (307/95/59), text and preview/final screenshots. Immediate and artificially one-chunk-then-forced navigation at each width preserved exact pages, all source text and pixel-identical first page. The 3600-paragraph (~775k characters) stress case triggered 19 detached parse batches, with peak individual parse time 1.7–4.8 ms across the tested widths; final text and physical pages (1700/526/326) still agreed. End-to-end completion times were inconsistent and sometimes slower, so **no stable whole-chapter speedup is claimed**.
+- Original SICP EPUB (including a MathML-containing chapter), original user Chinese Zen EPUB and English Zen EPUB have identical final page screenshots to v95.47. They deliberately take the full-layout fallback, so no speedup is claimed for those real chapters. Fixed-layout, notes, publisher styling, existing library format, and reader chrome are unchanged.
+- No stored-book migrations. The service-worker shell cache advances to v95.48; the full PWA ZIP remains 100 entries and the update from v95.47 contains the five changed shell/docs files.
+
+## v95.47 — Parse only the first-spread XHTML into the staged iframe
+
+- **Move giant plain-prose staging ahead of iframe.srcdoc.** The earlier v95.45–v95.46 pipeline parsed *all* XHTML into the hidden Chromium iframe, then extracted the tail into a DocumentFragment. v95.47 checks strict source eligibility on the already-sanitized book DOM and builds a srcdoc containing only the bounded opening paragraphs. The remaining serialized text is kept outside the iframe until a painted first frame or the first navigation requiring exact pages. This avoids a first iframe DOM tree for thousands of offscreen paragraphs, as well as their initial style setup.
+- Reuse the exact v95.46 1/2/3-column adaptive native preview budget and 96/64-block default Knuth–Plass policy. The source eligibility explicitly requires >=480 direct plain paragraphs, >=75,000 characters, no author CSS, inline markup, links, notes or complicated breaks, and opening at chapter fraction zero. Source metadata records the entire source's Chinese sample before any split. Unexpected width changes and insufficient preview content use actual Chromium geometry and fall back to complete mounting.
+- **No permanently virtualized or estimated pages.** The tail is parsed into an isolated HTML template only after preview, restored in source order, language-font processing runs, Knuth–Plass temporary source caches are invalidated, and the browser computes the same final physical pages. Clicking, jumping or leaving the chapter while a tail is pending forces safe completion (or discards a superseded iframe).
+- Original v95.46 on-load DOM-fragment staging remains as a fallback for chapters that do not have a source preparse descriptor; complex EPUB content continues to load in full. A failed experiment that moved Knuth–Plass connected-DOM font preparation into a disconnected fragment was **reverted**; v95.47 deliberately retains its original complete-document preparation order.
+- Chromium A/B with 3,600 mixed Chinese/English plain paragraphs (~775k source characters), Knuth–Plass OFF, at 390/1130/2100px: first `paginateChapter()` completion times in one run 514→283, 404→252, 704→341 ms, respectively; final exact pages 1700/526/326 and full text/physical page arrays equal. These are noisy synthetic single-run numbers, not guaranteed end-to-end speedups; full layout still happens afterward.
+- Frozen-first-frame test with 650 mixed prose paragraphs proves the tail was **not yet parsed** in v95.47 vs already parsed-and-detached in v95.46. At 390/1130/2100px with native wrapping, and 390/1130px with Knuth–Plass ON, initial prefix and eventual completed first-screen images match the previous version pixel-for-pixel. Complete text, physical page indices and total pages agree. Knuth–Plass's non-deterministic time-budgeted refinement may yield different numbers of later optimized paragraphs across runs, including within one version; no blanket full-book line-break equivalence is inferred from first-page parity.
+- **Real-book regression:** original user SICP EPUB (including MathML), user Chinese and English Zen and the Art of Motorcycle Maintenance EPUB, 390/1130px: actual Chromium final text, physical pages and screenshots pixel-identical vs v95.46; these complex chapters safely used the full path. The source EPUB files are not distributed in the release. Late Han appearing beyond the candidate prefix remains a verified full-path fallback.
+- No reader-UI changes or IndexedDB schema changes. Local TTS, dictionary, notes, fonts, saved progress and original EPUBs are untouched. The shell cache has been bumped to v95.47, the full ZIP remains <=100 entries, and an update from v95.46 touches only five files.
+
+## v95.46 — Adaptive first spread and detached font preparation
+
+- Adaptive native-wrap first-spread prefix budget based on viewport columns, height, font and paragraph lengths (24/32/48 paragraphs in the tested long mixed-text case), checked against Chromium’s real multicolumn scroll geometry. Keep the proven 96/64-paragraph prefix for Knuth–Plass.
+- Preserve the full-source Chinese text sample before staging. When Han characters start only after the candidate preview, use the complete chapter instead, fixing delayed Chinese font detection and preventing a KP performance cliff.
+- With native wrapping, prepare the detached remainder’s script-font runs **before attaching** it to the live multicolumn DOM, avoiding a second scan over the already displayed prefix. Preserve the original connected-DOM mutation order for Knuth–Plass.
+- Retain strict no-publisher-style eligibility, original node identities, final exact pagination, forced early navigation and progressive Knuth-Plass cache invalidation.
+
+### v95.45 — Bounded first-spread XHTML layout, exact final pages
+
+For very long, genuinely plain-prose XHTML, Folio now gives Chromium a **bounded first spread** rather than a full 1,000–10,000-paragraph multi-column flow before the opening page is drawn. The complete sanitized XHTML is parsed once, and all original nodes remain in memory. After a strict, whole-chapter check (at least 480 paragraphs and 75k characters; direct unstyled text-only paragraphs, optional simple opening heading; **no publisher CSS, inline formatting, links, footnotes, anchors, forced breaks, bidi or complex structures**), only the first 96 body blocks participate in the initial layout (64 on low-memory devices). After a painted frame, Folio reattaches the original DOM nodes, installs missing language-font wrappers, invalidates Knuth–Plass's temporary prefix cache and runs the same authoritative full pagination. While this is pending, page count is shown as `1 / …`, never a guessed total. An immediate page turn or jump synchronously finishes mounting before navigation; saved nonzero positions and all complex EPUBs use the unchanged full-document path.
+
+This **defers**, but does not eliminate, the full native multicolumn layout. It is not persistent virtual pagination or a precomputed page-count approximation. It reduces the initial critical-path work for eligible prose, with possible background layout work after first paint; an unusually fast user interaction may have to complete that work synchronously. Chromium synthetic EPUB comparison against v95.44 confirms original node/text order, exact physical pages and pixel-identical first screens at 390/1130/2100px, including default-on Knuth–Plass. See the v95.45 verification JSON for timing data, tested fallback behaviors, and limitations. IndexedDB books, settings, fonts, dictionary and TTS are unchanged.
+
+### v95.44 — Correct CSS columns from the first XHTML parse
+
+The staged EPUB iframe now receives its actual responsive 1/2/3-column topology and reading width **inside srcdoc before its body is parsed**. Previously v95.43 still applied those variables *after iframe.onload*, which allowed Chromium to prepare the default two-column style first. The initial HTML, staged verification and final pagination now share one geometry planner; no CSS rewrite is needed for unchanged viewport and settings. Actual browser geometry, exact physical page numbers and native/KP text flow remain authoritative. No virtual pages or placeholder content have been introduced. See `UPGRADE_FROM_v95.43.md` and `CHANGELOG.md` for testing, comparison, limits and upgrading.
+
+### v95.43 — Verified incremental chapter page indexing
+
+For eligible very long author-styled EPUB XHTML chapters, the first page now becomes readable while Folio verifies actual occupied browser columns in short idle slices. It uses the exact same glyph/illustration-based occupancy logic as the synchronous path, without guessing final page counts or altering EPUB content. During verification the compact counter shows `1 / …`; any immediate page turn first finishes the exact index. Explicit publisher blank pages, saved middle-of-chapter locations, deferred images and unsupported structures use the existing safe path. See `UPGRADE_FROM_v95.42.md` and the independent regression package for tests and limitations.
+
+### v95.42 — Giant XHTML startup and safe multicolumn staging
+
+The reader now avoids unnecessary scans and per-element allocations during large XHTML preparation, and establishes the final column topology before publisher-font checks. This improves some large-chapter opening cases without inserting virtual page placeholders or altering final text layout. Same EPUB storage, default-on optional Knuth–Plass, and CJK/MathML/notes behavior. See `UPGRADE_FROM_v95.41.md` and the verification JSON in the release attachments for exact A/B evidence and limitations.
+
+### v95.40 — Startup, library responsiveness, and allocation hygiene
+
+Folio preserves its bundled English font resources in non-executing HTML data islands rather than compiling ~1.45 MB of font literals on every cold launch. Those fonts are still available without the network when selected. Large libraries avoid repeated favorite-list and shelf-membership work, and importing EPUBs no longer makes a redundant copy of the uploaded File. EPUB body typography and the default-on Knuth–Plass setting are unchanged.
+
+### v95.39 — Optical alignment and reading controls
+
+Folio's Settings switches now use a dedicated 15px circular thumb instead of inheriting the standard checkbox's two decorative checkmark borders. The center is correct in both switch states. The reader's top-right command bar, inline history icons, pagination pill and read-aloud controls use consistent SVG geometry with no baseline-dependent alignment. Settings' existing light editorial appearance and the Knuth–Plass option/description are retained. All work stays in outer UI chrome and leaves book content and local storage unchanged.
+
+### v95.35 — Faster occupancy checks for mixed-content chapters
+
+In mixed chapters, Folio can now verify the physical page range of a single Knuth–Plass paragraph using its first and last rendered lines instead of consulting every generated line. A similarly constrained optimization applies to native paragraphs with no inline markup. This reduces layout geometry reads while retaining the original exact scanner for publisher CSS, explicit breaks, complicated nesting and uncertainty. In controlled synthetic Chromium comparisons, physical page indices, line choices, text and full screenshots remained identical at one, two and three columns. The reduction in geometry reads does **not** imply the same reduction in overall EPUB loading time. Knuth–Plass is still enabled by default and can be turned off using its existing Settings switch.
+
+### v95.34 — Safe contiguous-prose page occupancy optimization
+
+For long uninterrupted, publisher-unstyled plain-text chapters, Folio avoids re-scanning every rendered glyph/Knuth–Plass line to exclude blank multicolumn spreads. It first verifies source structure *before* language spans/line nodes are inserted, and then checks the actual first and last rendered glyph locations against the raw column count. Only a genuinely contiguous physical page range is accepted; complex content, authored CSS, footnotes, tables, inline markup, forced breaks and Knuth–Plass OFF continue through the original exact occupancy scan.
+
+In a controlled 130-paragraph (~61k characters) Chromium EPUB, the full occupancy walk was skipped at both first and final pagination (2 → 0 calls), saving 13–24ms of measured occupancy scanning per chapter over those two passes. Final page counts remained 157/55/29 at 390/1130/2100px, with identical final rendered ink, text, Knuth–Plass counts and chapter-position restoration. **This does not guarantee faster overall cold loading**: a stressed run produced a much slower first-paint outlier. The first-screen-visible priority, original user-facing UI, default-on Knuth–Plass toggle, optical CJK punctuation and code scrollports are unchanged.
+
+### v95.33 — Lower first-layout staging overhead in very long chapters
+
+Folio now installs one scoped, short-lived CSS rule during Knuth–Plass preparation and marks eligible plain paragraphs with an attribute, instead of setting and later removing two inline declarations on each paragraph. Only the existing 800-paragraph fast-path region is scanned for eligibility, even in XHTML files containing thousands of paragraphs. The stylesheet/markers are removed on completion or if the quality setting is switched OFF. This changes neither the final Knuth–Plass line choices nor the browser fallback for complex markup.
+
+In a controlled Chromium DOM benchmark, staging 3,200 plain paragraphs (800 eligible under the existing engine cap) took 8.9ms before vs 2.1ms after (five-run median); full multicolumn layout is not part of that number. Real EPUBs and device performance can differ. Knuth–Plass is still enabled by default for new profiles; you can disable it under the original Settings option with no extra explanation text.
+
+### v95.32 — First-spread adaptive Knuth–Plass composition
+
+- Long, mostly plain-text EPUB chapters no longer spend the initial Knuth–Plass pass on offscreen paragraphs just to exhaust a time budget. Before the first visible frame, Folio reads only the necessary browser fragment rectangles and composes paragraphs intersecting the actual reading spread, plus a conservative neighboring block. Remaining paragraphs retain the resumable Canvas + dynamic-programming background pipeline.
+- When returning to a saved position in the middle of a qualifying long chapter, Folio locates that spread with a sparse geometry search and prioritizes nearby paragraphs. It maintains the visible logical page when the rest of the chapter finishes.
+- If the browser cannot safely determine visibility, or the EPUB contains complex markup, the existing v95.31 path remains. A bounded safety cap prevents pathological paragraphs from monopolizing the main thread; this is not a promise of instant cold loading.
+- Knuth–Plass is still enabled by default for new settings, switchable OFF with exactly the original description; no changes to code scrolling, original book files or IndexedDB.
+
+### v95.31 — First-screen typography without redundant browser `pretty` calculation
+
+- When a very large, plain-text EPUB chapter is being prepared by Knuth–Plass, Folio also applies the fast initial layout to eligible opening paragraphs; their synchronous Knuth–Plass lines can be composed before the staged frame becomes visible. During preparation Folio temporarily uses the browser's efficient normal line wrapping (`text-wrap: wrap`) for eligible *pending* prose, rather than invoking the native `pretty` line optimizer only to replace its choices with Knuth–Plass lines. The visible first spread receives the same high-quality Knuth–Plass composition whenever it can finish within the initial budget.
+- Complex EPUB content retains the previous safe browser fallback, including `text-wrap: pretty` for ineligible paragraphs. On completed composition or if you turn the Knuth–Plass setting OFF, all temporary style overrides are removed immediately. The final text, paragraph alignment and page count are unchanged.
+- In a controlled 61k-character mixed Chinese/English EPUB, 390/1130/2100px final pages and the first 650px of rendered text matched v95.30 exactly. The initial page also matched final text pixels in one Chromium run on all three widths.
+- Knuth–Plass remains ON by default when there is no saved choice; you can turn it OFF in Settings. Its original explanatory text has not been changed.
+
+### v95.30 — Large EPUB chapters become readable much sooner
+
+- Chromium's first multicolumn layout can become very slow when hundreds of not-yet-composed Chinese or mixed-language paragraphs use native full justification. Folio now temporarily uses inexpensive native alignment for distant, simple prose paragraphs in qualifying long chapters while the resumable Knuth–Plass engine works.
+- The beginning of the chapter retains its original typography, and **all** temporary alignment hints are removed at the final Knuth–Plass commit. Ineligible complex EPUB content, footnotes, math, code, author formatting and RTL prose stay on their original safe path. Content, reading position, page geometry and the original Knuth–Plass options are preserved.
+- A 61k-character synthetic EPUB showed much shorter first-read response in Chromium at phone, two-column and three-column widths; performance on unprovided books and low-memory Android devices remains to be tested.
+- The reader keeps Knuth–Plass ON by default for users without a saved choice; it remains possible to turn it OFF, without adding any new settings description.
+
+### v95.29: improved long-book progress and image indexing
+
+- Book-wide progress navigation now has efficient weighted lookup even for EPUBs containing thousands of spine entries. Chapter-boundary behavior is preserved.
+- A single-spread illustrated chapter no longer measures the rectangle of every deferred image just to assign its page number; multi-page chapters use the old accurate geometry path.
+- High-quality Knuth–Plass is still enabled by default when not previously configured, remains optional in settings, and keeps the original explanatory text.
+- Changes are internal performance improvements; they do not migrate imported EPUB data, themes, bookmarks or reading progress.
+
 **Current default (v95.27):** Knuth–Plass typesetting is enabled on new installations. It remains optional and can be disabled in Typography; stored preferences take precedence. Earlier version notes below describe their historical defaults.
 
-### v95.26 — Long code listings
+#### v95.28 efficiency and background scheduling
+
+- Long-running Knuth–Plass and code-scrolling geometry work now pauses when the browser tab is hidden and resumes when the tab becomes visible. Leaving the reader or switching books cancels both job types immediately rather than leaving background timers holding detached chapter documents.
+- In large ordered-list chapters, the list-marker Canvas measurements are reused for the same font and marker shape during one staged-document pass. List numbering/indentation rules are unchanged. Benchmark details and limits are in `Folio-v95.28-Verification.json` in the release attachments.
+- The Knuth–Plass setting still defaults to ON when no saved preference exists, remains user-switchable, and retains the original explanatory text and label.
+
+## v95.26 — Long code listings
 
 For very large code-heavy chapters, Folio no longer measures the scroll size of every source block before showing the first page. The first twelve blocks remain immediately keyboard accessible when needed; other overflowing code blocks receive their tab stop during browser idle time or on first pointer interaction. Inside a long code block, horizontal gestures stay within the code even at the left/right edge; vertical gestures inside a tall overflowing block are likewise contained. Press **Esc** to leave a focused block and use the normal page-turning shortcuts. Text, pagination, and publisher styles are unchanged.
 
@@ -306,3 +410,7 @@ cold-loading speed improvement or remove Chromium's final layout cost.
 ### v94.7 visual safety and reproducible timings
 
 For paragraphs with EPUB-defined clipping or masking, Folio avoids optical overhang and uses native layout. For ordinary prose, Chinese optical punctuation alignment continues as before. To benchmark on your own machine, install Playwright and Chromium and run `FOLIO_CHINESE_EPUB=/path/to/book.epub python tests/benchmark_visibility_v947.py` from the extracted PWA directory. Run the same script in an extracted v94.6 for an A/B baseline; compare median `solveMs` and `validateMs`, not isolated wall timings.
+
+
+### v95.41 resource-pipeline changes
+Shared publisher CSS imports now reuse bounded decompression work. Illustrated chapters defer later dimensioned images until their page approaches; publisher fonts and complex/undimensioned images still use the original safe path. The initial font readiness check also avoids no-op waits on already loaded, non-remote fonts.
